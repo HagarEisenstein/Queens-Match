@@ -6,6 +6,7 @@ import {
 } from "@mui/material";
 import theme from "./theme";
 import Dashboard from "./components/Dashboard";
+import { AuthProvider } from "./context/AuthContext";
 
  
 
@@ -14,11 +15,13 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-        </Routes>
-      </Router>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
