@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: queens-match-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: queens_match
+    ports:
+      - "5432:5432"
+    volumes:
+      - queens_match_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d queens_match"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  queens_match_pgdata:

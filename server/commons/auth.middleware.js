@@ -1,24 +1,27 @@
-const jwt = require("jsonwebtoken");
+const { createAuthMiddleware } = require("../middleware/auth");
+
+/**
+ * Thin adapter for routers that are not yet wired through createApp().
+ * Prefer injecting createAuthMiddleware(jwtSecret) from app.js.
+ */
+let authenticateWithEnvSecret;
 
 function authenticate(req, res, next) {
-  const header = req.get("authorization");
-  const token = header && header.startsWith("Bearer ")
-    ? header.slice("Bearer ".length)
-    : null;
-
-  if (!token) {
-    return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication required" } });
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return res.status(500).json({
+      error: {
+        code: "CONFIG_ERROR",
+        message: "JWT_SECRET is not configured.",
+      },
+    });
   }
 
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = payload.id || payload.sub;
-    if (!userId) throw new Error("Invalid token payload");
-    req.user = { id: userId, roles: payload.roles || [] };
-    return next();
-  } catch {
-    return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid or expired token" } });
+  if (!authenticateWithEnvSecret) {
+    authenticateWithEnvSecret = createAuthMiddleware(secret);
   }
+
+  return authenticateWithEnvSecret(req, res, next);
 }
 
 module.exports = { authenticate };

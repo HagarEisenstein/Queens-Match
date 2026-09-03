@@ -9,15 +9,17 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Login() {
   const { isAuthenticated, login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const successMessage = location.state?.message;
 
   if (isAuthenticated) return <Navigate to="/" replace />;
 
@@ -42,6 +44,7 @@ export default function Login() {
       <Paper component="form" onSubmit={submit} sx={{ p: 4 }}>
         <Stack spacing={3}>
           <Typography variant="h4">Log in</Typography>
+          {successMessage && <Alert severity="success">{successMessage}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
             label="Email"

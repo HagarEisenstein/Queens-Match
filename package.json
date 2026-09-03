@@ -1,8 +1,11 @@
 {
   "name": "queenb-app",
   "version": "1.0.0",
-  "description": "A full-stack Node.js and React application",
+  "description": "Queens Match — mentor/mentee matching (Express + React)",
   "main": "server/index.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd server && npm run dev",
@@ -15,7 +18,10 @@
     "install-client": "cd client && npm install",
     "install-all": "npm run install-server && npm run install-client",
     "build": "cd client && npm run build",
-    "start": "cd server && npm start"
+    "build:prod": "npm --prefix server run db:generate && npm run build",
+    "db:migrate:deploy": "npm --prefix server run db:migrate:deploy",
+    "start": "cd server && npm start",
+    "start:prod": "npm run start"
   },
   "keywords": [
     "nodejs",

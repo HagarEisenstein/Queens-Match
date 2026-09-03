@@ -1,3 +1,4 @@
+process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret";
 
 jest.mock("../services/mentorProfilesService", () => ({
@@ -9,7 +10,7 @@ jest.mock("../services/mentorProfilesService", () => ({
 
 const jwt = require("jsonwebtoken");
 const request = require("supertest");
-const app = require("../index");
+const { createApp } = require("../app");
 const {
   getMentors,
   getMentorById,
@@ -18,8 +19,31 @@ const {
 } = require("../services/mentorProfilesService");
 
 function tokenFor(userId) {
-  return jwt.sign({ sub: userId, roles: ["mentee"] }, process.env.JWT_SECRET);
+  return jwt.sign(
+    { id: userId, roles: ["mentee"] },
+    process.env.JWT_SECRET
+  );
 }
+
+const stubNotifications = {
+  notificationRepository: {
+    listForUser: async () => [],
+  },
+  realtimeHub: {
+    subscribe() {
+      return () => {};
+    },
+    publish() {},
+  },
+};
+
+const app = createApp({
+  jwtSecret: process.env.JWT_SECRET,
+  notifications: stubNotifications,
+  userRepository: {
+    findPublicById: async () => null,
+  },
+});
 
 const validProfile = {
   background: "10 years in backend engineering.",
@@ -44,13 +68,18 @@ describe("mentors routes", () => {
     });
 
     it("forwards service errors to the standard error shape", async () => {
-      getMentors.mockRejectedValue(Object.assign(new Error("boom"), { statusCode: 500 }));
+      getMentors.mockRejectedValue(
+        Object.assign(new Error("boom"), { statusCode: 500 })
+      );
 
       const response = await request(app).get("/api/mentors");
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({
-        error: { code: "INTERNAL_SERVER_ERROR", message: "Internal server error" },
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Internal server error",
+        },
       });
     });
   });
@@ -109,7 +138,9 @@ describe("mentors routes", () => {
 
   describe("PUT /api/mentors/me", () => {
     it("rejects an unauthenticated request", async () => {
-      const response = await request(app).put("/api/mentors/me").send(validProfile);
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .send(validProfile);
 
       expect(response.status).toBe(401);
       expect(upsertMentorProfile).not.toHaveBeenCalled();

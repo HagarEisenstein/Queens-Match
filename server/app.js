@@ -1,22 +1,38 @@
+const path = require("path");
+const fs = require("fs");
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
-const { getPool } = require("./db");
+const { getPool, pingDatabase } = require("./db");
 const { createAuthMiddleware } = require("./middleware/auth");
 const { errorHandler, notFound } = require("./middleware/errors");
 const { createIdentityRouters } = require("./modules/identity/routes");
 const {
   PostgresUserRepository,
 } = require("./modules/identity/userRepository");
-const mentorsRouter = require("./routes/mentors");
+const createMentorsRouter = require("./routes/mentors");
 const { bootstrapNotifications } = require("./comms/bootstrap");
 const { createNotificationsRouter } = require("./comms/routes");
+
+function mountClientApp(app) {
+  const clientBuildPath = path.join(__dirname, "..", "client", "build");
+  if (!fs.existsSync(clientBuildPath)) {
+    return;
+  }
+
+  app.use(express.static(clientBuildPath));
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(clientBuildPath, "index.html"));
+  });
+}
 
 function createApp(options = {}) {
   const jwtSecret = options.jwtSecret || process.env.JWT_SECRET;
   if (!jwtSecret) {
-    throw new Error("JWT_SECRET is required.");
+    throw new Error(
+      "JWT_SECRET is required. Copy server/.env.example to server/.env and set a secret."
+    );
   }
 
   const lazyPool = {
@@ -27,10 +43,12 @@ function createApp(options = {}) {
   const userRepository =
     options.userRepository || new PostgresUserRepository(lazyPool);
   const authenticate = createAuthMiddleware(jwtSecret);
-  const notifications = options.notifications || bootstrapNotifications({
-    meetingRepository: options.meetingRepository,
-    feedbackRepository: options.feedbackRepository,
-  });
+  const notifications =
+    options.notifications ||
+    bootstrapNotifications({
+      meetingRepository: options.meetingRepository,
+      feedbackRepository: options.feedbackRepository,
+    });
   const { authRouter, usersRouter } = createIdentityRouters({
     userRepository,
     authenticate,
@@ -39,28 +57,52 @@ function createApp(options = {}) {
   });
 
   const app = express();
-  app.use(helmet());
+  app.use(
+    helmet({
+      // CRA production assets are fine with default Helmet headers except CSP,
+      // which blocks the bundled app when Express serves client/build.
+      contentSecurityPolicy: false,
+    })
+  );
   app.use(cors());
   if (process.env.NODE_ENV !== "test") app.use(morgan("combined"));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  app.get("/api/health", (req, res) => {
-    res.json({
+  app.get("/api/health", async (req, res) => {
+    let database = "unknown";
+    try {
+      if (process.env.DATABASE_URL) {
+        database = (await pingDatabase()) ? "up" : "down";
+      } else {
+        database = "unconfigured";
+      }
+    } catch (error) {
+      database = "down";
+    }
+
+    const healthy = database !== "down";
+    res.status(healthy ? 200 : 503).json({
       message: "QueenB Server is running!",
       timestamp: new Date().toISOString(),
-      status: "healthy",
+      status: healthy ? "healthy" : "degraded",
+      database,
     });
   });
+
   app.use("/api/auth", authRouter);
   app.use("/api/users", usersRouter);
-  app.use("/api/mentors", mentorsRouter);
-  app.use("/api/notifications", createNotificationsRouter({
-    authenticate,
-    notificationRepository: notifications.notificationRepository,
-    realtimeHub: notifications.realtimeHub,
-  }));
+  app.use("/api/mentors", createMentorsRouter({ authenticate }));
+  app.use(
+    "/api/notifications",
+    createNotificationsRouter({
+      authenticate,
+      notificationRepository: notifications.notificationRepository,
+      realtimeHub: notifications.realtimeHub,
+    })
+  );
 
+  mountClientApp(app);
   app.use(notFound);
   app.use(errorHandler);
   app.locals.notifications = notifications;

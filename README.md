@@ -1,230 +1,110 @@
-# QueenB - Full Stack Task Management Application
-A template for building a full-stack web application using modern technologies - fork this repository to get started quickly.
+# Queens Match
 
-Built with Node.js, Express, React, and Material UI.
+Mentor / mentee matching app — Express + PostgreSQL backend, React (CRA) frontend.
 
-## 🚀 Features
+## Architecture
 
-- **Modern UI**: Beautiful, responsive interface built with Material UI
-- **RESTful API**: Well-structured backend API with Express.js
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Server:** modular Express app (`identity`, mentors, `comms`) + shared middleware
+- **Database:** PostgreSQL (Prisma migrations; identity also uses `pg`)
+- **Client:** React + MUI, Bearer JWT in `localStorage`, CRA proxy to `:5000` in development
+- **Production:** one Render web service serves `/api/*` and the built SPA from `client/build`
 
-## 🛠️ Tech Stack
+## Prerequisites
 
-### Backend
+- Node.js **20.x**
+- npm
+- Docker (recommended for local Postgres) **or** any local PostgreSQL 14+
 
-- **Node.js** - Runtime environment
-- **Express.js** - Web framework
-- **CORS** - Cross-origin resource sharing
-- **Nodemon** - Development auto-restart
-
-### Frontend
-
-- **React 18** - UI library
-- **Material UI (MUI)** - Component library
-- **Axios** - HTTP client
-- **React Scripts** - Build tools
-
-## 📦 Project Structure
-
-```
-QueenB/
-├── server/                 # Backend application
-│   ├── routes/            # API route handlers
-│   ├── index.js           # Server entry point
-│   ├── package.json       # Server dependencies
-│   └── .env.example       # Environment variables template
-├── client/                # Frontend application
-│   ├── public/            # Static files
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── App.js         # Main application component
-│   │   └── index.js       # React entry point
-│   └── package.json       # Client dependencies
-├── package.json           # Root package.json with scripts
-└── README.md              # This file
-```
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js (version 14 or higher)
-- npm or yarn package manager
-
-### Installation
-
-1. **Fork the template repository to your own user**
-If you are working as a team, you can choose one member to fork the template repository to their own user, 
-and then share the repository with the rest of the team.
-
-
-2. **Clone or navigate to the project directory**
-
-   ```bash
-   git clone **copied git url**
-   ```
-
-   ```bash
-   cd QueenB
-   ```
-
-2. **Install root dependencies**
-
-   ```bash
-   npm install
-   ```
-
-3. **Install server and client dependencies**
-
-   ```bash
-   npm run install-all
-   ```
-
-   OR:
-
-   - open terminal and run:
-
-   ```bash
-   cd server
-   npm install
-   ```
-
-   - open another terminal
-
-   ```bash
-   cd client
-   npm install
-   ```
-
-4. **Set up environment variables**
-   ```bash
-   cd server
-   cp .env.example .env
-   # Edit .env file with your configuration if needed
-   cd ..
-   ```
-
-### Running the Application
-
-#### Development Mode (Recommended)
-
-#### Running Separately
-
-**Start the backend server:**
+## Local setup
 
 ```bash
-npm run server
-```
+git clone <your-fork-url>
+cd QueenB-Task-Management-Application
 
-**Start the frontend client (in a new terminal):**
+npm install
+npm run install-all
 
-```bash
-npm run client
-```
+# Start Postgres (matches server/.env.example)
+docker compose up -d
 
-#### Running Concurrently
+cd server
+cp .env.example .env
+# Set JWT_SECRET to a long random string
+npx prisma migrate deploy
+cd ..
 
-Run both client and server concurrently:
-
-```bash
 npm run dev
 ```
 
-This will start:
+- API: http://localhost:5000 (`GET /api/health`)
+- UI: http://localhost:3000
 
-- Backend server on http://localhost:5000
-- Frontend client on http://localhost:3000 - you can access the application in your browser at this URL.
+### Environment variables
 
-### Building for Production
+See `server/.env.example`. Required:
 
-1. **Build the React client:**
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres connection string |
+| `JWT_SECRET` | Signs auth tokens |
 
-   ```bash
-   npm run build
-   ```
+For hosted Postgres, append `?sslmode=require` to `DATABASE_URL`.
 
-2. **Start the production server:**
-   ```bash
-   npm start
-   ```
+## Deploy (free, GitHub-integrated) — Render + Neon
 
+Vercel is a poor fit for this backend (long-lived Express, `node-cron`, in-memory SSE). Use **Render**.
 
+### 1. Postgres (Neon free)
 
-### Health Check
+1. Create a project at [https://neon.tech](https://neon.tech)
+2. Copy the connection string (include SSL / `sslmode=require`)
 
-- `GET /api/health` - Server health check
+### 2. Push to GitHub
 
-### Notifications and email
+Push this repo to a GitHub remote you own.
 
-Notifications are stored in PostgreSQL, delivered live to the authenticated web client over SSE,
-and displayed in the notification bell and an accessible Snackbar. Apply the Prisma migrations
-before running the server:
+### 3. Render Blueprint
 
-```bash
-cd server
-npx prisma migrate dev
-```
+1. Open [https://dashboard.render.com](https://dashboard.render.com) → **New** → **Blueprint**
+2. Connect the GitHub repo
+3. Render reads `render.yaml`
+4. Set `DATABASE_URL` to the Neon URL when prompted (`sync: false` in the Blueprint)
+5. Deploy
 
-The default `NOTIFICATION_PROVIDER=console` is safe for local development. To send delayed email
-fallbacks through Brevo SMTP, set the following values in `server/.env`:
+**Build:** install deps → `prisma migrate deploy` → `npm run build` (client)  
+**Start:** `npm start` (Express serves API + `client/build`)
 
-```env
-NOTIFICATION_PROVIDER=email
-EMAIL_HOST=smtp-relay.brevo.com
-EMAIL_PORT=587
-EMAIL_USER=your-brevo-smtp-user
-EMAIL_PASSWORD=your-brevo-smtp-key
-EMAIL_FROM=Queens Match <verified-sender@example.com>
-```
+### 4. Verify
 
-Notification endpoints require a bearer token:
+- `https://<your-service>.onrender.com/api/health` → `status: "healthy"`, `database: "up"`
+- Open the same origin in a browser → Register → Log in
 
-- `GET /api/notifications` — latest notifications for the signed-in user.
-- `GET /api/notifications/stream` — live SSE stream.
-- `PATCH /api/notifications/:id/read` — acknowledge a notification.
-- `PATCH /api/notifications/:id/action-completed` — mark it read and handled.
+**Free-tier note:** Render sleeps after idle ~15 minutes (cold start on next visit; cron jobs pause while asleep).
 
+### Manual Render service (without Blueprint)
 
-## 🔧 Development
+| Setting | Value |
+|---|---|
+| Root directory | repo root |
+| Build command | `npm install && npm run install-all && npm run db:migrate:deploy && npm run build` |
+| Start command | `npm start` |
+| Health check | `/api/health` |
+| Env | `NODE_ENV=production`, `DATABASE_URL`, `JWT_SECRET`, … |
 
-### Available Scripts
+## Scripts
 
-- `npm run dev` - Run both client and server in development mode
-- `npm run server` - Run only the backend server
-- `npm run client` - Run only the frontend client
-- `npm run install-all` - Install dependencies for both client and server
-- `npm run build` - Build the React client for production
-- `npm start` - Start the production server
+| Script | What it does |
+|---|---|
+| `npm run dev` | Client + server (development) |
+| `npm run build` | Production React build |
+| `npm start` | Production Express server |
+| `npm test` | Server + client tests |
+| `npm run db:migrate:deploy` | Apply Prisma migrations (CI/prod) |
 
-### Key Features
+## Notifications
 
-- **Responsive Design**: The application works on all device sizes
-- **Modern UI**: Material UI components provide a professional look
-- **Error Handling**: Comprehensive error handling on both frontend and backend
-- **Loading States**: User-friendly loading indicators
-- **Form Validation**: Client and server-side validation
-- **Success Feedback**: Clear success and error messages
+Default `NOTIFICATION_PROVIDER=console`. For email via Brevo SMTP, set provider + `EMAIL_*` in `server/.env` (see `.env.example`).
 
+## License
 
-## 📝 License
-
-This project is licensed under the MIT License.
-
-## 🆘 Troubleshooting
-
-### Common Issues
-
-1. **Port already in use**: If ports 3000 or 5000 are in use, you can change them in the package.json scripts or .env file
-
-2. **Installation issues**: Delete `node_modules` folders and run `npm run install-all` again
-
-3. **API connection issues**: Ensure the backend server is running on port 5000 and the proxy is configured correctly in the client package.json
-
-### Support
-
-If you encounter any issues, please check the console logs for detailed error messages or create an issue in the repository.
-
----
-
-Built with ❤️ using React, Material UI, and Node.js
+MIT
