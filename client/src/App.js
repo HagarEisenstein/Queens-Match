@@ -7,6 +7,10 @@ import {
 import theme from "./theme";
 import Dashboard from "./components/Dashboard";
 import { AuthProvider } from "./context/AuthContext";
+import RoleGuard from "./components/RoleGuard";
+import MentorList from "./components/MentorList";
+import MentorDetail from "./components/MentorDetail";
+import MentorProfile from "./components/MentorProfile";
 
  
 
@@ -19,6 +23,12 @@ function App() {
         <Router>
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/mentors" element={<MentorList />} />
+            <Route path="/mentors/:id" element={<MentorDetail />} />
+            <Route
+              path="/mentor-profile"
+              element={<RoleGuard><MentorProfile /></RoleGuard>}
+            />
           </Routes>
         </Router>
       </AuthProvider>
