@@ -3,9 +3,10 @@ import {
   Box,
   AppBar,
   Toolbar,
-  Typography
+  Typography,
+  Button
 } from "@mui/material";
-import UserManagement from "./UserManagement";
+import { Link } from "react-router-dom";
 
 function Dashboard() {
   return (
@@ -13,11 +14,16 @@ function Dashboard() {
         <AppBar position="static" elevation={2}>
           <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              👑 QueenB - Example Bar
+              👑 Queens Match
             </Typography>
+            <Button color="inherit" component={Link} to="/mentors">Find a mentor</Button>
           </Toolbar>
         </AppBar>
-        <UserManagement />
+        <Box sx={{ p: 4 }}>
+          <Typography variant="h4" gutterBottom>Welcome to Queens Match</Typography>
+          <Typography color="text.secondary">Find a mentor who can help you take your next step.</Typography>
+          <Button component={Link} to="/mentors" variant="contained" sx={{ mt: 3 }}>Browse mentors</Button>
+        </Box>
       </Box>
   );
 }

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "users" ALTER COLUMN "id" DROP DEFAULT,
+ALTER COLUMN "tech_stack" DROP DEFAULT;
