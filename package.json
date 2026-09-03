@@ -10,11 +10,13 @@
     "client:watch": "cd client && npm run watch",
     "client:build:watch": "cd client && npm run build:watch",
     "client:test:watch": "cd client && npm run test:watch",
+    "test": "npm --prefix server test && npm --prefix client test -- --watchAll=false --passWithNoTests",
     "install-server": "cd server && npm install",
     "install-client": "cd client && npm install",
     "install-all": "npm run install-server && npm run install-client",
     "build": "cd client && npm run build",
-    "start": "cd server && npm start"
+    "start": "cd server && npm start",
+    "postinstall": "prisma skills sync || exit 0"
   },
   "keywords": [
     "nodejs",
@@ -25,6 +27,10 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "prisma": "^8.0.0-rc.12"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.10.0"
   }
 }
