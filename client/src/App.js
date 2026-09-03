@@ -12,6 +12,9 @@ import Register from "./components/Register";
 import MentorList from "./components/MentorList";
 import MentorDetail from "./components/MentorDetail";
 import MentorProfile from "./components/MentorProfile";
+import RequestMeeting from "./components/RequestMeeting";
+import MeetingsList from "./components/MeetingsList";
+import MeetingDetail from "./components/MeetingDetail";
 import { NotificationProvider } from "./notifications/NotificationContext";
 
 function App() {
@@ -30,6 +33,9 @@ function App() {
                 <Route path="/mentors" element={<MentorList />} />
                 <Route path="/mentors/:id" element={<MentorDetail />} />
                 <Route path="/mentor-profile" element={<MentorProfile />} />
+                <Route path="/meetings" element={<MeetingsList />} />
+                <Route path="/meetings/new" element={<RequestMeeting />} />
+                <Route path="/meetings/:id" element={<MeetingDetail />} />
               </Route>
             </Route>
           </Routes></NotificationProvider>

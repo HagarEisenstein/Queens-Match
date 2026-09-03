@@ -105,6 +105,19 @@ describe("mentors routes", () => {
         error: { code: "NOT_FOUND", message: "Mentor profile not found" },
       });
     });
+
+    it("forwards unexpected service errors to the standard error shape", async () => {
+      getMentorById.mockRejectedValue(
+        Object.assign(new Error("boom"), { statusCode: 500 })
+      );
+
+      const response = await request(app).get("/api/mentors/m1");
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({
+        error: { code: "INTERNAL_SERVER_ERROR", message: "Internal server error" },
+      });
+    });
   });
 
   describe("GET /api/mentors/me", () => {
@@ -133,6 +146,21 @@ describe("mentors routes", () => {
       expect(response.status).toBe(200);
       expect(getMentorByUserId).toHaveBeenCalledWith("u1");
       expect(response.body).toEqual({ userId: "u1", ...validProfile });
+    });
+
+    it("forwards unexpected service errors to the standard error shape", async () => {
+      getMentorByUserId.mockRejectedValue(
+        Object.assign(new Error("boom"), { statusCode: 500 })
+      );
+
+      const response = await request(app)
+        .get("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1")}`);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({
+        error: { code: "INTERNAL_SERVER_ERROR", message: "Internal server error" },
+      });
     });
   });
 
@@ -175,6 +203,124 @@ describe("mentors routes", () => {
 
       expect(response.status).toBe(400);
       expect(upsertMentorProfile).not.toHaveBeenCalled();
+    });
+
+    it("rejects a meeting length above the allowed maximum", async () => {
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1")}`)
+        .send({ ...validProfile, meetingLengthMinutes: 481 });
+
+      expect(response.status).toBe(400);
+      expect(upsertMentorProfile).not.toHaveBeenCalled();
+    });
+
+    it.each([15, 480])(
+      "accepts a meeting length at the boundary (%i minutes)",
+      async (meetingLengthMinutes) => {
+        upsertMentorProfile.mockResolvedValue({ userId: "u1", ...validProfile, meetingLengthMinutes });
+
+        const response = await request(app)
+          .put("/api/mentors/me")
+          .set("Authorization", `Bearer ${tokenFor("u1")}`)
+          .send({ ...validProfile, meetingLengthMinutes });
+
+        expect(response.status).toBe(200);
+        expect(upsertMentorProfile).toHaveBeenCalledWith(
+          "u1",
+          expect.objectContaining({ meetingLengthMinutes })
+        );
+      }
+    );
+
+    it("rejects a meetings-offered count above the allowed maximum", async () => {
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1")}`)
+        .send({ ...validProfile, meetingsOffered: 1001 });
+
+      expect(response.status).toBe(400);
+      expect(upsertMentorProfile).not.toHaveBeenCalled();
+    });
+
+    it("rejects a meetings-offered count below the allowed minimum", async () => {
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1")}`)
+        .send({ ...validProfile, meetingsOffered: 0 });
+
+      expect(response.status).toBe(400);
+      expect(upsertMentorProfile).not.toHaveBeenCalled();
+    });
+
+    it.each([1, 1000])(
+      "accepts a meetings-offered count at the boundary (%i)",
+      async (meetingsOffered) => {
+        upsertMentorProfile.mockResolvedValue({ userId: "u1", ...validProfile, meetingsOffered });
+
+        const response = await request(app)
+          .put("/api/mentors/me")
+          .set("Authorization", `Bearer ${tokenFor("u1")}`)
+          .send({ ...validProfile, meetingsOffered });
+
+        expect(response.status).toBe(200);
+        expect(upsertMentorProfile).toHaveBeenCalledWith(
+          "u1",
+          expect.objectContaining({ meetingsOffered })
+        );
+      }
+    );
+
+    it("rejects an advice topic longer than the allowed maximum", async () => {
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1")}`)
+        .send({ ...validProfile, adviceTopics: ["a".repeat(101)] });
+
+      expect(response.status).toBe(400);
+      expect(upsertMentorProfile).not.toHaveBeenCalled();
+    });
+
+    it("accepts an advice topic at the maximum allowed length", async () => {
+      const topic = "a".repeat(100);
+      upsertMentorProfile.mockResolvedValue({ userId: "u1", ...validProfile, adviceTopics: [topic] });
+
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1")}`)
+        .send({ ...validProfile, adviceTopics: [topic] });
+
+      expect(response.status).toBe(200);
+      expect(upsertMentorProfile).toHaveBeenCalledWith(
+        "u1",
+        expect.objectContaining({ adviceTopics: [topic] })
+      );
+    });
+
+    it("rejects a background longer than the allowed maximum", async () => {
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1")}`)
+        .send({ ...validProfile, background: "a".repeat(5001) });
+
+      expect(response.status).toBe(400);
+      expect(upsertMentorProfile).not.toHaveBeenCalled();
+    });
+
+    it("forwards unexpected service errors to the standard error shape", async () => {
+      upsertMentorProfile.mockRejectedValue(
+        Object.assign(new Error("boom"), { statusCode: 500 })
+      );
+
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1")}`)
+        .send(validProfile);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({
+        error: { code: "INTERNAL_SERVER_ERROR", message: "Internal server error" },
+      });
     });
 
     it("saves a valid profile, trimming free-text fields", async () => {

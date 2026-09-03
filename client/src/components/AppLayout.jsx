@@ -42,6 +42,9 @@ export default function AppLayout() {
           <Button color="inherit" component={Link} to="/mentors">
             Mentors
           </Button>
+          <Button color="inherit" component={Link} to="/meetings">
+            Meetings
+          </Button>
           <Button color="inherit" onClick={logout}>
             Log out
           </Button>
