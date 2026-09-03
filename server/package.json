@@ -24,12 +24,13 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "express-rate-limit": "^8.7.0",
     "express-validator": "^7.2.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "node-cron": "^4.6.0",
-    "nodemailer": "^7.0.6",
+    "nodemailer": "^9.1.1",
     "pg": "^8.23.0",
     "prisma": "^6.19.3"
   },
@@ -44,6 +45,9 @@
     "@prisma/engines@6.19.3": true
   },
   "jest": {
-    "testPathIgnorePatterns": ["/node_modules/", "/comms/__tests__/"]
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/comms/__tests__/"
+    ]
   }
 }

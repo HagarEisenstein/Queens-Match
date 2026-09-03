@@ -74,6 +74,16 @@ function createMemoryRepos() {
       );
       if (row) row.fulfilledAt = new Date();
     },
+    async findPendingRequest(meetingId, recipientId) {
+      return (
+        requests.find(
+          (item) =>
+            item.meetingId === meetingId &&
+            item.recipientId === recipientId &&
+            !item.fulfilledAt
+        ) || null
+      );
+    },
     async findOutstandingFeedbackRequests() {
       return requests.filter((item) => !item.fulfilledAt);
     },
@@ -206,6 +216,17 @@ describe("engagement API", () => {
   });
 
   it("accepts feedback once per participant", async () => {
+    await request(app)
+      .put(`/api/engagement/meetings/${MEETING_ID}/outcome`)
+      .set("Authorization", `Bearer ${tokenFor(MENTEE_ID, ["mentee"])}`)
+      .send({ happened: true })
+      .expect(200);
+    await request(app)
+      .put(`/api/engagement/meetings/${MEETING_ID}/outcome`)
+      .set("Authorization", `Bearer ${tokenFor(MENTOR_ID, ["mentor"])}`)
+      .send({ happened: true })
+      .expect(200);
+
     const first = await request(app)
       .post(`/api/engagement/meetings/${MEETING_ID}/feedback`)
       .set("Authorization", `Bearer ${tokenFor(MENTEE_ID, ["mentee"])}`)

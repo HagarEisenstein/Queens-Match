@@ -4,9 +4,10 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const { rateLimit } = require("express-rate-limit");
 const { getPool, pingDatabase } = require("./db");
-const { createAuthMiddleware } = require("./middleware/auth");
-const { errorHandler, notFound } = require("./middleware/errors");
+const { createAuthMiddleware, requireCurrentRole } = require("./middleware/auth");
+const { AppError, errorHandler, notFound } = require("./middleware/errors");
 const { createIdentityRouters } = require("./modules/identity/routes");
 const {
   PostgresUserRepository,
@@ -50,6 +51,7 @@ function createApp(options = {}) {
   const userRepository =
     options.userRepository || new PostgresUserRepository(lazyPool);
   const authenticate = createAuthMiddleware(jwtSecret);
+  const authorizeAdmin = requireCurrentRole(userRepository, "admin");
 
   const meetingQueryPort =
     options.meetingQueryPort || createEmptyMeetingQueryPort();
@@ -69,6 +71,7 @@ function createApp(options = {}) {
     options.engagement ||
     bootstrapEngagement({
       authenticate,
+      authorizeAdmin,
       notificationService: notifications.notificationService,
       meetingQueryPort,
       meetingLifecyclePort,
@@ -79,21 +82,44 @@ function createApp(options = {}) {
     userRepository,
     authenticate,
     jwtSecret,
-    jwtExpiresIn: options.jwtExpiresIn || process.env.JWT_EXPIRES_IN || "1d",
+    jwtExpiresIn: options.jwtExpiresIn || process.env.JWT_EXPIRES_IN || "15m",
   });
 
   const app = express();
-  app.use(
-    helmet({
-      // CRA production assets are fine with default Helmet headers except CSP,
-      // which blocks the bundled app when Express serves client/build.
-      contentSecurityPolicy: false,
-    })
-  );
-  app.use(cors());
+  if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
+  const configuredOrigins = [
+    ...(process.env.CORS_ORIGINS || "").split(","),
+    process.env.RENDER_EXTERNAL_URL,
+    ...(process.env.NODE_ENV === "production" ? [] : ["http://localhost:3000"]),
+  ].map((origin) => origin?.trim()).filter(Boolean);
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        connectSrc: ["'self'", ...configuredOrigins],
+        fontSrc: ["'self'", "https:", "data:"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+      },
+    },
+  }));
+  app.use(cors({
+    origin(origin, callback) {
+      if (!origin || configuredOrigins.includes(origin)) return callback(null, true);
+      return callback(new AppError(403, "CORS_FORBIDDEN", "Origin is not allowed."));
+    },
+  }));
   if (process.env.NODE_ENV !== "test") app.use(morgan("combined"));
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: process.env.REQUEST_BODY_LIMIT || "32kb" }));
+  app.use(express.urlencoded({
+    extended: true,
+    limit: process.env.REQUEST_BODY_LIMIT || "32kb",
+  }));
 
   app.get("/api/health", async (req, res) => {
     let database = "unknown";
@@ -116,7 +142,22 @@ function createApp(options = {}) {
     });
   });
 
-  app.use("/api/auth", authRouter);
+  const authLimiter = rateLimit({
+    windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+    limit: Number(process.env.AUTH_RATE_LIMIT_MAX) || 20,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === "test",
+    handler(req, res) {
+      res.status(429).json({
+        error: {
+          code: "RATE_LIMITED",
+          message: "Too many authentication attempts. Please try again later.",
+        },
+      });
+    },
+  });
+  app.use("/api/auth", authLimiter, authRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/mentors", createMentorsRouter({ authenticate }));
   app.use(

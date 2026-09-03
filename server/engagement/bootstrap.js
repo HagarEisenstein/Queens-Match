@@ -20,6 +20,7 @@ const { createEngagementRouter } = require("./routes");
 
 function bootstrapEngagement({
   authenticate,
+  authorizeAdmin,
   notificationService,
   meetingQueryPort = createEmptyMeetingQueryPort(),
   meetingLifecyclePort = createNoopMeetingLifecyclePort(),
@@ -39,6 +40,7 @@ function bootstrapEngagement({
     meetingQueryPort,
     meetingLifecyclePort,
     blocklistService,
+    authorizeAdmin,
     feedbackService,
     eventBus: bus,
   });

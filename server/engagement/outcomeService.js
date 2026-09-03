@@ -102,7 +102,12 @@ function createOutcomeService({
       retryAfterNoshowUsed: Boolean(meeting.retryAfterNoshowUsed),
     });
 
-    if (aggregation.mentorGhosted && menteeOutcome && mentorOutcome) {
+    if (
+      aggregation.mentorGhosted &&
+      aggregation.status !== "admin_review" &&
+      menteeOutcome &&
+      mentorOutcome
+    ) {
       await blocklistService.blockMentorForMentee({
         menteeId: meeting.menteeId,
         mentorId: meeting.mentorId,

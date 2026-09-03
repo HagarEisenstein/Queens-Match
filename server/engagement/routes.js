@@ -8,6 +8,7 @@ function createEngagementRouter({
   outcomeService,
   feedbackService,
   blocklistService,
+  authorizeAdmin = requireAnyRole("admin"),
 }) {
   const router = express.Router();
 
@@ -104,7 +105,7 @@ function createEngagementRouter({
   router.get(
     "/blocks",
     authenticate,
-    requireAnyRole("admin"),
+    authorizeAdmin,
     async (req, res, next) => {
       try {
         const blocks = await blocklistService.listActive({
@@ -121,7 +122,7 @@ function createEngagementRouter({
   router.delete(
     "/blocks/:id",
     authenticate,
-    requireAnyRole("admin"),
+    authorizeAdmin,
     [param("id").isUUID(), validate],
     async (req, res, next) => {
       try {

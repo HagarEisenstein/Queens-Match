@@ -7,6 +7,27 @@ function createFeedbackService({
   notificationService,
   now = () => new Date(),
 }) {
+  const feedbackEligibleStatuses = new Set([
+    "completed",
+    "feedback_pending",
+    "feedback_complete",
+  ]);
+
+  async function assertFeedbackEligible(meeting, meetingId, userId) {
+    if (feedbackEligibleStatuses.has(meeting.status)) return;
+    const request = await feedbackRepository.findPendingRequest(
+      meetingId,
+      userId
+    );
+    if (!request) {
+      throw new AppError(
+        409,
+        "FEEDBACK_NOT_AVAILABLE",
+        "Feedback is only available after the meeting is confirmed as completed."
+      );
+    }
+  }
+
   async function assertParticipantOrAdmin(meetingId, user) {
     const meeting = await meetingQueryPort.findById(meetingId);
     if (!meeting) {
@@ -56,6 +77,7 @@ function createFeedbackService({
     if (!isParticipant) {
       throw new AppError(403, "FORBIDDEN", "Only participants can submit feedback.");
     }
+    await assertFeedbackEligible(meeting, meetingId, user.id);
 
     const existing = await feedbackRepository.findByMeetingAndSubmitter(
       meetingId,

@@ -84,6 +84,16 @@ function createMemoryFeedbackRepository() {
       );
       if (row) row.fulfilledAt = new Date();
     },
+    async findPendingRequest(meetingId, recipientId) {
+      return (
+        requests.find(
+          (item) =>
+            item.meetingId === meetingId &&
+            item.recipientId === recipientId &&
+            !item.fulfilledAt
+        ) || null
+      );
+    },
     async findOutstandingFeedbackRequests() {
       return requests.filter((item) => !item.fulfilledAt);
     },
@@ -221,6 +231,36 @@ describe("outcomeService (in-memory)", () => {
       mentorId: meeting.mentorId,
       reason: "mentor_ghosted",
     });
+  });
+
+  it("does not block a mentor while conflicting reports require admin review", async () => {
+    const { outcomeService, blocklistRepository } = build();
+
+    await outcomeService.submitOutcome(
+      meeting.id,
+      { id: meeting.menteeId, roles: ["mentee"] },
+      { happened: false, absentParty: "other", stillWantToMeet: false }
+    );
+    const result = await outcomeService.submitOutcome(
+      meeting.id,
+      { id: meeting.mentorId, roles: ["mentor"] },
+      { happened: true }
+    );
+
+    expect(result.aggregation.status).toBe("admin_review");
+    expect(blocklistRepository.blocks).toHaveLength(0);
+  });
+
+  it("rejects feedback before a completed outcome creates a request", async () => {
+    const { feedbackService } = build();
+
+    await expect(
+      feedbackService.submitFeedback(
+        meeting.id,
+        { id: meeting.menteeId, roles: ["mentee"] },
+        { rating: 5, openText: "Too early" }
+      )
+    ).rejects.toMatchObject({ code: "FEEDBACK_NOT_AVAILABLE" });
   });
 
   it("records arrival through the lifecycle port", async () => {

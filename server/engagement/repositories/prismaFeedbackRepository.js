@@ -83,6 +83,15 @@ function createPrismaFeedbackRepository(prisma) {
       });
     },
 
+    async findPendingRequest(meetingId, recipientId) {
+      const row = await prisma.feedbackRequest.findUnique({
+        where: {
+          meetingId_recipientId: { meetingId, recipientId },
+        },
+      });
+      return row?.fulfilledAt ? null : mapFeedbackRequest(row);
+    },
+
     async findOutstandingFeedbackRequests() {
       const rows = await prisma.feedbackRequest.findMany({
         where: { fulfilledAt: null },
