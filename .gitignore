@@ -121,3 +121,8 @@ Desktop.ini
 *.swp
 *.swo
 *~ 
+.agents/
+.claude/
+.cursor/
+.cursorrules
+.devin/

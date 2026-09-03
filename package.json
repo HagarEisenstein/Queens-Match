@@ -10,6 +10,7 @@
     "client:watch": "cd client && npm run watch",
     "client:build:watch": "cd client && npm run build:watch",
     "client:test:watch": "cd client && npm run test:watch",
+    "test": "npm --prefix server test && npm --prefix client test -- --watchAll=false --passWithNoTests",
     "install-server": "cd server && npm install",
     "install-client": "cd client && npm install",
     "install-all": "npm run install-server && npm run install-client",

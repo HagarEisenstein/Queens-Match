@@ -11,7 +11,7 @@ model User {
   id              String   @id @default(uuid()) @db.Uuid
   email           String   @unique
   passwordHash    String   @map("password_hash")
-  username        String
+  username        String   @unique
   roles           String[]
   fullName        String?  @map("full_name")
   photoUrl        String?  @map("photo_url")

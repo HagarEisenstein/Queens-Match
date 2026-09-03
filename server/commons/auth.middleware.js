@@ -12,7 +12,9 @@ function authenticate(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = { id: payload.sub, roles: payload.roles || [] };
+    const userId = payload.id || payload.sub;
+    if (!userId) throw new Error("Invalid token payload");
+    req.user = { id: userId, roles: payload.roles || [] };
     return next();
   } catch {
     return res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid or expired token" } });

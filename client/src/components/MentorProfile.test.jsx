@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import MentorProfile from "./MentorProfile";
 import apiClient from "../api/client";
 
-jest.mock("../api/client");
+jest.mock("../api/client", () => ({ get: jest.fn(), put: jest.fn() }));
 
 const existingProfile = {
   background: "Ten years building backend systems.",

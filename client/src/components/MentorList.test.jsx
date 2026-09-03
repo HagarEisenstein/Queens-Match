@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import MentorList from "./MentorList";
 import apiClient from "../api/client";
 
-jest.mock("../api/client");
+jest.mock("../api/client", () => ({ get: jest.fn(), put: jest.fn() }));
 
 const mentor = {
   id: "m1",
