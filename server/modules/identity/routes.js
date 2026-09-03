@@ -16,6 +16,10 @@ function createIdentityRouters({
 }) {
   const authRouter = express.Router();
   const usersRouter = express.Router();
+  const createAccessToken = (user) =>
+    jwt.sign({ id: user.id, roles: user.roles }, jwtSecret, {
+      expiresIn: jwtExpiresIn,
+    });
 
   authRouter.post("/register", async (req, res, next) => {
     try {
@@ -30,7 +34,7 @@ function createIdentityRouters({
         roles,
         ...profile,
       });
-      return res.status(201).json({ user });
+      return res.status(201).json({ token: createAccessToken(user), user });
     } catch (error) {
       if (error.code === "23505") {
         return next(
@@ -67,11 +71,7 @@ function createIdentityRouters({
         );
       }
 
-      const token = jwt.sign(
-        { id: user.id, roles: user.roles },
-        jwtSecret,
-        { expiresIn: jwtExpiresIn }
-      );
+      const token = createAccessToken(user);
       const { password_hash, ...publicUser } = user;
       return res.json({ token, user: publicUser });
     } catch (error) {

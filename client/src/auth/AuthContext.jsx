@@ -82,10 +82,14 @@ export function AuthProvider({ children }) {
     [saveSession]
   );
 
-  const register = useCallback(async (registration) => {
-    const { data } = await api.post("/auth/register", registration);
-    return data.user;
-  }, []);
+  const register = useCallback(
+    async (registration) => {
+      const { data } = await api.post("/auth/register", registration);
+      saveSession(data);
+      return data.user;
+    },
+    [saveSession]
+  );
 
   const updateProfile = useCallback(async (profile) => {
     const { data } = await api.put("/users/profile", profile);

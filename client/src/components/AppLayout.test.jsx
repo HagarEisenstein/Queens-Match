@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import AppLayout from "./AppLayout";
 import { useAuth } from "../auth/AuthContext";
 import apiClient from "../api/client";
@@ -25,7 +25,7 @@ describe("AppLayout", () => {
     apiClient.get.mockResolvedValue({ data: { id: "p1" } });
 
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/mentor-profile"]}>
         <AppLayout />
       </MemoryRouter>
     );
@@ -34,6 +34,9 @@ describe("AppLayout", () => {
       "href",
       "/mentor-profile"
     );
+    await waitFor(() =>
+      expect(apiClient.get).toHaveBeenCalledWith("/mentors/me")
+    );
   });
 
   it("shows a complete-profile banner when mentor profile is missing", async () => {
@@ -41,7 +44,7 @@ describe("AppLayout", () => {
     apiClient.get.mockResolvedValue({ data: null });
 
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/mentor-profile"]}>
         <AppLayout />
       </MemoryRouter>
     );
@@ -53,6 +56,25 @@ describe("AppLayout", () => {
       "href",
       "/mentor-profile"
     );
+  });
+
+  it("requires mentors to complete their profile before using the app", async () => {
+    mockAuth({ username: "m", roles: ["mentor"] });
+    apiClient.get.mockResolvedValue({ data: null });
+
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route index element={<div>Dashboard content</div>} />
+          </Route>
+          <Route path="/mentor-profile" element={<div>Complete setup</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Complete setup")).toBeInTheDocument();
+    expect(screen.queryByText("Dashboard content")).not.toBeInTheDocument();
   });
 
   it("hides mentor nav for mentees", () => {

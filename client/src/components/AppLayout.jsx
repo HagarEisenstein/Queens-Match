@@ -9,14 +9,15 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import { Link, Outlet } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import apiClient from "../api/client";
 import NotificationBell from "../notifications/NotificationBell";
 
 export default function AppLayout() {
   const { user, logout, hasRole } = useAuth();
-  const [mentorProfileMissing, setMentorProfileMissing] = useState(false);
+  const location = useLocation();
+  const [mentorProfileMissing, setMentorProfileMissing] = useState(null);
 
   useEffect(() => {
     if (!hasRole("mentor")) {
@@ -39,6 +40,14 @@ export default function AppLayout() {
     };
   }, [hasRole, user]);
 
+  if (
+    hasRole("mentor") &&
+    mentorProfileMissing &&
+    location.pathname !== "/mentor-profile"
+  ) {
+    return <Navigate to="/mentor-profile" replace />;
+  }
+
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
       <AppBar position="static">
@@ -50,7 +59,11 @@ export default function AppLayout() {
             {user.roles.map((role) => (
               <Chip
                 key={role}
-                label={role}
+                label={
+                  role === "mentor" && mentorProfileMissing
+                    ? "mentor setup pending"
+                    : role
+                }
                 size="small"
                 sx={{ color: "white", borderColor: "white" }}
                 variant="outlined"

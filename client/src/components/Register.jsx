@@ -19,6 +19,7 @@ const initialForm = {
   email: "",
   username: "",
   password: "",
+  confirmPassword: "",
   full_name: "",
   job: "",
   workplace: "",
@@ -52,8 +53,12 @@ export default function Register() {
 
   const submit = async (event) => {
     event.preventDefault();
-    setSubmitting(true);
     setError("");
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setSubmitting(true);
     const optionalText = [
       "full_name",
       "job",
@@ -80,11 +85,11 @@ export default function Register() {
     }
 
     try {
-      await register(payload);
-      navigate("/login", {
-        replace: true,
-        state: { message: "Registration complete. You can now log in." },
-      });
+      const registeredUser = await register(payload);
+      navigate(
+        registeredUser.roles.includes("mentor") ? "/mentor-profile" : "/",
+        { replace: true }
+      );
     } catch (requestError) {
       const responseError = requestError.response?.data?.error;
       const details = responseError?.details
@@ -114,6 +119,20 @@ export default function Register() {
             helperText="Use 8+ characters with uppercase, lowercase, number, and special character."
             value={form.password}
             onChange={setField("password")}
+          />
+          <TextField
+            label="Confirm password"
+            type="password"
+            required
+            autoComplete="new-password"
+            error={Boolean(form.confirmPassword && form.password !== form.confirmPassword)}
+            helperText={
+              form.confirmPassword && form.password !== form.confirmPassword
+                ? "Passwords do not match."
+                : "Enter the same password again."
+            }
+            value={form.confirmPassword}
+            onChange={setField("confirmPassword")}
           />
           <Typography variant="subtitle1">Account capabilities</Typography>
           <FormGroup row>

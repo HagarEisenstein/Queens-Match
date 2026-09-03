@@ -120,6 +120,18 @@ describe("mentors routes", () => {
       expect(response.status).toBe(401);
     });
 
+    it("returns an empty state when the authenticated mentor has no profile yet", async () => {
+      getMentorByUserId.mockResolvedValue(null);
+
+      const response = await request(app)
+        .get("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1", ["mentor"])}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toBeNull();
+      expect(getMentorByUserId).toHaveBeenCalledWith("u1");
+    });
+
     it("returns the caller's own profile when authenticated", async () => {
       getMentorByUserId.mockResolvedValue({ userId: "u1", ...validProfile });
 
@@ -203,19 +215,20 @@ describe("mentors routes", () => {
       expect(response.body).toEqual({ userId: "u1", ...validProfile });
     });
 
-    it("allows a dual-role mentee+mentor to update their profile", async () => {
-      upsertMentorProfile.mockResolvedValue({ userId: "u1", ...validProfile });
+    it("creates a profile for a user who holds mentee and mentor roles together", async () => {
+      upsertMentorProfile.mockResolvedValue({
+        userId: "u-both",
+        ...validProfile,
+        user: { roles: ["mentee", "mentor"] },
+      });
 
       const response = await request(app)
         .put("/api/mentors/me")
-        .set(
-          "Authorization",
-          `Bearer ${tokenFor("u1", ["mentee", "mentor"])}`
-        )
+        .set("Authorization", `Bearer ${tokenFor("u-both", ["mentee", "mentor"])}`)
         .send(validProfile);
 
       expect(response.status).toBe(200);
-      expect(upsertMentorProfile).toHaveBeenCalledWith("u1", validProfile);
+      expect(upsertMentorProfile).toHaveBeenCalledWith("u-both", validProfile);
     });
   });
 });
