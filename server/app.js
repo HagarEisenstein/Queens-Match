@@ -10,6 +10,8 @@ const {
   PostgresUserRepository,
 } = require("./modules/identity/userRepository");
 const mentorsRouter = require("./routes/mentors");
+const { bootstrapNotifications } = require("./comms/bootstrap");
+const { createNotificationsRouter } = require("./comms/routes");
 
 function createApp(options = {}) {
   const jwtSecret = options.jwtSecret || process.env.JWT_SECRET;
@@ -25,6 +27,10 @@ function createApp(options = {}) {
   const userRepository =
     options.userRepository || new PostgresUserRepository(lazyPool);
   const authenticate = createAuthMiddleware(jwtSecret);
+  const notifications = options.notifications || bootstrapNotifications({
+    meetingRepository: options.meetingRepository,
+    feedbackRepository: options.feedbackRepository,
+  });
   const { authRouter, usersRouter } = createIdentityRouters({
     userRepository,
     authenticate,
@@ -49,9 +55,15 @@ function createApp(options = {}) {
   app.use("/api/auth", authRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/mentors", mentorsRouter);
+  app.use("/api/notifications", createNotificationsRouter({
+    authenticate,
+    notificationRepository: notifications.notificationRepository,
+    realtimeHub: notifications.realtimeHub,
+  }));
 
   app.use(notFound);
   app.use(errorHandler);
+  app.locals.notifications = notifications;
   return app;
 }
 

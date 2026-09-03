@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import { Link, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import NotificationBell from "../notifications/NotificationBell";
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
@@ -44,6 +45,7 @@ export default function AppLayout() {
           <Button color="inherit" onClick={logout}>
             Log out
           </Button>
+          <NotificationBell />
         </Toolbar>
       </AppBar>
       <Box component="main" sx={{ p: { xs: 2, md: 4 } }}>

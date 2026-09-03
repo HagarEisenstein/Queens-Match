@@ -155,6 +155,36 @@ This will start:
 
 - `GET /api/health` - Server health check
 
+### Notifications and email
+
+Notifications are stored in PostgreSQL, delivered live to the authenticated web client over SSE,
+and displayed in the notification bell and an accessible Snackbar. Apply the Prisma migrations
+before running the server:
+
+```bash
+cd server
+npx prisma migrate dev
+```
+
+The default `NOTIFICATION_PROVIDER=console` is safe for local development. To send delayed email
+fallbacks through Brevo SMTP, set the following values in `server/.env`:
+
+```env
+NOTIFICATION_PROVIDER=email
+EMAIL_HOST=smtp-relay.brevo.com
+EMAIL_PORT=587
+EMAIL_USER=your-brevo-smtp-user
+EMAIL_PASSWORD=your-brevo-smtp-key
+EMAIL_FROM=Queens Match <verified-sender@example.com>
+```
+
+Notification endpoints require a bearer token:
+
+- `GET /api/notifications` — latest notifications for the signed-in user.
+- `GET /api/notifications/stream` — live SSE stream.
+- `PATCH /api/notifications/:id/read` — acknowledge a notification.
+- `PATCH /api/notifications/:id/action-completed` — mark it read and handled.
+
 
 ## 🔧 Development
 

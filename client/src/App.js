@@ -12,6 +12,7 @@ import Register from "./components/Register";
 import MentorList from "./components/MentorList";
 import MentorDetail from "./components/MentorDetail";
 import MentorProfile from "./components/MentorProfile";
+import { NotificationProvider } from "./notifications/NotificationContext";
 
 function App() {
   return (
@@ -19,7 +20,7 @@ function App() {
       <CssBaseline />
       <Router>
         <AuthProvider>
-          <Routes>
+          <NotificationProvider><Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route element={<ProtectedRoute />}>
@@ -31,7 +32,7 @@ function App() {
                 <Route path="/mentor-profile" element={<MentorProfile />} />
               </Route>
             </Route>
-          </Routes>
+          </Routes></NotificationProvider>
         </AuthProvider>
       </Router>
     </ThemeProvider>

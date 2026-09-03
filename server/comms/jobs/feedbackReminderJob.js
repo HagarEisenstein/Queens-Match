@@ -25,6 +25,8 @@ function createFeedbackReminderJob({
         title: "Meeting feedback reminder",
         message: "Please open QueenB and submit your meeting feedback.",
         deduplicationKey: `${NOTIFICATION_TYPES.FEEDBACK_REMINDER}:${feedbackRequest.meetingId}:${feedbackRequest.recipientId}:${completedReminderPeriods}`,
+        emailEligible: completedReminderPeriods === 1,
+        popupEligible: completedReminderPeriods <= 3,
       });
     }
   }

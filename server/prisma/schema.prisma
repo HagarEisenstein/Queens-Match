@@ -23,8 +23,47 @@ model User {
   techStack       String[] @map("tech_stack")
   createdAt       DateTime @default(now()) @map("created_at")
   mentorProfile   MentorProfile?
+  notifications   Notification[]
 
   @@map("users")
+}
+
+model Notification {
+  id                String                 @id @default(uuid()) @db.Uuid
+  recipientId       String                 @map("recipient_id") @db.Uuid
+  meetingId         String?                @map("meeting_id") @db.Uuid
+  type              String
+  title             String
+  message           String
+  actionUrl         String?                @map("action_url")
+  popupEligible     Boolean                @default(true) @map("popup_eligible")
+  deduplicationKey  String                 @unique @map("deduplication_key")
+  readAt            DateTime?              @map("read_at")
+  actionCompletedAt DateTime?              @map("action_completed_at")
+  createdAt         DateTime               @default(now()) @map("created_at")
+  recipient         User                   @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  deliveries        NotificationDelivery[]
+
+  @@index([recipientId, createdAt])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id                String       @id @default(uuid()) @db.Uuid
+  notificationId    String       @map("notification_id") @db.Uuid
+  channel           String
+  status            String
+  attemptCount      Int          @default(0) @map("attempt_count")
+  nextAttemptAt     DateTime?     @map("next_attempt_at")
+  sentAt            DateTime?     @map("sent_at")
+  providerMessageId String?       @map("provider_message_id")
+  errorMessage      String?       @map("error_message")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  notification      Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, channel])
+  @@index([channel, status, nextAttemptAt])
+  @@map("notification_deliveries")
 }
 
 model MentorProfile {
