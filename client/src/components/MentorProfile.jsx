@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Button, Container, Stack, TextField, Typography } from "@mui/material";
 import apiClient from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 const emptyProfile = { background: "", adviceTopics: "", meetingsOffered: 1, meetingLengthMinutes: 30 };
 
 export default function MentorProfile() {
+  const { refreshUser } = useAuth();
   const [form, setForm] = useState(emptyProfile);
   const [state, setState] = useState("loading");
   const [message, setMessage] = useState("");
@@ -29,6 +31,7 @@ export default function MentorProfile() {
         meetingsOffered: Number(form.meetingsOffered),
         meetingLengthMinutes: Number(form.meetingLengthMinutes),
       });
+      if (refreshUser) await refreshUser();
       setMessage("Mentor profile saved.");
     } catch (error) {
       setMessage(error.response?.data?.error?.message || "Profile could not be saved.");

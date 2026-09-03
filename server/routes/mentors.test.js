@@ -18,11 +18,8 @@ const {
   upsertMentorProfile,
 } = require("../services/mentorProfilesService");
 
-function tokenFor(userId) {
-  return jwt.sign(
-    { id: userId, roles: ["mentee"] },
-    process.env.JWT_SECRET
-  );
+function tokenFor(userId, roles = ["mentee"]) {
+  return jwt.sign({ id: userId, roles }, process.env.JWT_SECRET);
 }
 
 const stubNotifications = {
@@ -128,11 +125,22 @@ describe("mentors routes", () => {
 
       const response = await request(app)
         .get("/api/mentors/me")
-        .set("Authorization", `Bearer ${tokenFor("u1")}`);
+        .set("Authorization", `Bearer ${tokenFor("u1", ["mentor"])}`);
 
       expect(response.status).toBe(200);
       expect(getMentorByUserId).toHaveBeenCalledWith("u1");
       expect(response.body).toEqual({ userId: "u1", ...validProfile });
+    });
+
+    it("returns null when the caller has no mentor profile yet", async () => {
+      getMentorByUserId.mockResolvedValue(null);
+
+      const response = await request(app)
+        .get("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1", ["mentor"])}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toBeNull();
     });
   });
 
@@ -193,6 +201,21 @@ describe("mentors routes", () => {
       expect(response.status).toBe(200);
       expect(upsertMentorProfile).toHaveBeenCalledWith("u1", validProfile);
       expect(response.body).toEqual({ userId: "u1", ...validProfile });
+    });
+
+    it("allows a dual-role mentee+mentor to update their profile", async () => {
+      upsertMentorProfile.mockResolvedValue({ userId: "u1", ...validProfile });
+
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .set(
+          "Authorization",
+          `Bearer ${tokenFor("u1", ["mentee", "mentor"])}`
+        )
+        .send(validProfile);
+
+      expect(response.status).toBe(200);
+      expect(upsertMentorProfile).toHaveBeenCalledWith("u1", validProfile);
     });
   });
 });

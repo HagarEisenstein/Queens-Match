@@ -1,72 +1,78 @@
 ```mermaid
 flowchart TB
-    U["👩 משתמשת בדפדפן"]
+    U["👩 משתמשת בדפדפן / User"]
 
     subgraph FE["🔵 Frontend — client/src"]
-        IDX["index.js<br/>נקודת הכניסה"]
-        APP["App.js<br/>Theme + AuthProvider + Router"]
-        DASH["Dashboard.jsx<br/>המסך היחיד"]
-        USERSUI["UserManagement.jsx<br/>מבקש רשימת משתמשים"]
-        AUTHCTX["AuthContext.jsx<br/>שומר session ב-localStorage"]
-        APIC["api/client.js<br/>Axios שמוסיף JWT"]
-        GUARD["RoleGuard.jsx<br/>הגנה לפי תפקיד"]
+        AUTHCTX["AuthContext.jsx<br/>session + refreshUser"]
+        GUARD["RoleGuard.jsx<br/>role-gated routes"]
+        LAYOUT["AppLayout.jsx<br/>nav + mentor banner"]
+        DASH["Dashboard.jsx"]
+        MENTORSUI["MentorList / MentorDetail / MentorProfile"]
+        NOTIFUI["NotificationBell + NotificationContext"]
+        ENGAGEUI["Arrival / Outcome / Feedback pages"]
     end
 
     subgraph BE["🟢 Backend — server"]
-        SERVER["index.js<br/>שרת Express"]
-        HEALTH["GET /api/health<br/>✅ מחובר"]
-        COMMONS["commons/<br/>Auth · RBAC · validation<br/>errors · logger · eventBus · Prisma"]
-        USERROUTE["routes/users.js"]
-        USERSERVICE["services/usersService.js"]
-        MOCK["data/usersData.js<br/>מידע מדומה"]
+        APP["app.js<br/>Express composition root"]
+        IDENTITY["identity/<br/>auth · users · profile"]
+        MENTORS["mentors/<br/>discovery + mentor profile"]
+        ENGAGE["engagement/<br/>outcomes · feedback · blocklist<br/>+ meeting ports"]
+        COMMS["comms/<br/>notifications · jobs · providers"]
     end
 
-    subgraph COMMS["🟣 החלק שלך — server/comms"]
-        EVENTS["registerEventHandlers.js<br/>מאזין לאירועי פגישות"]
-        SERVICE["notificationService.js<br/>שליחה + מניעת כפילויות + רישום"]
-        PROVIDERS["providers/<br/>Console / Email"]
-        JOBS["jobs/<br/>תזכורת · בדיקת פגישה · משוב"]
-        REPOS["repositories/<br/>גישה ל-Prisma"]
-        TESTS["__tests__/<br/>✅ 12 בדיקות עוברות"]
+    subgraph PORTS["🔌 Dev2 pending — Meeting / Scheduling"]
+        MQ["meetingQueryPort<br/>findById · scheduled · awaiting outcome"]
+        ML["meetingLifecyclePort<br/>ArrivalRecorded · Completed · Retry"]
     end
 
     subgraph DB["🟠 PostgreSQL / Prisma"]
-        USERDB["User<br/>✅ מוגדר"]
-        MISSING["Meeting · Feedback<br/>NotificationLog<br/>❌ עדיין לא מוגדרים"]
+        USERDB["User ✅"]
+        MENTORDB["MentorProfile ✅"]
+        NOTIFDB["Notification + NotificationDelivery ✅"]
+        OUTDB["MeetingOutcomeResponse ✅"]
+        FBDB["Feedback + FeedbackRequest ✅"]
+        BLOCKDB["MentorMenteeBlock ✅"]
+        MEETINGDB["Meeting ❌ Dev2"]
     end
 
-    U --> IDX --> APP --> DASH --> USERSUI
-    APP --> AUTHCTX
-    USERSUI -->|"GET /api/users"| SERVER
-    SERVER --> HEALTH
+    U --> AUTHCTX --> LAYOUT --> DASH
+    LAYOUT --> MENTORSUI
+    LAYOUT --> NOTIFUI
+    LAYOUT --> ENGAGEUI
+    GUARD --> MENTORSUI
 
-    USERROUTE --> USERSERVICE --> MOCK
-    SERVER -. "❌ ה-router לא mounted" .-> USERROUTE
+    DASH -->|"JWT API"| APP
+    MENTORSUI -->|"/api/mentors"| MENTORS
+    NOTIFUI -->|"/api/notifications"| COMMS
+    ENGAGEUI -->|"/api/engagement"| ENGAGE
+    AUTHCTX -->|"/api/users/profile"| IDENTITY
 
-    AUTHCTX -. "קיים, אך אין מסכי login" .-> GUARD
-    AUTHCTX -. "קיים, אך המסך משתמש ב-axios רגיל" .-> APIC
+    APP --> IDENTITY
+    APP --> MENTORS
+    APP --> ENGAGE
+    APP --> COMMS
 
-    SERVER -. "❌ לא מאתחל" .-> COMMS
-    COMMONS -. "EventEmitter קיים" .-> EVENTS
-    EVENTS --> SERVICE --> PROVIDERS
-    JOBS --> SERVICE
-    SERVICE --> REPOS
-    REPOS -. "❌ המודלים חסרים" .-> MISSING
-    TESTS --> COMMS
-    COMMONS --> USERDB
+    ENGAGE --> MQ
+    ENGAGE --> ML
+    ENGAGE --> OUTDB
+    ENGAGE --> FBDB
+    ENGAGE --> BLOCKDB
+    COMMS --> NOTIFDB
+    COMMS -. "jobs use ports" .-> MQ
+    COMMS -. "feedback reminders" .-> FBDB
+    IDENTITY --> USERDB
+    MENTORS --> MENTORDB
+    MQ -. "implemented by Dev2" .-> MEETINGDB
 
     classDef frontend fill:#dbeafe,stroke:#2563eb,color:#172554
     classDef backend fill:#dcfce7,stroke:#16a34a,color:#052e16
-    classDef comms fill:#f3e8ff,stroke:#9333ea,color:#3b0764
+    classDef ports fill:#fef9c3,stroke:#ca8a04,color:#422006
     classDef database fill:#ffedd5,stroke:#ea580c,color:#431407
-    classDef missing fill:#fee2e2,stroke:#dc2626,color:#450a0a
+    classDef pending fill:#fee2e2,stroke:#dc2626,color:#450a0a
 
-    class IDX,APP,DASH,USERSUI,AUTHCTX,APIC,GUARD frontend
-    class SERVER,HEALTH,COMMONS,USERROUTE,USERSERVICE,MOCK backend
-    class EVENTS,SERVICE,PROVIDERS,JOBS,REPOS,TESTS comms
-    class USERDB database
-    class MISSING missing
+    class AUTHCTX,GUARD,LAYOUT,DASH,MENTORSUI,NOTIFUI,ENGAGEUI frontend
+    class APP,IDENTITY,MENTORS,ENGAGE,COMMS backend
+    class MQ,ML ports
+    class USERDB,MENTORDB,NOTIFDB,OUTDB,FBDB,BLOCKDB database
+    class MEETINGDB pending
 ```
-
-
-

@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
+  Alert,
   AppBar,
   Box,
   Button,
@@ -10,10 +11,33 @@ import {
 } from "@mui/material";
 import { Link, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import apiClient from "../api/client";
 import NotificationBell from "../notifications/NotificationBell";
 
 export default function AppLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, hasRole } = useAuth();
+  const [mentorProfileMissing, setMentorProfileMissing] = useState(false);
+
+  useEffect(() => {
+    if (!hasRole("mentor")) {
+      setMentorProfileMissing(false);
+      return undefined;
+    }
+
+    let active = true;
+    apiClient
+      .get("/mentors/me")
+      .then(({ data }) => {
+        if (active) setMentorProfileMissing(!data);
+      })
+      .catch(() => {
+        if (active) setMentorProfileMissing(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hasRole, user]);
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
@@ -42,12 +66,29 @@ export default function AppLayout() {
           <Button color="inherit" component={Link} to="/mentors">
             Mentors
           </Button>
+          {hasRole("mentor") && (
+            <Button color="inherit" component={Link} to="/mentor-profile">
+              Mentor Profile
+            </Button>
+          )}
           <Button color="inherit" onClick={logout}>
             Log out
           </Button>
           <NotificationBell />
         </Toolbar>
       </AppBar>
+      {hasRole("mentor") && mentorProfileMissing && (
+        <Alert
+          severity="warning"
+          action={
+            <Button color="inherit" size="small" component={Link} to="/mentor-profile">
+              Complete mentor profile
+            </Button>
+          }
+        >
+          Complete mentor profile so mentees can find you.
+        </Alert>
+      )}
       <Box component="main" sx={{ p: { xs: 2, md: 4 } }}>
         <Outlet />
       </Box>

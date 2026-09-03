@@ -42,6 +42,14 @@ describe("mentorProfilesService", () => {
         orderBy: { updatedAt: "desc" },
       });
     });
+
+    it("returns an empty discovery list when no mentor profiles exist", async () => {
+      prisma.mentorProfile.findMany.mockResolvedValue([]);
+
+      const result = await getMentors();
+
+      expect(result).toEqual([]);
+    });
   });
 
   describe("getMentorById", () => {

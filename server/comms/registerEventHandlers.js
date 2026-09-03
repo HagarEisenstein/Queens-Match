@@ -1,7 +1,15 @@
 const { NOTIFICATION_TYPES } = require("./notificationTypes");
 
-function createNotification({ recipientId, meetingId, type, title, message, uniqueValue = "initial" }) {
-  return {
+function createNotification({
+  recipientId,
+  meetingId,
+  type,
+  title,
+  message,
+  uniqueValue = "initial",
+  actionUrl,
+}) {
+  const notification = {
     recipientId,
     meetingId,
     type,
@@ -9,6 +17,10 @@ function createNotification({ recipientId, meetingId, type, title, message, uniq
     message,
     deduplicationKey: `${type}:${meetingId}:${recipientId}:${uniqueValue}`,
   };
+  if (actionUrl) {
+    notification.actionUrl = actionUrl;
+  }
+  return notification;
 }
 
 function registerNotificationEventHandlers({ eventBus, notificationService, logger = console }) {
@@ -70,4 +82,4 @@ function registerNotificationEventHandlers({ eventBus, notificationService, logg
   };
 }
 
-module.exports = { registerNotificationEventHandlers };
+module.exports = { registerNotificationEventHandlers, createNotification };

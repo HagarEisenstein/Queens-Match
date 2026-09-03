@@ -14,6 +14,13 @@ const {
 const createMentorsRouter = require("./routes/mentors");
 const { bootstrapNotifications } = require("./comms/bootstrap");
 const { createNotificationsRouter } = require("./comms/routes");
+const {
+  bootstrapEngagement,
+  createEmptyMeetingQueryPort,
+  createNoopMeetingLifecyclePort,
+  createPrismaFeedbackRepository,
+} = require("./engagement");
+const prisma = require("./commons/db");
 
 function mountClientApp(app) {
   const clientBuildPath = path.join(__dirname, "..", "client", "build");
@@ -43,12 +50,31 @@ function createApp(options = {}) {
   const userRepository =
     options.userRepository || new PostgresUserRepository(lazyPool);
   const authenticate = createAuthMiddleware(jwtSecret);
+
+  const meetingQueryPort =
+    options.meetingQueryPort || createEmptyMeetingQueryPort();
+  const meetingLifecyclePort =
+    options.meetingLifecyclePort || createNoopMeetingLifecyclePort();
+  const feedbackRepository =
+    options.feedbackRepository || createPrismaFeedbackRepository(prisma);
+
   const notifications =
     options.notifications ||
     bootstrapNotifications({
-      meetingRepository: options.meetingRepository,
-      feedbackRepository: options.feedbackRepository,
+      meetingRepository: options.meetingRepository || meetingQueryPort,
+      feedbackRepository,
     });
+
+  const engagement =
+    options.engagement ||
+    bootstrapEngagement({
+      authenticate,
+      notificationService: notifications.notificationService,
+      meetingQueryPort,
+      meetingLifecyclePort,
+      feedbackRepository,
+    });
+
   const { authRouter, usersRouter } = createIdentityRouters({
     userRepository,
     authenticate,
@@ -101,11 +127,13 @@ function createApp(options = {}) {
       realtimeHub: notifications.realtimeHub,
     })
   );
+  app.use("/api/engagement", engagement.router);
 
   mountClientApp(app);
   app.use(notFound);
   app.use(errorHandler);
   app.locals.notifications = notifications;
+  app.locals.engagement = engagement;
   return app;
 }
 

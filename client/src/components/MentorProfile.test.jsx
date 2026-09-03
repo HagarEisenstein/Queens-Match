@@ -2,8 +2,10 @@ import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import MentorProfile from "./MentorProfile";
 import apiClient from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 jest.mock("../api/client", () => ({ get: jest.fn(), put: jest.fn() }));
+jest.mock("../auth/AuthContext", () => ({ useAuth: jest.fn() }));
 
 const existingProfile = {
   background: "Ten years building backend systems.",
@@ -18,6 +20,16 @@ const field = (text) => screen.getByLabelText(text, { exact: false });
 const findField = (text) => screen.findByLabelText(text, { exact: false });
 
 describe("MentorProfile", () => {
+  const refreshUser = jest.fn().mockResolvedValue({});
+
+  beforeEach(() => {
+    useAuth.mockReturnValue({
+      refreshUser,
+      user: { roles: ["mentor"] },
+      hasRole: (role) => ["mentor"].includes(role),
+    });
+  });
+
   afterEach(() => jest.resetAllMocks());
 
   it("shows an error state when the existing profile cannot be loaded", async () => {
@@ -72,6 +84,7 @@ describe("MentorProfile", () => {
         meetingLengthMinutes: 60,
       })
     );
+    await waitFor(() => expect(refreshUser).toHaveBeenCalled());
     expect(await screen.findByText("Mentor profile saved.")).toBeInTheDocument();
   });
 

@@ -12,6 +12,10 @@ import Register from "./components/Register";
 import MentorList from "./components/MentorList";
 import MentorDetail from "./components/MentorDetail";
 import MentorProfile from "./components/MentorProfile";
+import RoleGuard from "./components/RoleGuard";
+import MeetingArrivalPage from "./components/MeetingArrivalPage";
+import MeetingOutcomePage from "./components/MeetingOutcomePage";
+import MeetingFeedbackPage from "./components/MeetingFeedbackPage";
 import { NotificationProvider } from "./notifications/NotificationContext";
 
 function App() {
@@ -29,7 +33,17 @@ function App() {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/mentors" element={<MentorList />} />
                 <Route path="/mentors/:id" element={<MentorDetail />} />
-                <Route path="/mentor-profile" element={<MentorProfile />} />
+                <Route
+                  path="/mentor-profile"
+                  element={
+                    <RoleGuard roles={["mentor"]}>
+                      <MentorProfile />
+                    </RoleGuard>
+                  }
+                />
+                <Route path="/meetings/:id/arrival" element={<MeetingArrivalPage />} />
+                <Route path="/meetings/:id/outcome" element={<MeetingOutcomePage />} />
+                <Route path="/meetings/:id/feedback" element={<MeetingFeedbackPage />} />
               </Route>
             </Route>
           </Routes></NotificationProvider>
