@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Alert, Button, Container, Stack, Typography } from "@mui/material";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import apiClient from "../api/client";
 
 export default function MeetingArrivalPage() {
@@ -22,7 +22,7 @@ export default function MeetingArrivalPage() {
 
   return (
     <Container maxWidth="sm" sx={{ py: 5 }}>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" color="primary" gutterBottom>
         Confirm arrival
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
@@ -37,6 +37,14 @@ export default function MeetingArrivalPage() {
           disabled={status === "saving" || status === "saved"}
         >
           I will attend
+        </Button>
+        {status === "saved" && (
+          <Button component={Link} to="/" variant="outlined" color="secondary">
+            Back home
+          </Button>
+        )}
+        <Button component={Link} to={`/meetings/${id}`} color="secondary">
+          Meeting options
         </Button>
       </Stack>
     </Container>

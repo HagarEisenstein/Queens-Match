@@ -1,8 +1,20 @@
+:root {
+  --qm-primary: #ff7d9c;
+  --qm-primary-light: #ffb4c6;
+  --qm-primary-soft: #ffd9e7;
+  --qm-bg: #fff0f6;
+  --qm-accent: #715cf3;
+  --qm-ink: #2e2e2e;
+  --qm-muted: #69727d;
+  --qm-white: #ffffff;
+}
+
 body {
   margin: 0;
-  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", "Oxygen",
-    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+  font-family: "Assistant", "Heebo", -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
+  background-color: var(--qm-bg);
+  color: var(--qm-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -14,4 +26,15 @@ code {
 
 * {
   box-sizing: border-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

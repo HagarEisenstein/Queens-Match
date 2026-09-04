@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Box, Button, Card, CardContent, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import apiClient from "../api/client";
@@ -29,24 +29,53 @@ function Dashboard() {
     };
   }, [hasRole, user]);
 
+  const isBoth = hasRole("mentor") && hasRole("mentee");
+
   return (
     <Box maxWidth="md" mx="auto">
-      <Typography variant="h4" gutterBottom>
+      <Typography
+        variant="h3"
+        color="primary"
+        gutterBottom
+        sx={{ fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif' }}
+      >
         Welcome, {user.username}
       </Typography>
-      <Alert severity="info" sx={{ mb: 3 }}>
+      <Alert
+        severity="info"
+        sx={{ mb: 3, bgcolor: "#FFD9E7", color: "text.primary", "& .MuiAlert-icon": { color: "primary.main" } }}
+      >
         Find a mentor who can help you take your next step.
       </Alert>
+
+      <Stack direction="row" spacing={1} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
+        {isBoth ? (
+          <>
+            <Chip label="Mentoring" sx={{ bgcolor: "#FFD9E7" }} />
+            <Chip label="Learning" color="secondary" variant="outlined" />
+          </>
+        ) : (
+          user.roles.map((role) => (
+            <Chip
+              key={role}
+              label={role}
+              sx={{ bgcolor: "#FFD9E7", textTransform: "capitalize" }}
+            />
+          ))
+        )}
+      </Stack>
+
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 3 }}>
-        <Button component={Link} to="/mentors" variant="contained">
-          Browse mentors
+        <Button component={Link} to="/mentors" variant="contained" size="large">
+          Browse mentors →
         </Button>
         {hasRole("mentor") && (
           <Button
             component={Link}
             to="/mentor-profile"
             variant={mentorProfileMissing ? "contained" : "outlined"}
-            color={mentorProfileMissing ? "warning" : "primary"}
+            color={mentorProfileMissing ? "warning" : "secondary"}
+            size="large"
           >
             {mentorProfileMissing ? "Complete mentor profile" : "Edit mentor profile"}
           </Button>
@@ -57,9 +86,53 @@ function Dashboard() {
           Your mentor profile is incomplete. Add your background and topics so mentees can discover you.
         </Alert>
       )}
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+          gap: 2,
+          mb: 3,
+          p: 3,
+          borderRadius: "16px",
+          bgcolor: "#FFFFFF",
+          border: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Box>
+          <Typography
+            sx={{
+              fontSize: { xs: 48, md: 64 },
+              lineHeight: 1,
+              color: "primary.main",
+              fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif',
+              fontWeight: 700,
+            }}
+          >
+            1k+
+          </Typography>
+          <Typography color="text.secondary">women building community</Typography>
+        </Box>
+        <Box>
+          <Typography
+            sx={{
+              fontSize: { xs: 48, md: 64 },
+              lineHeight: 1,
+              color: "primary.main",
+              fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif',
+              fontWeight: 700,
+            }}
+          >
+            ∞
+          </Typography>
+          <Typography color="text.secondary">matches waiting to happen</Typography>
+        </Box>
+      </Box>
+
       <Stack spacing={2}>
         {user.roles.map((role) => (
-          <Card key={role} variant="outlined">
+          <Card key={role} variant="outlined" sx={{ borderColor: "divider" }}>
             <CardContent>
               <Typography variant="h6" sx={{ textTransform: "capitalize" }}>
                 {role} access

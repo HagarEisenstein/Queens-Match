@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Container,
+  Paper,
   Stack,
   TextField,
   Typography,
@@ -76,56 +77,66 @@ export default function MentorProfile() {
 
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>
-      <Typography variant="h3" gutterBottom>
-        Your mentor profile
-      </Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Keep your mentoring offer current. Topics should be comma-separated.
-      </Typography>
-      {message && (
-        <Alert
-          severity={message === "Mentor profile saved." ? "success" : "error"}
-          sx={{ mb: 2 }}
-        >
-          {message}
-        </Alert>
-      )}
-      <Stack component="form" onSubmit={save} spacing={2}>
-        <TextField
-          label="Background"
-          value={form.background}
-          onChange={update("background")}
-          multiline
-          minRows={5}
-          required
-        />
-        <TextField
-          label="Advice topics"
-          value={form.adviceTopics}
-          onChange={update("adviceTopics")}
-          placeholder="Career planning, mock interviews"
-          required
-        />
-        <TextField
-          label="Meetings offered"
-          type="number"
-          value={form.meetingsOffered}
-          onChange={update("meetingsOffered")}
-          inputProps={{ min: 1 }}
-          required
-        />
-        <TextField
-          label="Length of each meeting (minutes)"
-          type="number"
-          value={form.meetingLengthMinutes}
-          onChange={update("meetingLengthMinutes")}
-          inputProps={{ min: 15, max: 480, step: 15 }}
-          required
-        />
-        <Button type="submit" variant="contained" sx={{ alignSelf: "flex-start" }}>
-          Save profile
-        </Button>
-      </Stack>
+      <Paper
+        elevation={0}
+        sx={{ p: { xs: 3, md: 4 }, border: "1px solid", borderColor: "divider" }}
+      >
+        <Typography variant="h3" color="primary" gutterBottom>
+          Your mentor profile
+        </Typography>
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
+          Keep your mentoring offer current. Topics should be comma-separated.
+        </Typography>
+        {message && (
+          <Alert
+            severity={message === "Mentor profile saved." ? "success" : "error"}
+            sx={{ mb: 2 }}
+          >
+            {message}
+          </Alert>
+        )}
+        {message === "Mentor profile saved." && (
+          <Button href="/mentors" variant="outlined" color="secondary" sx={{ mb: 2 }}>
+            Browse mentors →
+          </Button>
+        )}
+        <Stack component="form" onSubmit={save} spacing={2}>
+          <TextField
+            label="Background"
+            value={form.background}
+            onChange={update("background")}
+            multiline
+            minRows={5}
+            required
+          />
+          <TextField
+            label="Advice topics"
+            value={form.adviceTopics}
+            onChange={update("adviceTopics")}
+            placeholder="Career planning, mock interviews"
+            required
+          />
+          <TextField
+            label="Meetings offered"
+            type="number"
+            value={form.meetingsOffered}
+            onChange={update("meetingsOffered")}
+            inputProps={{ min: 1 }}
+            required
+          />
+          <TextField
+            label="Length of each meeting (minutes)"
+            type="number"
+            value={form.meetingLengthMinutes}
+            onChange={update("meetingLengthMinutes")}
+            inputProps={{ min: 15, max: 480, step: 15 }}
+            required
+          />
+          <Button type="submit" variant="contained" sx={{ alignSelf: "flex-start" }}>
+            Save profile
+          </Button>
+        </Stack>
+      </Paper>
     </Container>
   );
 }

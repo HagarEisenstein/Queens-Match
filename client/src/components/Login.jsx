@@ -40,9 +40,31 @@ export default function Login() {
   };
 
   return (
-    <Box maxWidth="sm" mx="auto" mt={8}>
-      <Paper component="form" onSubmit={submit} sx={{ p: 4 }}>
+    <Box
+      maxWidth="sm"
+      mx="auto"
+      mt={8}
+      px={2}
+      sx={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(circle at top, #FFD9E7 0%, #FFF0F6 40%, #FFFFFF 100%)",
+      }}
+    >
+      <Paper
+        component="form"
+        onSubmit={submit}
+        elevation={0}
+        sx={{ p: 4, border: "1px solid", borderColor: "divider" }}
+      >
         <Stack spacing={3}>
+          <Typography
+            variant="h3"
+            color="primary"
+            sx={{ fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif' }}
+          >
+            Queens Match
+          </Typography>
           <Typography variant="h4">Log in</Typography>
           {successMessage && <Alert severity="success">{successMessage}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
@@ -69,12 +91,12 @@ export default function Login() {
               }))
             }
           />
-          <Button type="submit" variant="contained" disabled={submitting}>
+          <Button type="submit" variant="contained" size="large" disabled={submitting}>
             {submitting ? "Logging in…" : "Log in"}
           </Button>
           <Typography>
             Need an account?{" "}
-            <MuiLink component={Link} to="/register">
+            <MuiLink component={Link} to="/register" color="secondary">
               Register
             </MuiLink>
           </Typography>

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Alert, Button, Container, Rating, Stack, TextField, Typography } from "@mui/material";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import apiClient from "../api/client";
 
 export default function MeetingFeedbackPage() {
@@ -28,13 +28,17 @@ export default function MeetingFeedbackPage() {
 
   return (
     <Container maxWidth="sm" sx={{ py: 5 }}>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" color="primary" gutterBottom>
         Meeting feedback
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
         Rate the meeting and leave an optional note.
       </Typography>
-      {status === "saved" && <Alert severity="success" sx={{ mb: 2 }}>Feedback submitted. Thank you!</Alert>}
+      {status === "saved" && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Feedback submitted. Thank you!
+        </Alert>
+      )}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Stack component="form" onSubmit={submit} spacing={3}>
         <Stack spacing={1}>
@@ -52,9 +56,18 @@ export default function MeetingFeedbackPage() {
           multiline
           minRows={4}
         />
-        <Button type="submit" variant="contained" disabled={status === "saving" || status === "saved"}>
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={status === "saving" || status === "saved"}
+        >
           Submit feedback
         </Button>
+        {status === "saved" && (
+          <Button component={Link} to="/" variant="outlined" color="secondary">
+            Back home
+          </Button>
+        )}
       </Stack>
     </Container>
   );

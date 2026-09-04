@@ -11,8 +11,8 @@ export default function NotificationBell() {
   return (
     <>
       <Tooltip title="Notifications">
-        <IconButton color="inherit" aria-label={`${unreadCount} unread notifications`} onClick={(event) => setAnchor(event.currentTarget)}>
-          <Badge badgeContent={unreadCount} color="error"><NotificationsIcon /></Badge>
+        <IconButton color="inherit" aria-label={`${unreadCount} unread notifications`} onClick={(event) => setAnchor(event.currentTarget)} sx={{ color: "primary.main" }}>
+          <Badge badgeContent={unreadCount} color="secondary"><NotificationsIcon /></Badge>
         </IconButton>
       </Tooltip>
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)} MenuListProps={{ "aria-label": "Notifications" }}>

@@ -13,7 +13,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import apiClient from "../api/client";
 
 export default function MeetingOutcomePage() {
@@ -44,7 +44,7 @@ export default function MeetingOutcomePage() {
 
   return (
     <Container maxWidth="sm" sx={{ py: 5 }}>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" color="primary" gutterBottom>
         Meeting outcome
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
@@ -93,6 +93,11 @@ export default function MeetingOutcomePage() {
         <Button type="submit" variant="contained" disabled={status === "saving"}>
           Submit outcome
         </Button>
+        {status === "saved" && (
+          <Button component={Link} to="/" variant="outlined" color="secondary">
+            Back home
+          </Button>
+        )}
       </Stack>
     </Container>
   );

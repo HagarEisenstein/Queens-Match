@@ -3,9 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
   Link as MuiLink,
   Paper,
   Stack,
@@ -31,6 +28,39 @@ const initialForm = {
   roles: ["mentee"],
 };
 
+const roleOptions = [
+  {
+    id: "mentor",
+    title: "Mentor",
+    blurb: "Offer guidance and open your profile to mentees.",
+  },
+  {
+    id: "both",
+    title: "Both",
+    blurb: "Mentor in one area and learn in another — celebrated here.",
+    accent: true,
+  },
+  {
+    id: "mentee",
+    title: "Mentee",
+    blurb: "Looking for support matched to your goals.",
+  },
+];
+
+function rolesFromChoice(choiceId) {
+  if (choiceId === "both") return ["mentee", "mentor"];
+  if (choiceId === "mentor") return ["mentor"];
+  return ["mentee"];
+}
+
+function selectedChoice(roles) {
+  const hasMentor = roles.includes("mentor");
+  const hasMentee = roles.includes("mentee");
+  if (hasMentor && hasMentee) return "both";
+  if (hasMentor) return "mentor";
+  return "mentee";
+}
+
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -42,12 +72,10 @@ export default function Register() {
     setForm((current) => ({ ...current, [field]: event.target.value }));
   };
 
-  const toggleRole = (role) => {
+  const pickRole = (choiceId) => {
     setForm((current) => ({
       ...current,
-      roles: current.roles.includes(role)
-        ? current.roles.filter((value) => value !== role)
-        : [...current.roles, role],
+      roles: rolesFromChoice(choiceId),
     }));
   };
 
@@ -104,12 +132,85 @@ export default function Register() {
     }
   };
 
+  const activeChoice = selectedChoice(form.roles);
+
   return (
-    <Box maxWidth="md" mx="auto" my={5}>
-      <Paper component="form" onSubmit={submit} sx={{ p: 4 }}>
+    <Box
+      maxWidth="md"
+      mx="auto"
+      my={5}
+      px={2}
+      sx={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(circle at top left, #FFD9E7 0%, #FFF0F6 45%, #FFFFFF 100%)",
+      }}
+    >
+      <Paper component="form" onSubmit={submit} elevation={0} sx={{ p: { xs: 3, md: 4 }, border: "1px solid", borderColor: "divider" }}>
         <Stack spacing={3}>
+          <Typography
+            variant="h3"
+            color="primary"
+            sx={{ fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif' }}
+          >
+            Queens Match
+          </Typography>
           <Typography variant="h4">Create your account</Typography>
+          <Typography color="text.secondary">
+            How do you want to show up?
+          </Typography>
           {error && <Alert severity="error">{error}</Alert>}
+
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            role="group"
+            aria-label="Account capabilities"
+          >
+            {roleOptions.map((option) => {
+              const selected = activeChoice === option.id;
+              return (
+                <Button
+                  key={option.id}
+                  type="button"
+                  onClick={() => pickRole(option.id)}
+                  variant={selected ? "contained" : "outlined"}
+                  color={option.accent && !selected ? "secondary" : "primary"}
+                  sx={{
+                    flex: 1,
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    textAlign: "start",
+                    py: 2.5,
+                    px: 2,
+                    borderRadius: "16px",
+                    borderWidth: 2,
+                    boxShadow: selected
+                      ? "0 10px 24px rgba(255, 125, 156, 0.25)"
+                      : "none",
+                    bgcolor: selected
+                      ? "primary.main"
+                      : option.accent
+                        ? "rgba(113, 92, 243, 0.06)"
+                        : "background.paper",
+                    color: selected ? "common.white" : "text.primary",
+                    "&:hover": {
+                      borderWidth: 2,
+                      bgcolor: selected ? "primary.light" : "#FFD9E7",
+                    },
+                  }}
+                >
+                  <Typography variant="h6" sx={{ width: "100%", mb: 0.5 }}>
+                    {option.title}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9, whiteSpace: "normal" }}>
+                    {option.blurb}
+                  </Typography>
+                </Button>
+              );
+            })}
+          </Stack>
+
           <TextField label="Email" type="email" required value={form.email} onChange={setField("email")} />
           <TextField label="Username" required value={form.username} onChange={setField("username")} />
           <TextField
@@ -134,21 +235,6 @@ export default function Register() {
             value={form.confirmPassword}
             onChange={setField("confirmPassword")}
           />
-          <Typography variant="subtitle1">Account capabilities</Typography>
-          <FormGroup row>
-            {["mentee", "mentor"].map((role) => (
-              <FormControlLabel
-                key={role}
-                control={
-                  <Checkbox
-                    checked={form.roles.includes(role)}
-                    onChange={() => toggleRole(role)}
-                  />
-                }
-                label={role}
-              />
-            ))}
-          </FormGroup>
           <TextField label="Full name (optional)" value={form.full_name} onChange={setField("full_name")} />
           <TextField label="Job (optional)" value={form.job} onChange={setField("job")} />
           <TextField label="Workplace (optional)" value={form.workplace} onChange={setField("workplace")} />
@@ -171,13 +257,14 @@ export default function Register() {
           <Button
             type="submit"
             variant="contained"
+            size="large"
             disabled={submitting || form.roles.length === 0}
           >
-            {submitting ? "Creating account…" : "Register"}
+            {submitting ? "Creating account…" : "Find my match →"}
           </Button>
           <Typography>
             Already registered?{" "}
-            <MuiLink component={Link} to="/login">
+            <MuiLink component={Link} to="/login" color="secondary">
               Log in
             </MuiLink>
           </Typography>
