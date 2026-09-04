@@ -87,10 +87,22 @@ function createApp(options = {}) {
 
   const app = express();
   if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
+  // When serving client/build from this server, the browser Origin is :PORT
+  // (not CRA's :3000). Allow both in local/dev so either workflow works.
+  const port = String(process.env.PORT || 5001);
+  const localDevOrigins =
+    process.env.NODE_ENV === "production"
+      ? []
+      : [
+          "http://localhost:3000",
+          "http://127.0.0.1:3000",
+          `http://localhost:${port}`,
+          `http://127.0.0.1:${port}`,
+        ];
   const configuredOrigins = [
     ...(process.env.CORS_ORIGINS || "").split(","),
     process.env.RENDER_EXTERNAL_URL,
-    ...(process.env.NODE_ENV === "production" ? [] : ["http://localhost:3000"]),
+    ...localDevOrigins,
   ].map((origin) => origin?.trim()).filter(Boolean);
   app.use(helmet({
     contentSecurityPolicy: {
