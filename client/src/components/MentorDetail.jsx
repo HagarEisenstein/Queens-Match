@@ -13,9 +13,11 @@ import {
   Typography,
 } from "@mui/material";
 import apiClient from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 export default function MentorDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [mentor, setMentor] = useState(null);
   const [state, setState] = useState("loading");
 
@@ -52,6 +54,7 @@ export default function MentorDetail() {
   }
 
   const name = mentor.user.fullName || mentor.user.username;
+  const isOwnProfile = mentor.user.id === user.id;
 
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>
@@ -114,14 +117,18 @@ export default function MentorDetail() {
         </Typography>
 
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-          <Button
-            component={Link}
-            to={`/meetings/new?mentorId=${mentor.user.id}`}
-            variant="contained"
-            size="large"
-          >
-            Request a meeting
-          </Button>
+          {isOwnProfile ? (
+            <Alert severity="info">This is your mentor profile, so you cannot request a meeting with yourself.</Alert>
+          ) : (
+            <Button
+              component={Link}
+              to={`/meetings/new?mentorId=${mentor.user.id}`}
+              variant="contained"
+              size="large"
+            >
+              Request a meeting
+            </Button>
+          )}
           <Button component={Link} to="/mentors" variant="outlined" color="secondary" size="large">
             Maybe later
           </Button>

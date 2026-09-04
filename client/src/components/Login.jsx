@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import LocaleToggle from "./LocaleToggle";
 
 export default function Login() {
   const { isAuthenticated, login } = useAuth();
@@ -51,6 +52,9 @@ export default function Login() {
           "radial-gradient(circle at top, #FFD9E7 0%, #FFF0F6 40%, #FFFFFF 100%)",
       }}
     >
+      <Box sx={{ display: "flex", justifyContent: "flex-end", py: 2 }}>
+        <LocaleToggle />
+      </Box>
       <Paper
         component="form"
         onSubmit={submit}

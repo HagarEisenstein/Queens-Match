@@ -87,49 +87,6 @@ function Dashboard() {
         </Alert>
       )}
 
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-          gap: 2,
-          mb: 3,
-          p: 3,
-          borderRadius: "16px",
-          bgcolor: "#FFFFFF",
-          border: "1px solid",
-          borderColor: "divider",
-        }}
-      >
-        <Box>
-          <Typography
-            sx={{
-              fontSize: { xs: 48, md: 64 },
-              lineHeight: 1,
-              color: "primary.main",
-              fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif',
-              fontWeight: 700,
-            }}
-          >
-            1k+
-          </Typography>
-          <Typography color="text.secondary">women building community</Typography>
-        </Box>
-        <Box>
-          <Typography
-            sx={{
-              fontSize: { xs: 48, md: 64 },
-              lineHeight: 1,
-              color: "primary.main",
-              fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif',
-              fontWeight: 700,
-            }}
-          >
-            ∞
-          </Typography>
-          <Typography color="text.secondary">matches waiting to happen</Typography>
-        </Box>
-      </Box>
-
       <Stack spacing={2}>
         {user.roles.map((role) => (
           <Card key={role} variant="outlined" sx={{ borderColor: "divider" }}>

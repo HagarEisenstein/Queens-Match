@@ -10,6 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import apiClient from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 // Landing page for the "Request a meeting" CTA on a mentor's detail page.
 // Confirms who the mentee is about to reach out to, then fires the one-click
@@ -18,6 +19,7 @@ export default function RequestMeeting() {
   const [searchParams] = useSearchParams();
   const mentorId = searchParams.get("mentorId");
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [mentor, setMentor] = useState(null);
   const [state, setState] = useState("loading");
@@ -34,12 +36,14 @@ export default function RequestMeeting() {
     apiClient
       .get("/mentors")
       .then(({ data }) => {
-        const match = data.find((profile) => profile.user.id === mentorId);
+        const match = data.find(
+          (profile) => profile.user.id === mentorId && profile.user.id !== user.id
+        );
         setMentor(match || null);
         setState(match ? "ready" : "missing");
       })
       .catch(() => setState("error"));
-  }, [mentorId]);
+  }, [mentorId, user.id]);
 
   const submit = async () => {
     setSubmitting(true);

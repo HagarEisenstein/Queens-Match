@@ -14,6 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import apiClient from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 const LIKED_KEY = "queens_match_liked_mentors";
 
@@ -27,6 +28,7 @@ function readLikedIds() {
 }
 
 export default function Matches() {
+  const { user } = useAuth();
   const [mentors, setMentors] = useState([]);
   const [state, setState] = useState("loading");
 
@@ -43,7 +45,9 @@ export default function Matches() {
       .then(({ data }) => {
         if (!active) return;
         const liked = new Set(likedIds);
-        setMentors(data.filter((mentor) => liked.has(mentor.id)));
+        setMentors(
+          data.filter((mentor) => liked.has(mentor.id) && mentor.user.id !== user.id)
+        );
         setState("ready");
       })
       .catch(() => {
@@ -53,7 +57,7 @@ export default function Matches() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [user.id]);
 
   if (state === "loading") {
     return (

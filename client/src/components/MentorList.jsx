@@ -16,6 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import apiClient from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 const LIKED_KEY = "queens_match_liked_mentors";
 
@@ -35,6 +36,7 @@ function rememberLiked(mentorId) {
 
 export default function MentorList() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [mentors, setMentors] = useState([]);
   const [state, setState] = useState("loading");
   const [cursor, setCursor] = useState(0);
@@ -45,11 +47,11 @@ export default function MentorList() {
     apiClient
       .get("/mentors")
       .then(({ data }) => {
-        setMentors(data);
+        setMentors(data.filter((mentor) => mentor.user.id !== user.id));
         setState("ready");
       })
       .catch(() => setState("error"));
-  }, []);
+  }, [user.id]);
 
   const current = mentors[cursor] || null;
   const peek = mentors[cursor + 1] || null;

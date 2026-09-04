@@ -15,28 +15,12 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import apiClient from "../api/client";
 import NotificationBell from "../notifications/NotificationBell";
-
-const LOCALE_KEY = "queens_match_locale";
-
-function readLocale() {
-  return localStorage.getItem(LOCALE_KEY) === "he" ? "he" : "en";
-}
-
-function applyLocale(locale) {
-  const root = document.documentElement;
-  root.lang = locale;
-  root.dir = locale === "he" ? "rtl" : "ltr";
-}
+import LocaleToggle from "./LocaleToggle";
 
 export default function AppLayout() {
   const { user, logout, hasRole } = useAuth();
   const location = useLocation();
   const [mentorProfileMissing, setMentorProfileMissing] = useState(null);
-  const [locale, setLocale] = useState(readLocale);
-
-  useEffect(() => {
-    applyLocale(locale);
-  }, [locale]);
 
   useEffect(() => {
     if (!hasRole("mentor")) {
@@ -66,12 +50,6 @@ export default function AppLayout() {
   ) {
     return <Navigate to="/mentor-profile" replace />;
   }
-
-  const toggleLocale = () => {
-    const next = locale === "en" ? "he" : "en";
-    localStorage.setItem(LOCALE_KEY, next);
-    setLocale(next);
-  };
 
   const displayName = user.full_name || user.username || "?";
   const initials = displayName
@@ -150,18 +128,15 @@ export default function AppLayout() {
               Mentor Profile
             </Button>
           )}
-          <Button
-            onClick={toggleLocale}
-            aria-label="Switch language"
+          <LocaleToggle
             sx={{
               ...navLinkSx,
               minWidth: 48,
+              flexShrink: 0,
               border: "1px solid",
               borderColor: "divider",
             }}
-          >
-            {locale === "en" ? "HE" : "EN"}
-          </Button>
+          />
           <Button component={Link} to="/meetings" sx={navLinkSx}>
             Meetings
           </Button>

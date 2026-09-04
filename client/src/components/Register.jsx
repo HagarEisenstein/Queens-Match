@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import LocaleToggle from "./LocaleToggle";
 
 const initialForm = {
   email: "",
@@ -146,6 +147,9 @@ export default function Register() {
           "radial-gradient(circle at top left, #FFD9E7 0%, #FFF0F6 45%, #FFFFFF 100%)",
       }}
     >
+      <Box sx={{ display: "flex", justifyContent: "flex-end", py: 2 }}>
+        <LocaleToggle />
+      </Box>
       <Paper component="form" onSubmit={submit} elevation={0} sx={{ p: { xs: 3, md: 4 }, border: "1px solid", borderColor: "divider" }}>
         <Stack spacing={3}>
           <Typography

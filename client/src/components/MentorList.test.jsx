@@ -3,8 +3,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import MentorList from "./MentorList";
 import apiClient from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 jest.mock("../api/client", () => ({ get: jest.fn(), put: jest.fn() }));
+jest.mock("../auth/AuthContext", () => ({ useAuth: jest.fn() }));
 
 const mentor = {
   id: "m1",
@@ -24,6 +26,10 @@ function renderList() {
 }
 
 describe("MentorList", () => {
+  beforeEach(() => {
+    useAuth.mockReturnValue({ user: { id: "current-user" } });
+  });
+
   afterEach(() => jest.resetAllMocks());
 
   it("shows a loading indicator while the request is in flight", () => {
@@ -54,6 +60,20 @@ describe("MentorList", () => {
     renderList();
 
     expect(await screen.findByText("No mentor profiles are available yet.")).toBeInTheDocument();
+  });
+
+  it("does not offer the signed-in user's own mentor profile", async () => {
+    apiClient.get.mockResolvedValue({
+      data: [
+        { ...mentor, user: { ...mentor.user, id: "current-user" } },
+        { ...mentor, id: "m2", user: { ...mentor.user, id: "u2", fullName: "Bella Mentor" } },
+      ],
+    });
+
+    renderList();
+
+    expect(await screen.findByText("Bella Mentor")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Admin")).not.toBeInTheDocument();
   });
 
   it("shows an error state when the request fails", async () => {
