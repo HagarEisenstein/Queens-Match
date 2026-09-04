@@ -162,6 +162,9 @@ export default function AppLayout() {
           >
             {locale === "en" ? "HE" : "EN"}
           </Button>
+          <Button component={Link} to="/meetings" sx={navLinkSx}>
+            Meetings
+          </Button>
           <Button color="inherit" onClick={logout} sx={navLinkSx}>
             Log out
           </Button>

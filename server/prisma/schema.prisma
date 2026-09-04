@@ -29,8 +29,39 @@ model User {
   feedbackRequests FeedbackRequest[]
   menteeBlocks    MentorMenteeBlock[] @relation("MenteeBlocks")
   mentorBlocks    MentorMenteeBlock[] @relation("MentorBlocks")
+  meetingsAsMentee Meeting[] @relation("MenteeMeetings")
+  meetingsAsMentor Meeting[] @relation("MentorMeetings")
 
   @@map("users")
+}
+
+model Meeting {
+  id            String            @id @default(uuid()) @db.Uuid
+  menteeId      String            @map("mentee_id") @db.Uuid
+  mentorId      String            @map("mentor_id") @db.Uuid
+  status        String            @default("pending_mentor_times")
+  scheduledTime DateTime?         @map("scheduled_time")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  mentee        User              @relation("MenteeMeetings", fields: [menteeId], references: [id], onDelete: Cascade)
+  mentor        User              @relation("MentorMeetings", fields: [mentorId], references: [id], onDelete: Cascade)
+  timeSlots     MeetingTimeSlot[]
+
+  @@index([mentorId, status])
+  @@index([menteeId, status])
+  @@map("meetings")
+}
+
+model MeetingTimeSlot {
+  id        String   @id @default(uuid()) @db.Uuid
+  meetingId String   @map("meeting_id") @db.Uuid
+  startTime DateTime @map("start_time")
+  endTime   DateTime @map("end_time")
+  createdAt DateTime @default(now()) @map("created_at")
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@map("meeting_time_slots")
 }
 
 model Notification {

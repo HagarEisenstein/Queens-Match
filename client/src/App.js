@@ -13,12 +13,13 @@ import MentorList from "./components/MentorList";
 import MentorDetail from "./components/MentorDetail";
 import MentorProfile from "./components/MentorProfile";
 import Matches from "./components/Matches";
-import MeetingRequestPage from "./components/MeetingRequestPage";
-import MeetingHubPage from "./components/MeetingHubPage";
 import RoleGuard from "./components/RoleGuard";
 import MeetingArrivalPage from "./components/MeetingArrivalPage";
 import MeetingOutcomePage from "./components/MeetingOutcomePage";
 import MeetingFeedbackPage from "./components/MeetingFeedbackPage";
+import RequestMeeting from "./components/RequestMeeting";
+import MeetingsList from "./components/MeetingsList";
+import MeetingDetail from "./components/MeetingDetail";
 import { NotificationProvider } from "./notifications/NotificationContext";
 
 function App() {
@@ -46,8 +47,9 @@ function App() {
                       </RoleGuard>
                     }
                   />
-                  <Route path="/meetings/new" element={<MeetingRequestPage />} />
-                  <Route path="/meetings/:id" element={<MeetingHubPage />} />
+                  <Route path="/meetings" element={<MeetingsList />} />
+                  <Route path="/meetings/new" element={<RequestMeeting />} />
+                  <Route path="/meetings/:id" element={<MeetingDetail />} />
                   <Route path="/meetings/:id/arrival" element={<MeetingArrivalPage />} />
                   <Route path="/meetings/:id/outcome" element={<MeetingOutcomePage />} />
                   <Route path="/meetings/:id/feedback" element={<MeetingFeedbackPage />} />
