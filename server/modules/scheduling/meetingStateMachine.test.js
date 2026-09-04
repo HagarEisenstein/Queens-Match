@@ -55,8 +55,15 @@ describe("meetingStateMachine", () => {
       ).toThrow(IllegalTransitionError);
     });
 
-    it("rejects any action on a scheduled meeting", () => {
-      for (const action of Object.values(MEETING_ACTION)) {
+    it("rejects coordination actions on a scheduled meeting", () => {
+      const stillIllegal = [
+        MEETING_ACTION.OFFER_TIMES,
+        MEETING_ACTION.REJECT,
+        MEETING_ACTION.SELECT_TIME,
+        MEETING_ACTION.REQUEST_MORE_TIMES,
+        MEETING_ACTION.MENTEE_REJECT,
+      ];
+      for (const action of stillIllegal) {
         expect(() => transition(MEETING_STATUS.SCHEDULED, action)).toThrow(
           IllegalTransitionError
         );
@@ -66,6 +73,14 @@ describe("meetingStateMachine", () => {
     it("rejects any action on a rejected meeting", () => {
       for (const action of Object.values(MEETING_ACTION)) {
         expect(() => transition(MEETING_STATUS.REJECTED, action)).toThrow(
+          IllegalTransitionError
+        );
+      }
+    });
+
+    it("rejects any action on a cancelled meeting", () => {
+      for (const action of Object.values(MEETING_ACTION)) {
+        expect(() => transition(MEETING_STATUS.CANCELLED, action)).toThrow(
           IllegalTransitionError
         );
       }
@@ -102,14 +117,51 @@ describe("meetingStateMachine", () => {
   });
 
   describe("isTerminal", () => {
-    it("treats scheduled and rejected as terminal", () => {
-      expect(isTerminal(MEETING_STATUS.SCHEDULED)).toBe(true);
+    it("treats rejected and cancelled as terminal", () => {
       expect(isTerminal(MEETING_STATUS.REJECTED)).toBe(true);
+      expect(isTerminal(MEETING_STATUS.CANCELLED)).toBe(true);
     });
 
-    it("treats the two pending states as non-terminal", () => {
+    it("treats the two pending states and scheduled as non-terminal", () => {
       expect(isTerminal(MEETING_STATUS.PENDING_MENTOR_TIMES)).toBe(false);
       expect(isTerminal(MEETING_STATUS.PENDING_MENTEE_SELECTION)).toBe(false);
+      expect(isTerminal(MEETING_STATUS.SCHEDULED)).toBe(false);
+    });
+  });
+
+  describe("re-coordination [R4.6]", () => {
+    it("moves back to awaiting mentor times when the mentee requests more times", () => {
+      expect(
+        transition(MEETING_STATUS.PENDING_MENTEE_SELECTION, MEETING_ACTION.REQUEST_MORE_TIMES)
+      ).toBe(MEETING_STATUS.PENDING_MENTOR_TIMES);
+    });
+
+    it("moves to rejected when the mentee declines the offered times", () => {
+      expect(
+        transition(MEETING_STATUS.PENDING_MENTEE_SELECTION, MEETING_ACTION.MENTEE_REJECT)
+      ).toBe(MEETING_STATUS.REJECTED);
+    });
+  });
+
+  describe("cancellation [R5]", () => {
+    it("moves a scheduled meeting back to awaiting mentor times on reschedule", () => {
+      expect(
+        transition(MEETING_STATUS.SCHEDULED, MEETING_ACTION.RESCHEDULE)
+      ).toBe(MEETING_STATUS.PENDING_MENTOR_TIMES);
+    });
+
+    it("moves a scheduled meeting to cancelled on a second can't-make-it", () => {
+      expect(
+        transition(MEETING_STATUS.SCHEDULED, MEETING_ACTION.CANCEL)
+      ).toBe(MEETING_STATUS.CANCELLED);
+    });
+  });
+
+  describe("no-show retry [R7]", () => {
+    it("reopens a scheduled meeting for a fresh round of times", () => {
+      expect(
+        transition(MEETING_STATUS.SCHEDULED, MEETING_ACTION.REOPEN_AFTER_NO_SHOW)
+      ).toBe(MEETING_STATUS.PENDING_MENTOR_TIMES);
     });
   });
 });

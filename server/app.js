@@ -14,12 +14,13 @@ const {
 } = require("./modules/identity/userRepository");
 const createMentorsRouter = require("./routes/mentors");
 const createMeetingsRouter = require("./routes/meetings");
+const schedulingService = require("./modules/scheduling/schedulingService");
+const { createSchedulingMeetingQueryPort } = require("./modules/scheduling/meetingQueryPort");
+const { createSchedulingMeetingLifecyclePort } = require("./modules/scheduling/meetingLifecyclePort");
 const { bootstrapNotifications } = require("./comms/bootstrap");
 const { createNotificationsRouter } = require("./comms/routes");
 const {
   bootstrapEngagement,
-  createEmptyMeetingQueryPort,
-  createNoopMeetingLifecyclePort,
   createPrismaFeedbackRepository,
 } = require("./engagement");
 const prisma = require("./commons/db");
@@ -55,9 +56,12 @@ function createApp(options = {}) {
   const authorizeAdmin = requireCurrentRole(userRepository, "admin");
 
   const meetingQueryPort =
-    options.meetingQueryPort || createEmptyMeetingQueryPort();
+    options.meetingQueryPort || createSchedulingMeetingQueryPort();
   const meetingLifecyclePort =
-    options.meetingLifecyclePort || createNoopMeetingLifecyclePort();
+    options.meetingLifecyclePort ||
+    createSchedulingMeetingLifecyclePort({
+      reopenAfterNoShow: schedulingService.reopenAfterNoShow,
+    });
   const feedbackRepository =
     options.feedbackRepository || createPrismaFeedbackRepository(prisma);
 

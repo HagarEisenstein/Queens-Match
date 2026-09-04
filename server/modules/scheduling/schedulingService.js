@@ -148,9 +148,13 @@ async function offerTimes({ meetingId, actorId, slots }) {
     });
   });
 
+  // `offeredAt` keys the notification's dedup: Epic 4 lets a mentor offer times
+  // more than once per meeting (after a retry/reschedule/no-show reopen), and
+  // each round needs its own notification rather than being silently deduped.
   eventBus.emit("TimesOffered", {
     meetingId,
     menteeId: meeting.menteeId,
+    offeredAt: new Date().toISOString(),
   });
 
   return updated;
@@ -214,6 +218,148 @@ async function selectTime({ meetingId, actorId, slotId }) {
   return updated;
 }
 
+/**
+ * Clear a meeting's slots and scheduled time so a fresh round of offer-times
+ * can start clean. Shared by every Epic 4 path that sends a meeting back to
+ * `pending_mentor_times`.
+ */
+async function resetForFreshOffer(tx, meetingId, nextStatus, extraData = {}) {
+  await tx.meetingTimeSlot.deleteMany({ where: { meetingId } });
+  return tx.meeting.update({
+    where: { id: meetingId },
+    data: { status: nextStatus, scheduledTime: null, ...extraData },
+    include: meetingInclude,
+  });
+}
+
+/**
+ * Mentee can't do any offered time and asks for a fresh set, once [R4.6].
+ * The mentor is notified and the flow repeats from "offer times"; a second
+ * request is blocked — she must decline instead.
+ */
+async function requestMoreTimes({ meetingId, actorId }) {
+  const meeting = await loadMeetingOr404(meetingId);
+  if (meeting.menteeId !== actorId) {
+    throw httpError(403, "FORBIDDEN", "Only the mentee can request more times.");
+  }
+  if (meeting.moreTimesUsed) {
+    throw httpError(
+      409,
+      "RETRY_ALREADY_USED",
+      "You already asked for more times once. Decline if none of these work either."
+    );
+  }
+
+  const nextStatus = transition(meeting.status, MEETING_ACTION.REQUEST_MORE_TIMES);
+
+  const updated = await prisma.$transaction((tx) =>
+    resetForFreshOffer(tx, meetingId, nextStatus, { moreTimesUsed: true })
+  );
+
+  eventBus.emit("MoreTimesRequested", {
+    meetingId,
+    mentorId: meeting.mentorId,
+  });
+
+  return updated;
+}
+
+/**
+ * Mentee can't do any of the offered times and gives up — either after her
+ * one retry above, or voluntarily beforehand.
+ */
+async function declineOfferedTimes({ meetingId, actorId }) {
+  const meeting = await loadMeetingOr404(meetingId);
+  if (meeting.menteeId !== actorId) {
+    throw httpError(403, "FORBIDDEN", "Only the mentee can decline the offered times.");
+  }
+
+  const nextStatus = transition(meeting.status, MEETING_ACTION.MENTEE_REJECT);
+
+  const updated = await prisma.meeting.update({
+    where: { id: meetingId },
+    data: { status: nextStatus },
+    include: meetingInclude,
+  });
+
+  eventBus.emit("MeetingDeclinedByMentee", {
+    meetingId,
+    mentorId: meeting.mentorId,
+  });
+
+  return updated;
+}
+
+/**
+ * Either side flags "can't make it" on a scheduled meeting [R5]. The first
+ * time, both return to the offer-times step; a second time on the same
+ * meeting cancels it outright — one re-coordination iteration only.
+ */
+async function flagCantMakeIt({ meetingId, actorId }) {
+  const meeting = await loadMeetingOr404(meetingId);
+  assertParticipant(meeting, actorId);
+
+  const otherPartyId = actorId === meeting.mentorId ? meeting.menteeId : meeting.mentorId;
+
+  if (!meeting.rescheduleUsed) {
+    const nextStatus = transition(meeting.status, MEETING_ACTION.RESCHEDULE);
+
+    const updated = await prisma.$transaction((tx) =>
+      resetForFreshOffer(tx, meetingId, nextStatus, { rescheduleUsed: true })
+    );
+
+    eventBus.emit("MeetingRescheduleRequested", {
+      meetingId,
+      recipientId: otherPartyId,
+    });
+
+    return updated;
+  }
+
+  const nextStatus = transition(meeting.status, MEETING_ACTION.CANCEL);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.meetingTimeSlot.deleteMany({ where: { meetingId } });
+    return tx.meeting.update({
+      where: { id: meetingId },
+      data: { status: nextStatus, scheduledTime: null },
+      include: meetingInclude,
+    });
+  });
+
+  eventBus.emit("MeetingCancelled", {
+    meetingId,
+    mentorId: meeting.mentorId,
+    menteeId: meeting.menteeId,
+  });
+
+  return updated;
+}
+
+/**
+ * The meeting didn't happen and both sides said they still want to meet
+ * [R7]. This is invoked by the scheduling module's `meetingLifecyclePort` in
+ * reaction to engagement's `RetryPending` event, not from an HTTP route —
+ * engagement already enforces the one-retry rule via `retryAfterNoshowUsed`
+ * before ever emitting that event, so this just performs the reopening.
+ */
+async function reopenAfterNoShow({ meetingId }) {
+  const meeting = await loadMeetingOr404(meetingId);
+  const nextStatus = transition(meeting.status, MEETING_ACTION.REOPEN_AFTER_NO_SHOW);
+
+  const updated = await prisma.$transaction((tx) =>
+    resetForFreshOffer(tx, meetingId, nextStatus, { retryAfterNoshowUsed: true })
+  );
+
+  eventBus.emit("MeetingReopenedAfterNoShow", {
+    meetingId,
+    mentorId: meeting.mentorId,
+    menteeId: meeting.menteeId,
+  });
+
+  return updated;
+}
+
 async function getMeetingById(meetingId, requesterId) {
   const meeting = await loadMeetingOr404(meetingId);
   assertParticipant(meeting, requesterId);
@@ -260,6 +406,10 @@ module.exports = {
   offerTimes,
   rejectMeeting,
   selectTime,
+  requestMoreTimes,
+  declineOfferedTimes,
+  flagCantMakeIt,
+  reopenAfterNoShow,
   getMeetingById,
   listMeetingsForUser,
 };

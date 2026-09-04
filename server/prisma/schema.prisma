@@ -41,6 +41,9 @@ model Meeting {
   mentorId      String            @map("mentor_id") @db.Uuid
   status        String            @default("pending_mentor_times")
   scheduledTime DateTime?         @map("scheduled_time")
+  moreTimesUsed          Boolean  @default(false) @map("more_times_used")
+  rescheduleUsed         Boolean  @default(false) @map("reschedule_used")
+  retryAfterNoshowUsed   Boolean  @default(false) @map("retry_after_noshow_used")
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")
   mentee        User              @relation("MenteeMeetings", fields: [menteeId], references: [id], onDelete: Cascade)
