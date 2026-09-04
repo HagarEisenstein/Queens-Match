@@ -19,3 +19,25 @@ test("exposes unread count and an accessible mark-as-read action", () => {
   fireEvent.click(screen.getByRole("button", { name: "Mark Meeting scheduled as read" }));
   expect(markRead).toHaveBeenCalledWith(expect.objectContaining({ id: "n1" }));
 });
+
+test("opens a notification when its menu item is clicked", () => {
+  const openNotification = jest.fn();
+  const notification = {
+    id: "n2",
+    title: "Leave feedback",
+    message: "Please rate your meeting",
+    readAt: null,
+    actionUrl: "/meetings/m1/feedback",
+  };
+  useNotifications.mockReturnValue({
+    notifications: [notification],
+    unreadCount: 1,
+    markRead: jest.fn(),
+    openNotification,
+  });
+
+  render(<NotificationBell />);
+  fireEvent.click(screen.getByRole("button", { name: "1 unread notifications" }));
+  fireEvent.click(screen.getByText("Leave feedback"));
+  expect(openNotification).toHaveBeenCalledWith(notification);
+});

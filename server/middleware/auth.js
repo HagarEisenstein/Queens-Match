@@ -39,4 +39,25 @@ function requireAnyRole(...capabilities) {
   };
 }
 
-module.exports = { createAuthMiddleware, requireAnyRole };
+function requireCurrentRole(userRepository, ...capabilities) {
+  return async function authorizeCurrentRole(req, res, next) {
+    try {
+      const currentUser = await userRepository.findPublicById(req.user.id);
+      const currentRoles = Array.isArray(currentUser?.roles)
+        ? currentUser.roles
+        : [];
+      const allowed = capabilities.some((role) => currentRoles.includes(role));
+      if (!allowed) {
+        return next(
+          new AppError(403, "FORBIDDEN", "You do not have this capability.")
+        );
+      }
+      req.user.roles = currentRoles;
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  };
+}
+
+module.exports = { createAuthMiddleware, requireAnyRole, requireCurrentRole };

@@ -41,6 +41,13 @@ export function AuthProvider({ children }) {
     setUser(session.user);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const { data } = await api.get("/users/profile");
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    setUser(data.user);
+    return data.user;
+  }, []);
+
   useEffect(() => {
     if (!token) {
       setLoading(false);
@@ -75,10 +82,14 @@ export function AuthProvider({ children }) {
     [saveSession]
   );
 
-  const register = useCallback(async (registration) => {
-    const { data } = await api.post("/auth/register", registration);
-    return data.user;
-  }, []);
+  const register = useCallback(
+    async (registration) => {
+      const { data } = await api.post("/auth/register", registration);
+      saveSession(data);
+      return data.user;
+    },
+    [saveSession]
+  );
 
   const updateProfile = useCallback(async (profile) => {
     const { data } = await api.put("/users/profile", profile);
@@ -103,8 +114,9 @@ export function AuthProvider({ children }) {
       register,
       logout,
       updateProfile,
+      refreshUser,
     }),
-    [token, user, loading, login, register, logout, updateProfile]
+    [token, user, loading, login, register, logout, updateProfile, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,3 +1,20 @@
+const { NOTIFICATION_TYPES } = require("./notificationTypes");
+
+function defaultActionUrl(type, meetingId) {
+  if (!meetingId) return null;
+  switch (type) {
+    case NOTIFICATION_TYPES.ARRIVAL_CHECK:
+      return `/meetings/${meetingId}/arrival`;
+    case NOTIFICATION_TYPES.POST_MEETING_CHECK:
+      return `/meetings/${meetingId}/outcome`;
+    case NOTIFICATION_TYPES.FEEDBACK_REQUEST:
+    case NOTIFICATION_TYPES.FEEDBACK_REMINDER:
+      return `/meetings/${meetingId}/feedback`;
+    default:
+      return `/meetings/${meetingId}`;
+  }
+}
+
 function createNotificationCenterService({
   notificationRepository,
   deliveryRepository,
@@ -7,7 +24,7 @@ function createNotificationCenterService({
 }) {
   const defaultEmailTypes = new Set([
     "request_received", "times_offered", "meeting_rejected", "meeting_matched",
-    "meeting_reminder", "post_meeting_check", "feedback_reminder",
+    "meeting_reminder", "post_meeting_check", "feedback_request", "feedback_reminder",
   ]);
   async function send(input) {
     const existing = await notificationRepository.findByDeduplicationKey(input.deduplicationKey);
@@ -20,7 +37,10 @@ function createNotificationCenterService({
       type: input.type,
       title: input.title,
       message: input.message,
-      actionUrl: input.actionUrl || (input.meetingId ? `/meetings/${input.meetingId}` : null),
+      actionUrl:
+        input.actionUrl ||
+        defaultActionUrl(input.type, input.meetingId) ||
+        null,
       popupEligible: input.popupEligible !== false,
       deduplicationKey: input.deduplicationKey,
     };
@@ -44,7 +64,7 @@ function createNotificationCenterService({
     return notification;
   }
 
-  return { send };
+  return { send, defaultActionUrl };
 }
 
-module.exports = { createNotificationCenterService };
+module.exports = { createNotificationCenterService, defaultActionUrl };

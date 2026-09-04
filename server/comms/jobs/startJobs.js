@@ -8,11 +8,19 @@ function startNotificationJobs({
   cronExpression = "0 * * * *",
   now = () => new Date(),
 }) {
+  let isRunning = false;
+
   return scheduler.schedule(cronExpression, async () => {
-    const scanTime = now();
-    await meetingReminderJob.run(scanTime);
-    await postMeetingCheckJob.run(scanTime);
-    await feedbackReminderJob.run(scanTime);
+    if (isRunning) return;
+    isRunning = true;
+    try {
+      const scanTime = now();
+      await meetingReminderJob.run(scanTime);
+      await postMeetingCheckJob.run(scanTime);
+      await feedbackReminderJob.run(scanTime);
+    } finally {
+      isRunning = false;
+    }
   });
 }
 

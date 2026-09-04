@@ -28,6 +28,7 @@ function createMeetingReminderJob({
           type: NOTIFICATION_TYPES.MEETING_REMINDER,
           title: "Meeting reminder",
           message: `Your meeting is scheduled for ${scheduledTime}.`,
+          actionUrl: `/meetings/${meeting.id}`,
           deduplicationKey: `${NOTIFICATION_TYPES.MEETING_REMINDER}:${meeting.id}:${recipientId}:${scheduledTime}`,
         });
         await notificationService.send({
@@ -36,6 +37,7 @@ function createMeetingReminderJob({
           type: NOTIFICATION_TYPES.ARRIVAL_CHECK,
           title: "Confirm your arrival",
           message: "Open the meeting in QueenB and confirm that you plan to attend.",
+          actionUrl: `/meetings/${meeting.id}/arrival`,
           deduplicationKey: `${NOTIFICATION_TYPES.ARRIVAL_CHECK}:${meeting.id}:${recipientId}:${scheduledTime}`,
         });
       }

@@ -12,6 +12,7 @@ function createPostMeetingCheckJob({ meetingRepository, notificationService }) {
           type: NOTIFICATION_TYPES.POST_MEETING_CHECK,
           title: "Did your meeting happen?",
           message: "Open the meeting in QueenB and tell us whether it happened.",
+          actionUrl: `/meetings/${meeting.id}/outcome`,
           deduplicationKey: `${NOTIFICATION_TYPES.POST_MEETING_CHECK}:${meeting.id}:${recipientId}`,
         });
       }

@@ -3,8 +3,10 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import MentorDetail from "./MentorDetail";
 import apiClient from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 jest.mock("../api/client", () => ({ get: jest.fn(), put: jest.fn() }));
+jest.mock("../auth/AuthContext", () => ({ useAuth: jest.fn() }));
 
 const mentor = {
   id: "m1",
@@ -26,6 +28,10 @@ function renderDetail(id = "m1") {
 }
 
 describe("MentorDetail", () => {
+  beforeEach(() => {
+    useAuth.mockReturnValue({ user: { id: "current-user" } });
+  });
+
   afterEach(() => jest.resetAllMocks());
 
   it("shows a loading indicator while the request is in flight", () => {
@@ -58,6 +64,16 @@ describe("MentorDetail", () => {
     renderDetail("missing");
 
     expect(await screen.findByText("Mentor profile not found.")).toBeInTheDocument();
+  });
+
+  it("does not show a meeting request action on the signed-in user's own profile", async () => {
+    useAuth.mockReturnValue({ user: { id: "u1" } });
+    apiClient.get.mockResolvedValue({ data: mentor });
+
+    renderDetail("m1");
+
+    expect(await screen.findByText(/cannot request a meeting with yourself/i)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Request a meeting" })).not.toBeInTheDocument();
   });
 
   it("shows a generic error message on other failures", async () => {

@@ -113,3 +113,37 @@ test("notification jobs use one configurable cron schedule", async () => {
   assert.equal(scheduledCallbacks[0].expression, "*/5 * * * *");
   assert.deepEqual(runOrder, ["meeting", "post-meeting", "feedback"]);
 });
+
+test("notification jobs skip overlapping cron ticks", async () => {
+  let callback;
+  let releaseFirstRun;
+  const firstRunBlocked = new Promise((resolve) => {
+    releaseFirstRun = resolve;
+  });
+  let meetingRuns = 0;
+  const scheduler = {
+    schedule(_expression, scheduledCallback) {
+      callback = scheduledCallback;
+      return { stop() {} };
+    },
+  };
+  const jobs = {
+    meetingReminderJob: {
+      async run() {
+        meetingRuns += 1;
+        await firstRunBlocked;
+      },
+    },
+    postMeetingCheckJob: { async run() {} },
+    feedbackReminderJob: { async run() {} },
+  };
+
+  startNotificationJobs({ scheduler, ...jobs });
+  const firstTick = callback();
+  const overlappingTick = callback();
+  await overlappingTick;
+
+  assert.equal(meetingRuns, 1);
+  releaseFirstRun();
+  await firstTick;
+});

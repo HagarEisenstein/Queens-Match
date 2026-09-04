@@ -42,6 +42,15 @@ describe("mentorProfilesService", () => {
         orderBy: { updatedAt: "desc" },
       });
     });
+
+    it("does not invent profiles for users who only have the mentor role", async () => {
+      prisma.mentorProfile.findMany.mockResolvedValue([]);
+
+      const result = await getMentors();
+
+      expect(result).toEqual([]);
+      expect(prisma.mentorProfile.findMany).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("getMentorById", () => {

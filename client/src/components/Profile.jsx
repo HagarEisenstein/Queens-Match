@@ -3,15 +3,17 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Paper,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Profile() {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, hasRole } = useAuth();
   const [form, setForm] = useState({
     username: user.username || "",
     full_name: user.full_name || "",
@@ -64,12 +66,48 @@ export default function Profile() {
     }
   };
 
+  const isBoth = hasRole("mentor") && hasRole("mentee");
+
   return (
     <Box maxWidth="md" mx="auto">
-      <Paper component="form" onSubmit={submit} sx={{ p: 4 }}>
+      <Paper
+        component="form"
+        onSubmit={submit}
+        elevation={0}
+        sx={{ p: 4, border: "1px solid", borderColor: "divider" }}
+      >
         <Stack spacing={3}>
-          <Typography variant="h4">Your profile</Typography>
+          <Typography variant="h4" color="primary">
+            Your profile
+          </Typography>
           <Typography color="text.secondary">{user.email}</Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {isBoth ? (
+              <>
+                <Chip label="Mentoring" sx={{ bgcolor: "#FFD9E7" }} />
+                <Chip label="Learning" color="secondary" variant="outlined" />
+              </>
+            ) : (
+              user.roles.map((role) => (
+                <Chip
+                  key={role}
+                  label={role}
+                  sx={{ bgcolor: "#FFD9E7", textTransform: "capitalize" }}
+                />
+              ))
+            )}
+          </Stack>
+          {hasRole("mentor") && (
+            <Button
+              component={Link}
+              to="/mentor-profile"
+              variant="outlined"
+              color="secondary"
+              sx={{ alignSelf: "flex-start" }}
+            >
+              Edit mentor profile
+            </Button>
+          )}
           {message && <Alert severity="success">{message}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
           <TextField label="Username" required value={form.username} onChange={setField("username")} />

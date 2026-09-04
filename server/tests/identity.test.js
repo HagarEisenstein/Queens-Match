@@ -124,6 +124,10 @@ describe("Epic 1 identity API", () => {
     });
     expect(response.body.user).not.toHaveProperty("password");
     expect(response.body.user).not.toHaveProperty("password_hash");
+    expect(jwt.verify(response.body.token, JWT_SECRET)).toMatchObject({
+      id: response.body.user.id,
+      roles: ["mentee", "mentor"],
+    });
     expect(repository.users[0].password_hash).not.toBe(password);
     await expect(
       bcrypt.compare(password, repository.users[0].password_hash)

@@ -15,11 +15,44 @@ const { createPostMeetingCheckJob } = require("./jobs/postMeetingCheckJob");
 const { createFeedbackReminderJob } = require("./jobs/feedbackReminderJob");
 const { startNotificationJobs } = require("./jobs/startJobs");
 
-function bootstrapNotifications({ env = process.env, scheduler = cron, meetingRepository, feedbackRepository } = {}) {
+function parsePositiveInt(value, fallback) {
+  if (value == null || value === "") return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function bootstrapNotifications({
+  env = process.env,
+  scheduler = cron,
+  meetingRepository,
+  feedbackRepository,
+} = {}) {
+  const emailDelayMilliseconds = parsePositiveInt(
+    env.NOTIFICATION_EMAIL_DELAY_MS,
+    60 * 60 * 1000
+  );
+  const reminderLeadTimeMilliseconds = parsePositiveInt(
+    env.NOTIFICATION_REMINDER_LEAD_MS,
+    2 * 24 * 60 * 60 * 1000
+  );
+  const scanWindowMilliseconds = parsePositiveInt(
+    env.NOTIFICATION_SCAN_WINDOW_MS,
+    60 * 60 * 1000
+  );
+  const feedbackIntervalMilliseconds = parsePositiveInt(
+    env.NOTIFICATION_FEEDBACK_INTERVAL_MS,
+    2 * 24 * 60 * 60 * 1000
+  );
+
   const notificationRepository = createPrismaNotificationRepository(prisma);
   const deliveryRepository = createPrismaDeliveryRepository(prisma);
   const realtimeHub = createRealtimeHub();
-  const notificationService = createNotificationCenterService({ notificationRepository, deliveryRepository, realtimeHub });
+  const notificationService = createNotificationCenterService({
+    notificationRepository,
+    deliveryRepository,
+    realtimeHub,
+    emailDelayMilliseconds,
+  });
   const emailProvider = env.NOTIFICATION_PROVIDER === "email"
     ? createBrevoProvider(env)
     : createConsoleProvider({ logger });
@@ -28,17 +61,58 @@ function bootstrapNotifications({ env = process.env, scheduler = cron, meetingRe
   const scheduledTask = env.NODE_ENV === "test" ? null : scheduler.schedule("* * * * *", () =>
     emailFallbackJob.run().catch((error) => logger.error("Email fallback job failed", { error: error.message }))
   );
-  const meetingTask = env.NODE_ENV !== "test" && meetingRepository && feedbackRepository
-    ? startNotificationJobs({
-      scheduler,
-      meetingReminderJob: createMeetingReminderJob({ meetingRepository, notificationService }),
-      postMeetingCheckJob: createPostMeetingCheckJob({ meetingRepository, notificationService }),
-      feedbackReminderJob: createFeedbackReminderJob({ feedbackRepository, notificationService }),
-      cronExpression: env.NOTIFICATION_JOBS_CRON || "0 * * * *",
+
+  const meetingReminderJob = meetingRepository
+    ? createMeetingReminderJob({
+      meetingRepository,
+      notificationService,
+      reminderLeadTimeMilliseconds,
+      scanWindowMilliseconds,
+    })
+    : null;
+  const postMeetingCheckJob = meetingRepository
+    ? createPostMeetingCheckJob({ meetingRepository, notificationService })
+    : null;
+  const feedbackReminderJob = feedbackRepository
+    ? createFeedbackReminderJob({
+      feedbackRepository,
+      notificationService,
+      reminderIntervalMilliseconds: feedbackIntervalMilliseconds,
     })
     : null;
 
-  return { notificationRepository, realtimeHub, notificationService, emailFallbackJob, unregisterHandlers, scheduledTask, meetingTask };
+  const meetingTask =
+    env.NODE_ENV !== "test" &&
+    meetingReminderJob &&
+    postMeetingCheckJob &&
+    feedbackReminderJob
+      ? startNotificationJobs({
+        scheduler,
+        meetingReminderJob,
+        postMeetingCheckJob,
+        feedbackReminderJob,
+        cronExpression: env.NOTIFICATION_JOBS_CRON || "0 * * * *",
+      })
+      : null;
+
+  return {
+    notificationRepository,
+    realtimeHub,
+    notificationService,
+    emailFallbackJob,
+    unregisterHandlers,
+    scheduledTask,
+    meetingTask,
+    meetingReminderJob,
+    postMeetingCheckJob,
+    feedbackReminderJob,
+    config: {
+      emailDelayMilliseconds,
+      reminderLeadTimeMilliseconds,
+      scanWindowMilliseconds,
+      feedbackIntervalMilliseconds,
+    },
+  };
 }
 
 module.exports = { bootstrapNotifications };

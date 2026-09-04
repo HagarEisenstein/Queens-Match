@@ -6,7 +6,7 @@ Mentor / mentee matching app — Express + PostgreSQL backend, React (CRA) front
 
 - **Server:** modular Express app (`identity`, mentors, `comms`) + shared middleware
 - **Database:** PostgreSQL (Prisma migrations; identity also uses `pg`)
-- **Client:** React + MUI, Bearer JWT in `localStorage`, CRA proxy to `:5000` in development
+- **Client:** React + MUI, Bearer JWT in `localStorage`, CRA proxy to `:5001` in development
 - **Production:** one Render web service serves `/api/*` and the built SPA from `client/build`
 
 ## Prerequisites
@@ -36,7 +36,7 @@ cd ..
 npm run dev
 ```
 
-- API: http://localhost:5000 (`GET /api/health`)
+- API: http://localhost:5001 (`GET /api/health`)
 - UI: http://localhost:3000
 
 ### Environment variables
