@@ -7,7 +7,9 @@
     "node": ">=18"
   },
   "scripts": {
+    "prestart": "prisma generate",
     "start": "node index.js",
+    "predev": "prisma generate",
     "dev": "nodemon index.js",
     "prisma": "prisma",
     "postinstall": "prisma generate",
