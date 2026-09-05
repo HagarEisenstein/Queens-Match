@@ -22,9 +22,6 @@ model User {
   yearsExperience Int?     @map("years_experience")
   techStack       String[] @map("tech_stack")
   createdAt       DateTime @default(now()) @map("created_at")
-  lastActivityAt  DateTime @default(now()) @map("last_activity_at")
-  deletionWarningSentAt DateTime? @map("deletion_warning_sent_at")
-  deletionScheduledAt DateTime? @map("deletion_scheduled_at")
   mentorProfile   MentorProfile?
   notifications   Notification[]
   outcomeResponses MeetingOutcomeResponse[]
@@ -36,26 +33,6 @@ model User {
   meetingsAsMentor Meeting[] @relation("MentorMeetings")
 
   @@map("users")
-}
-
-model AdminAlert {
-  idempotencyKey String   @id @map("idempotency_key")
-  alertType      String   @map("alert_type")
-  status         String   @default("open")
-  meetingId      String?  @map("meeting_id") @db.Uuid
-  subjectUserId  String?  @map("subject_user_id") @db.Uuid
-  payload        Json
-  reviewedBy     String?  @map("reviewed_by") @db.Uuid
-  reviewNote     String?  @map("review_note")
-  reviewedAt     DateTime? @map("reviewed_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  @@index([status, createdAt])
-  @@index([alertType, createdAt])
-  @@index([meetingId])
-  @@index([subjectUserId])
-  @@map("admin_alerts")
 }
 
 model Meeting {

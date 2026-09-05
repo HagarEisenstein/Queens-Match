@@ -15,7 +15,6 @@ const { createMeetingReminderJob } = require("./jobs/meetingReminderJob");
 const { createPostMeetingCheckJob } = require("./jobs/postMeetingCheckJob");
 const { createFeedbackReminderJob } = require("./jobs/feedbackReminderJob");
 const { startNotificationJobs } = require("./jobs/startJobs");
-const { createAdminAlertService } = require("../services/adminAlertService");
 
 function parsePositiveInt(value, fallback) {
   if (value == null || value === "") return fallback;
@@ -84,9 +83,6 @@ function bootstrapNotifications({
       reminderIntervalMilliseconds: feedbackIntervalMilliseconds,
     })
     : null;
-  const adminAlertService = createAdminAlertService({ prisma, notificationService });
-  const adminAlertJob = { run: (at) => adminAlertService.scan({ at }) };
-
   const meetingTask =
     env.NODE_ENV !== "test" &&
     meetingReminderJob &&
@@ -97,7 +93,6 @@ function bootstrapNotifications({
         meetingReminderJob,
         postMeetingCheckJob,
         feedbackReminderJob,
-        adminAlertJob,
         cronExpression: env.NOTIFICATION_JOBS_CRON || "0 * * * *",
       })
       : null;
@@ -113,7 +108,6 @@ function bootstrapNotifications({
     meetingReminderJob,
     postMeetingCheckJob,
     feedbackReminderJob,
-    adminAlertService,
     config: {
       emailDelayMilliseconds,
       reminderLeadTimeMilliseconds,
