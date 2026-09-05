@@ -44,8 +44,6 @@ model Meeting {
   moreTimesUsed Boolean           @default(false) @map("more_times_used")
   rescheduleUsed Boolean          @default(false) @map("reschedule_used")
   retryAfterNoshowUsed Boolean    @default(false) @map("retry_after_noshow_used")
-  menteeArrivalConfirmed Boolean  @default(false) @map("mentee_arrival_confirmed")
-  mentorArrivalConfirmed Boolean  @default(false) @map("mentor_arrival_confirmed")
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")
   mentee        User              @relation("MenteeMeetings", fields: [menteeId], references: [id], onDelete: Cascade)
@@ -62,7 +60,6 @@ model MeetingTimeSlot {
   meetingId String   @map("meeting_id") @db.Uuid
   startTime DateTime @map("start_time")
   endTime   DateTime @map("end_time")
-  isBooked  Boolean  @default(false) @map("is_booked")
   createdAt DateTime @default(now()) @map("created_at")
   meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 
@@ -114,9 +111,7 @@ model MentorProfile {
   background            String
   adviceTopics          String[] @map("advice_topics")
   meetingsOffered       Int      @map("meetings_offered")
-  maxMeetings           Int?     @map("max_meetings")
   meetingLengthMinutes  Int      @map("meeting_length_minutes")
-  isActive              Boolean  @default(true) @map("is_active")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
