@@ -18,7 +18,7 @@ const profileInclude = {
 
 async function getMentors() {
   return prisma.mentorProfile.findMany({
-    where: { isActive: true, user: { roles: { has: "mentor" } } },
+    where: { user: { roles: { has: "mentor" } } },
     include: profileInclude,
     orderBy: { updatedAt: "desc" },
   });
@@ -26,7 +26,7 @@ async function getMentors() {
 
 async function getMentorById(id) {
   return prisma.mentorProfile.findFirst({
-    where: { id, isActive: true, user: { roles: { has: "mentor" } } },
+    where: { id, user: { roles: { has: "mentor" } } },
     include: profileInclude,
   });
 }

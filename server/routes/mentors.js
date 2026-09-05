@@ -1,7 +1,6 @@
 const express = require("express");
 const { body } = require("express-validator");
 const { validate } = require("../commons/validation.middleware");
-const { requireAnyRole } = require("../middleware/auth");
 const {
   getMentors,
   getMentorById,
@@ -15,17 +14,14 @@ const profileValidation = [
   body("adviceTopics.*").isString().trim().isLength({ min: 1, max: 100 }),
   body("meetingsOffered").isInt({ min: 1, max: 1000 }).toInt(),
   body("meetingLengthMinutes").isInt({ min: 15, max: 480 }).toInt(),
-  body("isActive").optional().isBoolean().toBoolean(),
   validate,
 ];
 
 function createMentorsRouter({ authenticate }) {
   const router = express.Router();
-  const requireMentee = [authenticate, requireAnyRole("mentee")];
 
-  // Mentor discovery is a mentee capability. Mentor profiles remain private
-  // from mentor-only users, including when the API is called directly.
-  router.get("/", requireMentee, async (req, res, next) => {
+  // Public discovery endpoints intentionally expose only profile information.
+  router.get("/", async (req, res, next) => {
     try {
       res.json(await getMentors());
     } catch (error) {
@@ -42,7 +38,7 @@ function createMentorsRouter({ authenticate }) {
     }
   });
 
-  router.get("/:id", requireMentee, async (req, res, next) => {
+  router.get("/:id", async (req, res, next) => {
     try {
       const profile = await getMentorById(req.params.id);
       if (!profile) {
@@ -63,7 +59,6 @@ function createMentorsRouter({ authenticate }) {
         adviceTopics: req.body.adviceTopics.map((topic) => topic.trim()),
         meetingsOffered: req.body.meetingsOffered,
         meetingLengthMinutes: req.body.meetingLengthMinutes,
-        ...(req.body.isActive === undefined ? {} : { isActive: req.body.isActive }),
       });
       res.json(profile);
     } catch (error) {
