@@ -111,6 +111,8 @@ Default `NOTIFICATION_PROVIDER=console`. For email via Brevo SMTP, set `NOTIFICA
 
 The scan covers cancelled meetings, mentor responses older than 72 hours, stalled pre-arrival meetings, not-completed meetings, overdue feedback, and overloaded mentors using genuinely completed meetings. Mentee accounts use `last_activity_at`; after one year of inactivity they receive an in-app warning and are scheduled for deletion one week later. A successful login clears the warning and deletion schedule.
 
+For local presentations, create the demo admin in the configured Neon database with `npm --prefix server run db:seed:demo-admin`. The login page then provides `Login as admin (demo)` for `admin@queensmatch.local` / `Admin123!`. This account is for demonstration only and should not be enabled for a public deployment.
+
 ## License
 
 MIT

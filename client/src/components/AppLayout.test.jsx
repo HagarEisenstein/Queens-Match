@@ -89,6 +89,32 @@ describe("AppLayout", () => {
     expect(screen.queryByRole("link", { name: "Mentor Profile" })).not.toBeInTheDocument();
   });
 
+  it("hides mentor discovery from mentor-only users", () => {
+    mockAuth({ username: "m", roles: ["mentor"] });
+    apiClient.get.mockResolvedValue({ data: { id: "p1" } });
+
+    render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole("link", { name: "Discover" })).not.toBeInTheDocument();
+  });
+
+  it("shows mentor discovery to users who are also mentees", () => {
+    mockAuth({ username: "m", roles: ["mentor", "mentee"] });
+    apiClient.get.mockResolvedValue({ data: { id: "p1" } });
+
+    render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    expect(screen.getAllByRole("link", { name: "Discover" }).length).toBeGreaterThan(0);
+  });
+
   it("allows switching to Hebrew and back to English", () => {
     mockAuth({ id: "u1", username: "e", roles: ["mentee"] });
 

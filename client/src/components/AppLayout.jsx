@@ -115,9 +115,11 @@ export default function AppLayout() {
             ))}
           </Stack>
 
-          <Button component={Link} to="/mentors" sx={navLinkSx}>
-            Discover
-          </Button>
+          {hasRole("mentee") && (
+            <Button component={Link} to="/mentors" sx={navLinkSx}>
+              Discover
+            </Button>
+          )}
           <Button component={Link} to="/matches" sx={navLinkSx}>
             Matches
           </Button>
@@ -212,9 +214,11 @@ export default function AppLayout() {
               Queens Match
             </Typography>
             <Stack direction="row" spacing={2} flexWrap="wrap">
-              <Button component={Link} to="/mentors" size="small" sx={{ color: "secondary.main" }}>
-                Discover
-              </Button>
+              {hasRole("mentee") && (
+                <Button component={Link} to="/mentors" size="small" sx={{ color: "secondary.main" }}>
+                  Discover
+                </Button>
+              )}
               <Button component={Link} to="/matches" size="small" sx={{ color: "secondary.main" }}>
                 Matches
               </Button>

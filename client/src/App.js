@@ -43,8 +43,22 @@ function App() {
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/profile" element={<Profile />} />
-                  <Route path="/mentors" element={<MentorList />} />
-                  <Route path="/mentors/:id" element={<MentorDetail />} />
+                  <Route
+                    path="/mentors"
+                    element={
+                      <RoleGuard roles={["mentee"]}>
+                        <MentorList />
+                      </RoleGuard>
+                    }
+                  />
+                  <Route
+                    path="/mentors/:id"
+                    element={
+                      <RoleGuard roles={["mentee"]}>
+                        <MentorDetail />
+                      </RoleGuard>
+                    }
+                  />
                   <Route path="/matches" element={<Matches />} />
                   <Route
                     path="/mentor-profile"

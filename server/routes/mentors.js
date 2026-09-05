@@ -1,6 +1,7 @@
 const express = require("express");
 const { body } = require("express-validator");
 const { validate } = require("../commons/validation.middleware");
+const { requireAnyRole } = require("../middleware/auth");
 const {
   getMentors,
   getMentorById,
@@ -20,9 +21,11 @@ const profileValidation = [
 
 function createMentorsRouter({ authenticate }) {
   const router = express.Router();
+  const requireMentee = [authenticate, requireAnyRole("mentee")];
 
-  // Public discovery endpoints intentionally expose only profile information.
-  router.get("/", async (req, res, next) => {
+  // Mentor discovery is a mentee capability. Mentor profiles remain private
+  // from mentor-only users, including when the API is called directly.
+  router.get("/", requireMentee, async (req, res, next) => {
     try {
       res.json(await getMentors());
     } catch (error) {
@@ -39,7 +42,7 @@ function createMentorsRouter({ authenticate }) {
     }
   });
 
-  router.get("/:id", async (req, res, next) => {
+  router.get("/:id", requireMentee, async (req, res, next) => {
     try {
       const profile = await getMentorById(req.params.id);
       if (!profile) {
