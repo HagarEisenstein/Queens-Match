@@ -147,6 +147,13 @@ export default function Register() {
           "radial-gradient(circle at top left, #FFD9E7 0%, #FFF0F6 45%, #FFFFFF 100%)",
       }}
     >
+      <Box className="qm-bee" aria-hidden="true">
+        <span className="qm-bee__trail" />
+        <span className="qm-bee__wing qm-bee__wing--one" />
+        <span className="qm-bee__wing qm-bee__wing--two" />
+        <span className="qm-bee__body" />
+        <span className="qm-bee__eye" />
+      </Box>
       <Box sx={{ display: "flex", justifyContent: "flex-end", py: 2 }}>
         <LocaleToggle />
       </Box>

@@ -34,8 +34,13 @@ export default function Login() {
       await login(credentials);
       navigate("/", { replace: true });
     } catch (requestError) {
+      const apiError = requestError.response?.data?.error;
+      const databaseUnavailable =
+        apiError?.code === "ECONNREFUSED" || apiError?.code === "DATABASE_ERROR";
       setError(
-        requestError.response?.data?.error?.message || "Unable to log in."
+        databaseUnavailable
+          ? "The demo service cannot reach its database. Start PostgreSQL and the API, then try again."
+          : apiError?.message || "Unable to log in."
       );
     } finally {
       setSubmitting(false);
@@ -66,6 +71,13 @@ export default function Login() {
           "radial-gradient(circle at top, #FFD9E7 0%, #FFF0F6 40%, #FFFFFF 100%)",
       }}
     >
+      <Box className="qm-bee" aria-hidden="true">
+        <span className="qm-bee__trail" />
+        <span className="qm-bee__wing qm-bee__wing--one" />
+        <span className="qm-bee__wing qm-bee__wing--two" />
+        <span className="qm-bee__body" />
+        <span className="qm-bee__eye" />
+      </Box>
       <Box sx={{ display: "flex", justifyContent: "flex-end", py: 2 }}>
         <LocaleToggle />
       </Box>

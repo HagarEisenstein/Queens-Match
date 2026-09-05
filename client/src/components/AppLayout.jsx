@@ -77,8 +77,15 @@ export default function AppLayout() {
         flexDirection: "column",
       }}
     >
+      <Box className="qm-bee" aria-hidden="true">
+        <span className="qm-bee__trail" />
+        <span className="qm-bee__wing qm-bee__wing--one" />
+        <span className="qm-bee__wing qm-bee__wing--two" />
+        <span className="qm-bee__body" />
+        <span className="qm-bee__eye" />
+      </Box>
       <AppBar position="sticky" elevation={0}>
-        <Toolbar sx={{ gap: 1.5, flexWrap: "wrap", py: 1 }}>
+        <Toolbar sx={{ gap: 1, flexWrap: "wrap", py: 1, px: { xs: 2, md: 4 }, maxWidth: 1440, width: "100%", mx: "auto" }}>
           <Typography
             component={Link}
             to="/"
@@ -87,7 +94,7 @@ export default function AppLayout() {
               flexGrow: 1,
               textDecoration: "none",
               color: "primary.main",
-              fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif',
+              fontFamily: '"Nunito", "Assistant", sans-serif',
               fontWeight: 700,
               letterSpacing: 0.2,
             }}
@@ -180,7 +187,7 @@ export default function AppLayout() {
         </Alert>
       )}
 
-      <Box component="main" sx={{ p: { xs: 2, md: 4 }, flex: 1 }}>
+      <Box component="main" sx={{ p: { xs: 2, sm: 3, md: 5 }, flex: 1, width: "100%", maxWidth: 1440, mx: "auto" }}>
         <Outlet />
       </Box>
 
