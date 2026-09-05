@@ -6,6 +6,10 @@ jest.mock("../modules/scheduling/schedulingService", () => ({
   offerTimes: jest.fn(),
   rejectMeeting: jest.fn(),
   selectTime: jest.fn(),
+  requestMoreTimes: jest.fn(),
+  declineOfferedTimes: jest.fn(),
+  flagCantMakeIt: jest.fn(),
+  reopenAfterNoShow: jest.fn(),
   getMeetingById: jest.fn(),
   listMeetingsForUser: jest.fn(),
 }));
@@ -18,6 +22,9 @@ const {
   offerTimes,
   rejectMeeting,
   selectTime,
+  requestMoreTimes,
+  declineOfferedTimes,
+  flagCantMakeIt,
   getMeetingById,
   listMeetingsForUser,
 } = require("../modules/scheduling/schedulingService");
@@ -147,6 +154,58 @@ describe("POST /api/meetings/:id/select-time", () => {
 
     expect(response.status).toBe(200);
     expect(selectTime).toHaveBeenCalledWith({ meetingId: MEETING_ID, actorId: "u1", slotId: SLOT_ID });
+  });
+});
+
+describe("POST /api/meetings/:id/request-more-times", () => {
+  it("forwards the request to the service", async () => {
+    requestMoreTimes.mockResolvedValue({ id: MEETING_ID, status: "pending_mentor_times" });
+
+    const response = await request(app)
+      .post(`/api/meetings/${MEETING_ID}/request-more-times`)
+      .set("Authorization", `Bearer ${tokenFor("u1")}`);
+
+    expect(response.status).toBe(200);
+    expect(requestMoreTimes).toHaveBeenCalledWith({ meetingId: MEETING_ID, actorId: "u1" });
+  });
+
+  it("surfaces a service 409 when the one retry is already spent", async () => {
+    requestMoreTimes.mockRejectedValue(
+      Object.assign(new Error("nope"), { statusCode: 409, code: "RETRY_ALREADY_USED" })
+    );
+
+    const response = await request(app)
+      .post(`/api/meetings/${MEETING_ID}/request-more-times`)
+      .set("Authorization", `Bearer ${tokenFor("u1")}`);
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("RETRY_ALREADY_USED");
+  });
+});
+
+describe("POST /api/meetings/:id/decline", () => {
+  it("forwards the decline to the service", async () => {
+    declineOfferedTimes.mockResolvedValue({ id: MEETING_ID, status: "rejected" });
+
+    const response = await request(app)
+      .post(`/api/meetings/${MEETING_ID}/decline`)
+      .set("Authorization", `Bearer ${tokenFor("u1")}`);
+
+    expect(response.status).toBe(200);
+    expect(declineOfferedTimes).toHaveBeenCalledWith({ meetingId: MEETING_ID, actorId: "u1" });
+  });
+});
+
+describe("POST /api/meetings/:id/cant-make-it", () => {
+  it("forwards the flag to the service", async () => {
+    flagCantMakeIt.mockResolvedValue({ id: MEETING_ID, status: "pending_mentor_times" });
+
+    const response = await request(app)
+      .post(`/api/meetings/${MEETING_ID}/cant-make-it`)
+      .set("Authorization", `Bearer ${tokenFor(MENTOR, ["mentor"])}`);
+
+    expect(response.status).toBe(200);
+    expect(flagCantMakeIt).toHaveBeenCalledWith({ meetingId: MEETING_ID, actorId: MENTOR });
   });
 });
 

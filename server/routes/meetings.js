@@ -6,6 +6,9 @@ const {
   offerTimes,
   rejectMeeting,
   selectTime,
+  requestMoreTimes,
+  declineOfferedTimes,
+  flagCantMakeIt,
   getMeetingById,
   listMeetingsForUser,
 } = require("../modules/scheduling/schedulingService");
@@ -97,6 +100,45 @@ function createMeetingsRouter({ authenticate }) {
         meetingId: req.params.id,
         actorId: req.user.id,
         slotId: req.body.slotId,
+      });
+      res.json(meeting);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Mentee can't do any offered time and asks for a fresh set, once [R4.6].
+  router.post("/:id/request-more-times", async (req, res, next) => {
+    try {
+      const meeting = await requestMoreTimes({
+        meetingId: req.params.id,
+        actorId: req.user.id,
+      });
+      res.json(meeting);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Mentee can't do any offered time and gives up [R4.6].
+  router.post("/:id/decline", async (req, res, next) => {
+    try {
+      const meeting = await declineOfferedTimes({
+        meetingId: req.params.id,
+        actorId: req.user.id,
+      });
+      res.json(meeting);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Either side flags "can't make it" on a scheduled meeting [R5].
+  router.post("/:id/cant-make-it", async (req, res, next) => {
+    try {
+      const meeting = await flagCantMakeIt({
+        meetingId: req.params.id,
+        actorId: req.user.id,
       });
       res.json(meeting);
     } catch (error) {
