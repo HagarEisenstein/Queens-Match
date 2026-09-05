@@ -14,6 +14,7 @@ const {
 } = require("./modules/identity/userRepository");
 const createMentorsRouter = require("./routes/mentors");
 const createMeetingsRouter = require("./routes/meetings");
+const createAdminRouter = require("./routes/admin");
 const { bootstrapNotifications } = require("./comms/bootstrap");
 const { createNotificationsRouter } = require("./comms/routes");
 const {
@@ -183,6 +184,7 @@ function createApp(options = {}) {
     })
   );
   app.use("/api/engagement", engagement.router);
+  app.use("/api/admin", createAdminRouter({ authenticate, authorizeAdmin }));
 
   mountClientApp(app);
   app.use(notFound);
