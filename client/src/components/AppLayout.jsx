@@ -46,7 +46,8 @@ export default function AppLayout() {
   if (
     hasRole("mentor") &&
     mentorProfileMissing &&
-    location.pathname !== "/mentor-profile"
+    location.pathname !== "/mentor-profile" &&
+    !location.pathname.startsWith("/admin")
   ) {
     return <Navigate to="/mentor-profile" replace />;
   }
@@ -127,6 +128,9 @@ export default function AppLayout() {
             <Button color="inherit" component={Link} to="/mentor-profile" sx={navLinkSx}>
               Mentor Profile
             </Button>
+          )}
+          {hasRole("admin") && (
+            <Button component={Link} to="/admin" sx={navLinkSx}>Admin</Button>
           )}
           <LocaleToggle
             sx={{

@@ -19,10 +19,10 @@ const { bootstrapNotifications } = require("./comms/bootstrap");
 const { createNotificationsRouter } = require("./comms/routes");
 const {
   bootstrapEngagement,
-  createEmptyMeetingQueryPort,
-  createNoopMeetingLifecyclePort,
   createPrismaFeedbackRepository,
 } = require("./engagement");
+const { createPrismaMeetingQueryRepository } = require("./engagement/repositories/prismaMeetingQueryRepository");
+const { createPrismaMeetingLifecycleRepository } = require("./engagement/repositories/prismaMeetingLifecycleRepository");
 const prisma = require("./commons/db");
 
 function mountClientApp(app) {
@@ -56,9 +56,9 @@ function createApp(options = {}) {
   const authorizeAdmin = requireCurrentRole(userRepository, "admin");
 
   const meetingQueryPort =
-    options.meetingQueryPort || createEmptyMeetingQueryPort();
+    options.meetingQueryPort || createPrismaMeetingQueryRepository(prisma);
   const meetingLifecyclePort =
-    options.meetingLifecyclePort || createNoopMeetingLifecyclePort();
+    options.meetingLifecyclePort || createPrismaMeetingLifecycleRepository(prisma);
   const feedbackRepository =
     options.feedbackRepository || createPrismaFeedbackRepository(prisma);
 
@@ -184,7 +184,7 @@ function createApp(options = {}) {
     })
   );
   app.use("/api/engagement", engagement.router);
-  app.use("/api/admin", createAdminRouter({ authenticate, authorizeAdmin }));
+  app.use("/api/admin", createAdminRouter({ authenticate, authorizeAdmin, alertService: notifications.adminAlertService }));
 
   mountClientApp(app);
   app.use(notFound);

@@ -145,7 +145,7 @@ export default function MeetingsReport() {
                     {meeting.mentor?.username || meeting.mentorId}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={meeting.status} />
+                    <StatusBadge status={meeting.canonicalStatus || meeting.status} />
                   </TableCell>
                   <TableCell>{formatWhen(meeting.scheduledTime)}</TableCell>
                 </TableRow>

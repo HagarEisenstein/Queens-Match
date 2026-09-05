@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Button,
   Link as MuiLink,
   Paper,
   Stack,
@@ -17,6 +18,7 @@ function formatDateTime(value) {
 export default function Alerts() {
   const [alerts, setAlerts] = useState(null);
   const [error, setError] = useState("");
+  const [reviewing, setReviewing] = useState("");
 
   useEffect(() => {
     api
@@ -33,11 +35,20 @@ export default function Alerts() {
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!alerts) return null;
 
-  const { meetingsNotCompleted, overdueFeedback, overloadedMentors } = alerts;
+  const reviewAlert = (key) => {
+    setReviewing(key);
+    api.put(`/admin/alerts/${encodeURIComponent(key)}/review`, { status: "approved" })
+      .then(() => setAlerts((current) => ({ ...current, persistent: current.persistent.filter((item) => item.idempotencyKey !== key) })))
+      .catch(() => setError("Alert could not be reviewed."))
+      .finally(() => setReviewing("") );
+  };
+
+  const { meetingsNotCompleted = [], overdueFeedback = [], overloadedMentors = [], persistent = [] } = alerts;
   const isEmpty =
     meetingsNotCompleted.length === 0 &&
     overdueFeedback.length === 0 &&
-    overloadedMentors.length === 0;
+    overloadedMentors.length === 0 &&
+    persistent.length === 0;
 
   return (
     <>
@@ -45,6 +56,21 @@ export default function Alerts() {
         Admin alerts
       </Typography>
       {isEmpty && <Alert severity="success">No alerts right now.</Alert>}
+
+      {persistent.length > 0 && (
+        <Stack spacing={2} sx={{ mb: 3 }}>
+          <Typography variant="h6">Open exception alerts</Typography>
+          {persistent.map((item) => (
+            <Paper key={item.idempotencyKey} sx={{ p: 2 }}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
+                <Typography sx={{ flex: 1 }}>{item.alertType.replaceAll("_", " ")}</Typography>
+                <MuiLink component={Link} to={item.meetingId ? `/admin/meetings/${item.meetingId}` : "/admin/alerts"}>Review</MuiLink>
+                <Button size="small" onClick={() => reviewAlert(item.idempotencyKey)} disabled={reviewing === item.idempotencyKey}>Approve</Button>
+              </Stack>
+            </Paper>
+          ))}
+        </Stack>
+      )}
 
       {meetingsNotCompleted.length > 0 && (
         <Stack spacing={2} sx={{ mb: 3 }}>

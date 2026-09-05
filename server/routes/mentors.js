@@ -14,6 +14,7 @@ const profileValidation = [
   body("adviceTopics.*").isString().trim().isLength({ min: 1, max: 100 }),
   body("meetingsOffered").isInt({ min: 1, max: 1000 }).toInt(),
   body("meetingLengthMinutes").isInt({ min: 15, max: 480 }).toInt(),
+  body("isActive").optional().isBoolean().toBoolean(),
   validate,
 ];
 
@@ -59,6 +60,7 @@ function createMentorsRouter({ authenticate }) {
         adviceTopics: req.body.adviceTopics.map((topic) => topic.trim()),
         meetingsOffered: req.body.meetingsOffered,
         meetingLengthMinutes: req.body.meetingLengthMinutes,
+        ...(req.body.isActive === undefined ? {} : { isActive: req.body.isActive }),
       });
       res.json(profile);
     } catch (error) {

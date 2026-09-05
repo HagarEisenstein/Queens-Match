@@ -9,11 +9,13 @@ const { createPrismaDeliveryRepository } = require("./repositories/prismaDeliver
 const { createEmailFallbackJob } = require("./jobs/emailFallbackJob");
 const { createBrevoProvider } = require("./providers/brevoProvider");
 const { createConsoleProvider } = require("./providers/consoleProvider");
+const { createWhatsAppProvider } = require("./providers/whatsappProvider");
 const { registerNotificationEventHandlers } = require("./registerEventHandlers");
 const { createMeetingReminderJob } = require("./jobs/meetingReminderJob");
 const { createPostMeetingCheckJob } = require("./jobs/postMeetingCheckJob");
 const { createFeedbackReminderJob } = require("./jobs/feedbackReminderJob");
 const { startNotificationJobs } = require("./jobs/startJobs");
+const { createAdminAlertService } = require("../services/adminAlertService");
 
 function parsePositiveInt(value, fallback) {
   if (value == null || value === "") return fallback;
@@ -53,10 +55,12 @@ function bootstrapNotifications({
     realtimeHub,
     emailDelayMilliseconds,
   });
-  const emailProvider = env.NOTIFICATION_PROVIDER === "email"
+  const provider = env.NOTIFICATION_PROVIDER === "email"
     ? createBrevoProvider(env)
-    : createConsoleProvider({ logger });
-  const emailFallbackJob = createEmailFallbackJob({ deliveryRepository, emailProvider });
+    : env.NOTIFICATION_PROVIDER === "whatsapp"
+      ? createWhatsAppProvider(env, { logger })
+      : createConsoleProvider({ logger });
+  const emailFallbackJob = createEmailFallbackJob({ deliveryRepository, emailProvider: provider });
   const unregisterHandlers = registerNotificationEventHandlers({ eventBus, notificationService, logger });
   const scheduledTask = env.NODE_ENV === "test" ? null : scheduler.schedule("* * * * *", () =>
     emailFallbackJob.run().catch((error) => logger.error("Email fallback job failed", { error: error.message }))
@@ -80,6 +84,8 @@ function bootstrapNotifications({
       reminderIntervalMilliseconds: feedbackIntervalMilliseconds,
     })
     : null;
+  const adminAlertService = createAdminAlertService({ prisma, notificationService });
+  const adminAlertJob = { run: (at) => adminAlertService.scan({ at }) };
 
   const meetingTask =
     env.NODE_ENV !== "test" &&
@@ -91,6 +97,7 @@ function bootstrapNotifications({
         meetingReminderJob,
         postMeetingCheckJob,
         feedbackReminderJob,
+        adminAlertJob,
         cronExpression: env.NOTIFICATION_JOBS_CRON || "0 * * * *",
       })
       : null;
@@ -106,6 +113,7 @@ function bootstrapNotifications({
     meetingReminderJob,
     postMeetingCheckJob,
     feedbackReminderJob,
+    adminAlertService,
     config: {
       emailDelayMilliseconds,
       reminderLeadTimeMilliseconds,

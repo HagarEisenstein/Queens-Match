@@ -204,6 +204,9 @@ async function selectTime({ meetingId, actorId, slotId }) {
     data: { status: nextStatus, scheduledTime: slot.startTime },
     include: meetingInclude,
   });
+  if (typeof prisma.meetingTimeSlot.update === "function") {
+    await prisma.meetingTimeSlot.update({ where: { id: slot.id }, data: { isBooked: true } });
+  }
 
   eventBus.emit("MeetingMatched", {
     meetingId,
@@ -212,6 +215,38 @@ async function selectTime({ meetingId, actorId, slotId }) {
   });
 
   return updated;
+}
+
+async function requestMoreTimes({ meetingId, actorId }) {
+  const meeting = await loadMeetingOr404(meetingId);
+  if (meeting.menteeId !== actorId) throw httpError(403, "FORBIDDEN", "Only the mentee can request more times.");
+  if (meeting.moreTimesUsed) throw httpError(409, "RETRY_EXHAUSTED", "Additional times were already requested for this meeting.");
+  const nextStatus = transition(meeting.status, MEETING_ACTION.REQUEST_MORE_TIMES);
+  return prisma.meeting.update({ where: { id: meetingId }, data: { status: nextStatus, moreTimesUsed: true }, include: meetingInclude });
+}
+
+async function reportCannotAttend({ meetingId, actorId }) {
+  const meeting = await loadMeetingOr404(meetingId);
+  assertParticipant(meeting, actorId);
+  const action = meeting.rescheduleUsed ? `${MEETING_ACTION.CANNOT_ATTEND}_AGAIN` : MEETING_ACTION.CANNOT_ATTEND;
+  const nextStatus = transition(meeting.status, action);
+  await prisma.meetingTimeSlot.updateMany({ where: { meetingId, isBooked: true }, data: { isBooked: false } });
+  return prisma.meeting.update({ where: { id: meetingId }, data: { status: nextStatus, scheduledTime: null, rescheduleUsed: true }, include: meetingInclude });
+}
+
+async function confirmArrival({ meetingId, actorId }) {
+  const meeting = await loadMeetingOr404(meetingId);
+  assertParticipant(meeting, actorId);
+  const data = meeting.menteeId === actorId
+    ? { menteeArrivalConfirmed: true }
+    : { mentorArrivalConfirmed: true };
+  const bothConfirmed = (meeting.menteeArrivalConfirmed || data.menteeArrivalConfirmed) &&
+    (meeting.mentorArrivalConfirmed || data.mentorArrivalConfirmed);
+  return prisma.meeting.update({
+    where: { id: meetingId },
+    data: { ...data, ...(bothConfirmed ? { status: transition(meeting.status, MEETING_ACTION.CONFIRM_ARRIVAL) } : {}) },
+    include: meetingInclude,
+  });
 }
 
 async function getMeetingById(meetingId, requesterId) {
@@ -260,6 +295,9 @@ module.exports = {
   offerTimes,
   rejectMeeting,
   selectTime,
+  requestMoreTimes,
+  reportCannotAttend,
+  confirmArrival,
   getMeetingById,
   listMeetingsForUser,
 };

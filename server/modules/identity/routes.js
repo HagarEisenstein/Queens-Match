@@ -72,6 +72,7 @@ function createIdentityRouters({
       }
 
       const token = createAccessToken(user);
+      if (userRepository.touchActivity) await userRepository.touchActivity(user.id);
       const { password_hash, ...publicUser } = user;
       return res.json({ token, user: publicUser });
     } catch (error) {

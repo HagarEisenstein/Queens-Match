@@ -11,6 +11,11 @@ const MEETING_STATUSES = [
   "pending_mentor_times",
   "pending_mentee_selection",
   "scheduled",
+  "arrival_confirmed",
+  "completed",
+  "not_completed",
+  "feedback_submitted",
+  "admin_review",
   "rejected",
   "cancelled",
 ];
@@ -44,10 +49,24 @@ const userSummarySelect = {
 async function completedMeetingIdSet(meetingIds) {
   if (meetingIds.length === 0) return new Set();
   const rows = await prisma.meetingOutcomeResponse.findMany({
-    where: { meetingId: { in: meetingIds } },
-    select: { meetingId: true },
+    where: { meetingId: { in: meetingIds }, happened: true },
+    select: { meetingId: true, happened: true },
   });
-  return new Set(rows.map((row) => row.meetingId));
+  const responses = new Map();
+  for (const row of rows) responses.set(row.meetingId, (responses.get(row.meetingId) || 0) + 1);
+  return new Set([...responses].filter(([, count]) => count >= 2).map(([id]) => id));
+}
+
+function canonicalStatus(meeting, outcomeResponses = [], feedback = []) {
+  if (["rejected", "cancelled"].includes(meeting.status)) return meeting.status;
+  const mentee = outcomeResponses.find((row) => row.role === "mentee");
+  const mentor = outcomeResponses.find((row) => row.role === "mentor");
+  if (mentee && mentor) {
+    if (mentee.happened !== mentor.happened) return "admin_review";
+    if (mentee.happened && mentor.happened) return feedback.length >= 2 ? "feedback_submitted" : "completed";
+    return "not_completed";
+  }
+  return meeting.status;
 }
 
 /**
@@ -57,7 +76,7 @@ async function completedMeetingIdSet(meetingIds) {
  *   admin-role check (requireCurrentRole(userRepository, "admin")). Applied once, at the
  *   router level, so every route below is admin-only by construction.
  */
-function createAdminRouter({ authenticate, authorizeAdmin }) {
+function createAdminRouter({ authenticate, authorizeAdmin, alertService = null }) {
   if (!authenticate || !authorizeAdmin) {
     throw new Error("createAdminRouter requires both authenticate and authorizeAdmin.");
   }
@@ -67,6 +86,16 @@ function createAdminRouter({ authenticate, authorizeAdmin }) {
   // Zero Trust: nothing under this router is reachable without a valid token AND
   // the admin role, checked before any handler below runs.
   router.use(authenticate, authorizeAdmin);
+
+  router.get("/alerts/persistent", async (req, res, next) => {
+    try { res.json({ alerts: alertService ? await alertService.list({ status: req.query.status }) : [] }); } catch (error) { next(error); }
+  });
+  router.put("/alerts/:id/review", async (req, res, next) => {
+    try {
+      if (!alertService) throw new AppError(503, "ALERTS_UNAVAILABLE", "Alert service is unavailable.");
+      res.json(await alertService.review(req.params.id, req.user.id, { status: req.body.status, note: req.body.note }));
+    } catch (error) { next(error); }
+  });
 
   // R10 — status report, filterable by status and by participant.
   router.get(
@@ -85,7 +114,7 @@ function createAdminRouter({ authenticate, authorizeAdmin }) {
           where.OR = [{ menteeId: participantId }, { mentorId: participantId }];
         }
 
-        const meetings = await prisma.meeting.findMany({
+        let meetings = await prisma.meeting.findMany({
           where,
           include: {
             mentee: { select: userSummarySelect },
@@ -95,11 +124,19 @@ function createAdminRouter({ authenticate, authorizeAdmin }) {
           orderBy: [{ scheduledTime: "asc" }, { createdAt: "desc" }],
         });
 
+        const outcomeRows = meetings.length ? await prisma.meetingOutcomeResponse.findMany({ where: { meetingId: { in: meetings.map((m) => m.id) } } }) : [];
+        const feedbackRows = meetings.length ? await prisma.feedback.findMany({ where: { meetingId: { in: meetings.map((m) => m.id) } } }) : [];
+        const outcomeByMeeting = new Map();
+        const feedbackByMeeting = new Map();
+        for (const row of outcomeRows) outcomeByMeeting.set(row.meetingId, [...(outcomeByMeeting.get(row.meetingId) || []), row]);
+        for (const row of feedbackRows) feedbackByMeeting.set(row.meetingId, [...(feedbackByMeeting.get(row.meetingId) || []), row]);
+        if (status) meetings = meetings.filter((meeting) => canonicalStatus(meeting, outcomeByMeeting.get(meeting.id) || [], feedbackByMeeting.get(meeting.id) || []) === status);
         const completed = await completedMeetingIdSet(meetings.map((m) => m.id));
         res.json({
           meetings: meetings.map((meeting) => ({
             ...meeting,
             isCompleted: completed.has(meeting.id),
+            canonicalStatus: canonicalStatus(meeting, outcomeByMeeting.get(meeting.id) || [], feedbackByMeeting.get(meeting.id) || []),
           })),
         });
       } catch (error) {
@@ -146,7 +183,7 @@ function createAdminRouter({ authenticate, authorizeAdmin }) {
         ]);
 
         res.json({
-          meeting: { ...meeting, isCompleted: outcomeResponses.length > 0 },
+          meeting: { ...meeting, isCompleted: outcomeResponses.filter((row) => row.happened).length >= 2, canonicalStatus: canonicalStatus(meeting, outcomeResponses, feedback) },
           outcomeResponses,
           feedback,
           feedbackRequests,
@@ -171,11 +208,24 @@ function createAdminRouter({ authenticate, authorizeAdmin }) {
         orderBy: { createdAt: "asc" },
       });
 
+      const completedRows = await prisma.meetingOutcomeResponse.findMany({
+        where: { happened: true },
+        select: { meetingId: true, role: true },
+      });
+      const byMeeting = new Map();
+      for (const row of completedRows) byMeeting.set(row.meetingId, [...(byMeeting.get(row.meetingId) || []), row.role]);
+      const completedIds = [...byMeeting].filter(([, roles]) => new Set(roles).size >= 2).map(([id]) => id);
+      const completedMeetings = completedIds.length ? await prisma.meeting.findMany({ where: { id: { in: completedIds } }, select: { menteeId: true, mentorId: true } }) : [];
+      const counts = new Map();
+      for (const meeting of completedMeetings) {
+        counts.set(meeting.mentorId, { ...(counts.get(meeting.mentorId) || {}), mentor: (counts.get(meeting.mentorId)?.mentor || 0) + 1 });
+        counts.set(meeting.menteeId, { ...(counts.get(meeting.menteeId) || {}), mentee: (counts.get(meeting.menteeId)?.mentee || 0) + 1 });
+      }
       res.json({
         users: users.map(({ _count, ...user }) => ({
           ...user,
-          mentorMeetingCount: _count.meetingsAsMentor,
-          menteeMeetingCount: _count.meetingsAsMentee,
+          mentorMeetingCount: counts.get(user.id)?.mentor || 0,
+          menteeMeetingCount: counts.get(user.id)?.mentee || 0,
         })),
       });
     } catch (error) {
@@ -280,6 +330,13 @@ function createAdminRouter({ authenticate, authorizeAdmin }) {
             })
           : [],
       ]);
+      const stalledPreArrivalMeetings = await prisma.meeting.findMany({
+        where: {
+          status: { in: ["pending_mentor_times", "pending_mentee_selection", "scheduled"] },
+          scheduledTime: { lt: now },
+        },
+        select: { id: true, status: true, scheduledTime: true, mentee: { select: userSummarySelect }, mentor: { select: userSummarySelect } },
+      });
 
       const completedCountByMentor = {};
       for (const meeting of completedMeetings) {
@@ -299,7 +356,8 @@ function createAdminRouter({ authenticate, authorizeAdmin }) {
 
       res.json({
         alerts: {
-          meetingsNotCompleted: notCompletedMeetings,
+        meetingsNotCompleted: notCompletedMeetings,
+        stalledPreArrivalMeetings,
           overdueFeedback: overdueFeedback.map((request) => ({
             meetingId: request.meetingId,
             recipient: request.recipient,
@@ -309,6 +367,7 @@ function createAdminRouter({ authenticate, authorizeAdmin }) {
             ...entry,
             mentor: overloadedMentors.find((user) => user.id === entry.mentorId) || null,
           })),
+          persistent: alertService ? await alertService.list({ status: "open" }) : [],
         },
       });
     } catch (error) {

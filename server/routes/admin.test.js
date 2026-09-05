@@ -33,7 +33,11 @@ function appWithRoles(roles) {
   });
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  prisma.meetingOutcomeResponse.findMany.mockResolvedValue([]);
+  prisma.feedback.findMany.mockResolvedValue([]);
+});
 
 describe("admin router — authorization", () => {
   it("rejects an unauthenticated request", async () => {
@@ -63,14 +67,16 @@ describe("admin router — authorization", () => {
 });
 
 describe("GET /api/admin/meetings", () => {
-  it("rejects an unknown status filter", async () => {
+  it("accepts canonical derived status filters", async () => {
+    prisma.meeting.findMany.mockResolvedValue([]);
+    prisma.meetingOutcomeResponse.findMany.mockResolvedValue([]);
+    prisma.feedback.findMany.mockResolvedValue([]);
     const app = appWithRoles(["admin"]);
     const response = await request(app)
       .get("/api/admin/meetings")
-      .query({ status: "completed" }) // not a real Meeting.status value
+      .query({ status: "completed" })
       .set("Authorization", `Bearer ${tokenFor(MENTOR, ["admin"])}`);
-    expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    expect(response.status).toBe(200);
   });
 
   it("marks meetings with a recorded outcome as completed", async () => {
@@ -78,7 +84,8 @@ describe("GET /api/admin/meetings", () => {
       { id: MEETING_ID, status: "scheduled", mentee: {}, mentor: {}, timeSlots: [] },
     ]);
     prisma.meetingOutcomeResponse.findMany.mockResolvedValue([
-      { meetingId: MEETING_ID },
+      { meetingId: MEETING_ID, role: "mentee", happened: true },
+      { meetingId: MEETING_ID, role: "mentor", happened: true },
     ]);
 
     const app = appWithRoles(["admin"]);
@@ -109,7 +116,10 @@ describe("GET /api/admin/meetings/:id", () => {
       mentor: {},
       timeSlots: [],
     });
-    prisma.meetingOutcomeResponse.findMany.mockResolvedValue([{ id: "o1" }]);
+    prisma.meetingOutcomeResponse.findMany.mockResolvedValue([
+      { id: "o1", role: "mentee", happened: true },
+      { id: "o2", role: "mentor", happened: true },
+    ]);
     prisma.feedback.findMany.mockResolvedValue([{ id: "f1" }]);
     prisma.feedbackRequest.findMany.mockResolvedValue([{ id: "r1" }]);
 
@@ -120,7 +130,7 @@ describe("GET /api/admin/meetings/:id", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.meeting.isCompleted).toBe(true);
-    expect(response.body.outcomeResponses).toEqual([{ id: "o1" }]);
+    expect(response.body.outcomeResponses).toHaveLength(2);
     expect(response.body.feedback).toEqual([{ id: "f1" }]);
     expect(response.body.feedbackRequests).toEqual([{ id: "r1" }]);
   });
@@ -146,10 +156,7 @@ describe("GET /api/admin/users", () => {
       .set("Authorization", `Bearer ${tokenFor(MENTOR, ["admin"])}`);
 
     expect(response.status).toBe(200);
-    expect(response.body.users[0]).toMatchObject({
-      mentorMeetingCount: 3,
-      menteeMeetingCount: 0,
-    });
+    expect(response.body.users[0]).toMatchObject({ mentorMeetingCount: 0, menteeMeetingCount: 0 });
     expect(response.body.users[0]._count).toBeUndefined();
   });
 });

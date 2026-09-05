@@ -5,6 +5,7 @@ function startNotificationJobs({
   meetingReminderJob,
   postMeetingCheckJob,
   feedbackReminderJob,
+  adminAlertJob,
   cronExpression = "0 * * * *",
   now = () => new Date(),
 }) {
@@ -18,6 +19,7 @@ function startNotificationJobs({
       await meetingReminderJob.run(scanTime);
       await postMeetingCheckJob.run(scanTime);
       await feedbackReminderJob.run(scanTime);
+      if (adminAlertJob) await adminAlertJob.run(scanTime);
     } finally {
       isRunning = false;
     }
