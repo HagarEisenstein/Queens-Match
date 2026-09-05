@@ -7,6 +7,7 @@ import {
   Button,
   Chip,
   Container,
+  IconButton,
   Stack,
   Toolbar,
   Typography,
@@ -67,6 +68,7 @@ export default function AppLayout() {
     px: 1.5,
     "&:hover": { bgcolor: "primary.light", color: "common.white" },
   };
+  const profileActive = location.pathname === "/profile";
 
   return (
     <Box
@@ -130,14 +132,7 @@ export default function AppLayout() {
           <Button component={Link} to="/matches" sx={navLinkSx}>
             Matches
           </Button>
-          <Button component={Link} to="/profile" sx={navLinkSx}>
-            Profile
-          </Button>
-          {hasRole("mentor") && (
-            <Button color="inherit" component={Link} to="/mentor-profile" sx={navLinkSx}>
-              Mentor Profile
-            </Button>
-          )}
+          {hasRole("mentor")}
           {hasRole("admin") && (
             <Button component={Link} to="/admin" sx={navLinkSx}>Admin</Button>
           )}
@@ -157,20 +152,34 @@ export default function AppLayout() {
             Log out
           </Button>
           <NotificationBell />
-          <Avatar
-            src={user.photo_url || undefined}
-            alt={displayName}
+          <IconButton
+            component={Link}
+            to="/profile"
+            aria-label="Open profile"
             sx={{
-              width: 36,
-              height: 36,
-              bgcolor: "primary.main",
-              fontSize: 14,
+              p: 0.25,
               border: "2px solid",
-              borderColor: "primary.light",
+              borderColor: profileActive ? "primary.main" : "transparent",
+              "&:hover": {
+                bgcolor: "rgba(255, 125, 156, 0.08)",
+              },
             }}
           >
-            {initials}
-          </Avatar>
+            <Avatar
+              src={user.photo_url || undefined}
+              alt={displayName}
+              sx={{
+                width: 36,
+                height: 36,
+                bgcolor: "primary.main",
+                fontSize: 14,
+                border: "2px solid",
+                borderColor: "primary.light",
+              }}
+            >
+              {initials}
+            </Avatar>
+          </IconButton>
         </Toolbar>
       </AppBar>
 
@@ -220,19 +229,9 @@ export default function AppLayout() {
             >
               Queens Match
             </Typography>
-            <Stack direction="row" spacing={2} flexWrap="wrap">
-              {hasRole("mentee") && (
-                <Button component={Link} to="/mentors" size="small" sx={{ color: "secondary.main" }}>
-                  Discover
-                </Button>
-              )}
-              <Button component={Link} to="/matches" size="small" sx={{ color: "secondary.main" }}>
-                Matches
-              </Button>
-              <Button component={Link} to="/profile" size="small" sx={{ color: "secondary.main" }}>
-                Profile
-              </Button>
-            </Stack>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              For help contact: 055-9384923
+            </Typography>
           </Stack>
         </Container>
         <Box

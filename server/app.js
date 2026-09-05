@@ -90,7 +90,7 @@ function createApp(options = {}) {
   if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
   // When serving client/build from this server, the browser Origin is :PORT
   // (not CRA's :3000). Allow both in local/dev so either workflow works.
-  const port = String(process.env.PORT || 5001);
+  const port = String(process.env.PORT || 5000);
   const localDevOrigins =
     process.env.NODE_ENV === "production"
       ? []
@@ -121,9 +121,24 @@ function createApp(options = {}) {
       },
     },
   }));
+  const isAllowedDevOrigin = (origin) => {
+    if (process.env.NODE_ENV === "production") {
+      return false;
+    }
+
+    try {
+      const { hostname, protocol } = new URL(origin);
+      return protocol === "http:" && (hostname === "localhost" || hostname === "127.0.0.1");
+    } catch {
+      return false;
+    }
+  };
+
   app.use(cors({
     origin(origin, callback) {
-      if (!origin || configuredOrigins.includes(origin)) return callback(null, true);
+      if (!origin || configuredOrigins.includes(origin) || isAllowedDevOrigin(origin)) {
+        return callback(null, true);
+      }
       return callback(new AppError(403, "CORS_FORBIDDEN", "Origin is not allowed."));
     },
   }));
