@@ -16,7 +16,6 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed:demo-admin": "node scripts/ensureDemoAdmin.js",
     "test": "npm run test:jest && npm run test:comms",
     "test:jest": "jest --runInBand",
     "test:comms": "bash -c 'node --test comms/__tests__/*.test.js'"

@@ -1,6 +1,6 @@
 const PUBLIC_COLUMNS = `
   id, email, username, roles, full_name, photo_url, github_url, linkedin_url,
-  job, workplace, years_experience, tech_stack, created_at, last_activity_at
+  job, workplace, years_experience, tech_stack, created_at
 `;
 
 class PostgresUserRepository {
@@ -69,9 +69,6 @@ class PostgresUserRepository {
     return result.rows[0] || null;
   }
 
-  async touchActivity(id) {
-    await this.pool.query("UPDATE users SET last_activity_at = NOW(), deletion_warning_sent_at = NULL, deletion_scheduled_at = NULL WHERE id = $1", [id]);
-  }
 }
 
 module.exports = { PostgresUserRepository };

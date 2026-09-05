@@ -13,9 +13,6 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import LocaleToggle from "./LocaleToggle";
 
-const DEMO_ADMIN_EMAIL = "admin@queensmatch.local";
-const DEMO_ADMIN_PASSWORD = "Admin123!";
-
 export default function Login() {
   const { isAuthenticated, login } = useAuth();
   const navigate = useNavigate();
@@ -27,11 +24,12 @@ export default function Login() {
 
   if (isAuthenticated) return <Navigate to="/" replace />;
 
-  const loginWithCredentials = async (credentials) => {
+  const submit = async (event) => {
+    event.preventDefault();
     setSubmitting(true);
     setError("");
     try {
-      await login(credentials);
+      await login(form);
       navigate("/", { replace: true });
     } catch (requestError) {
       const apiError = requestError.response?.data?.error;
@@ -45,18 +43,6 @@ export default function Login() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const submit = async (event) => {
-    event.preventDefault();
-    await loginWithCredentials(form);
-  };
-
-  const loginAsDemoAdmin = async () => {
-    await loginWithCredentials({
-      email: DEMO_ADMIN_EMAIL,
-      password: DEMO_ADMIN_PASSWORD,
-    });
   };
 
   return (
@@ -124,18 +110,6 @@ export default function Login() {
           <Button type="submit" variant="contained" size="large" disabled={submitting}>
             {submitting ? "Logging in…" : "Log in"}
           </Button>
-          <Button
-            type="button"
-            variant="outlined"
-            size="large"
-            onClick={loginAsDemoAdmin}
-            disabled={submitting}
-          >
-            Login as admin (demo)
-          </Button>
-          <Typography variant="caption" color="text.secondary">
-            Demo account for local presentation only: {DEMO_ADMIN_EMAIL}
-          </Typography>
           <Typography>
             Need an account?{" "}
             <MuiLink component={Link} to="/register" color="secondary">
