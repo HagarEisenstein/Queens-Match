@@ -1,6 +1,6 @@
 # Current State
 
-- Phase: Epic 1 — Database Refactor & Vector Integration
-- Branch: `feature/db-refactor`, created from `main` at `373ba0a`
-- Status: implementation complete; verification and commit pending
-- Next: run schema/migration checks, review changes, commit Epic 1
+- Phase: Persistent mentor embedding storage foundation
+- Branch: `ori-rag`
+- Status: implementation and verification complete; hosted migration intentionally not applied
+- Next: review/apply the migration to the configured Neon database, then generate individual mentor embeddings with the maintenance script

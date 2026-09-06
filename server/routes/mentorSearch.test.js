@@ -2,13 +2,13 @@ process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret";
 
 jest.mock("../services/embeddingService", () => ({
-  embedText: jest.fn(),
+  embedSearchQuery: jest.fn(),
 }));
 
 const jwt = require("jsonwebtoken");
 const request = require("supertest");
 const { createApp } = require("../app");
-const { embedText } = require("../services/embeddingService");
+const { embedSearchQuery } = require("../services/embeddingService");
 
 function tokenFor(userId, roles = ["mentee"]) {
   return jwt.sign({ id: userId, roles }, process.env.JWT_SECRET);
@@ -25,11 +25,11 @@ const app = createApp({
 
 describe("POST /api/mentor-search/embedding", () => {
   beforeEach(() => {
-    embedText.mockReset();
+    embedSearchQuery.mockReset();
   });
 
   it("returns only the embedding dimension", async () => {
-    embedText.mockResolvedValue([0.1, 0.2, 0.3]);
+    embedSearchQuery.mockResolvedValue([0.1, 0.2, 0.3]);
 
     const response = await request(app)
       .post("/api/mentor-search/embedding")
@@ -38,7 +38,7 @@ describe("POST /api/mentor-search/embedding", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ ok: true, dimension: 3 });
-    expect(embedText).toHaveBeenCalledWith(
+    expect(embedSearchQuery).toHaveBeenCalledWith(
       "I need help preparing for a backend interview"
     );
     expect(response.body).not.toHaveProperty("embedding");
@@ -57,11 +57,11 @@ describe("POST /api/mentor-search/embedding", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
-    expect(embedText).not.toHaveBeenCalled();
+    expect(embedSearchQuery).not.toHaveBeenCalled();
   });
 
   it("uses the standard error response when the provider fails", async () => {
-    embedText.mockRejectedValue(new Error("Gemini provider details"));
+    embedSearchQuery.mockRejectedValue(new Error("Gemini provider details"));
 
     const response = await request(app)
       .post("/api/mentor-search/embedding")
@@ -84,6 +84,6 @@ describe("POST /api/mentor-search/embedding", () => {
       .send({ query: "backend interview preparation" });
 
     expect(response.status).toBe(401);
-    expect(embedText).not.toHaveBeenCalled();
+    expect(embedSearchQuery).not.toHaveBeenCalled();
   });
 });

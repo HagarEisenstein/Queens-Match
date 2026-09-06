@@ -1,8 +1,9 @@
 # Project Context
 
-- Backend: Node.js, Express, Prisma 6, PostgreSQL 16.
+- Backend: Node.js 20+, Express, Prisma 6.19.3, PostgreSQL 16.
 - Architecture: modular monolith with Prisma as the database access layer.
 - Existing data uses PostgreSQL text arrays for roles, tech stack, and advice topics.
 - Compatibility requirement: preserve existing route/service field names while strengthening database constraints.
-- Vector integration uses PostgreSQL `pgvector` with 1536-dimensional embeddings.
-- The project has existing test drift in mentor profile expectations and sandbox restrictions may prevent Supertest from binding sockets.
+- Mentor search embeddings use `gemini-embedding-001` at exactly 768 dimensions and are stored in PostgreSQL `pgvector` separately from mentor profiles.
+- Prisma 6 represents the vector column as `Unsupported("vector(768)")`; vector persistence uses parameterized raw SQL.
+- Semantic mentor retrieval and frontend integration are explicitly out of scope for the storage-foundation phase.

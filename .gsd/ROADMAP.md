@@ -1,6 +1,6 @@
-# Queens Match Refactor Roadmap
+# Queens Match RAG Roadmap
 
-1. Database refactor and vector integration — in progress on `feature/db-refactor`.
-2. Asynchronous notification workers.
-3. RAG-powered skills auto-fill.
-4. AI mentor-mentee optimization.
+1. Existing category, topic-relevance, and engagement mentor ranking — complete.
+2. Gemini embedding smoke-test integration — complete.
+3. Persistent mentor embedding storage foundation — implementation complete; migration deployment pending confirmation.
+4. Semantic mentor retrieval and ranking integration — deferred.

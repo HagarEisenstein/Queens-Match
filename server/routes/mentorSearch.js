@@ -1,7 +1,7 @@
 const express = require("express");
 const { body } = require("express-validator");
 const { validate } = require("../commons/validation.middleware");
-const { embedText } = require("../services/embeddingService");
+const { embedSearchQuery } = require("../services/embeddingService");
 
 const queryValidation = [
   body("query")
@@ -20,7 +20,7 @@ function createMentorSearchRouter({ authenticate }) {
   router.use(authenticate);
   router.post("/embedding", queryValidation, async (req, res, next) => {
     try {
-      const embedding = await embedText(req.body.query);
+      const embedding = await embedSearchQuery(req.body.query);
       res.json({ ok: true, dimension: embedding.length });
     } catch (error) {
       next(error);
