@@ -44,7 +44,7 @@ const app = createApp({
 
 const validProfile = {
   background: "10 years in backend engineering.",
-  adviceTopics: ["career planning", "mock interviews"],
+  adviceTopics: ["CV / Resume Review", "Technical Mock Interviews"],
   meetingsOffered: 3,
   meetingLengthMinutes: 30,
 };
@@ -301,19 +301,19 @@ describe("mentors routes", () => {
       expect(upsertMentorProfile).not.toHaveBeenCalled();
     });
 
-    it("accepts an advice topic at the maximum allowed length", async () => {
-      const topic = "a".repeat(100);
-      upsertMentorProfile.mockResolvedValue({ userId: "u1", ...validProfile, adviceTopics: [topic] });
+    it("accepts a mix of built-in and custom free-text advice topics", async () => {
+      const adviceTopics = ["CV / Resume Review", "Kubernetes deep dives"];
+      upsertMentorProfile.mockResolvedValue({ userId: "u1", ...validProfile, adviceTopics });
 
       const response = await request(app)
         .put("/api/mentors/me")
         .set("Authorization", `Bearer ${tokenFor("u1")}`)
-        .send({ ...validProfile, adviceTopics: [topic] });
+        .send({ ...validProfile, adviceTopics });
 
       expect(response.status).toBe(200);
       expect(upsertMentorProfile).toHaveBeenCalledWith(
         "u1",
-        expect.objectContaining({ adviceTopics: [topic] })
+        expect.objectContaining({ adviceTopics })
       );
     });
 
@@ -343,7 +343,7 @@ describe("mentors routes", () => {
       });
     });
 
-    it("saves a valid profile, trimming free-text fields", async () => {
+    it("saves a valid profile, trimming the free-text background", async () => {
       upsertMentorProfile.mockResolvedValue({ userId: "u1", ...validProfile });
 
       const response = await request(app)
@@ -351,7 +351,7 @@ describe("mentors routes", () => {
         .set("Authorization", `Bearer ${tokenFor("u1")}`)
         .send({
           background: `  ${validProfile.background}  `,
-          adviceTopics: ["  career planning ", "mock interviews"],
+          adviceTopics: validProfile.adviceTopics,
           meetingsOffered: validProfile.meetingsOffered,
           meetingLengthMinutes: validProfile.meetingLengthMinutes,
         });

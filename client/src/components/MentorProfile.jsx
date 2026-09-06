@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Button,
   Container,
   Paper,
@@ -10,10 +11,15 @@ import {
 } from "@mui/material";
 import apiClient from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import {
+  ADVICE_TOPICS,
+  MAX_TOPIC_LENGTH,
+  groupForTopic,
+} from "../constants/adviceTopics";
 
 const emptyProfile = {
   background: "",
-  adviceTopics: "",
+  adviceTopics: [],
   meetingsOffered: 1,
   meetingLengthMinutes: 30,
 };
@@ -29,10 +35,7 @@ export default function MentorProfile() {
       .get("/mentors/me")
       .then(({ data }) => {
         if (data) {
-          setForm({
-            ...data,
-            adviceTopics: data.adviceTopics.join(", "),
-          });
+          setForm({ ...emptyProfile, ...data });
         }
         setState("ready");
       })
@@ -45,13 +48,14 @@ export default function MentorProfile() {
   const save = async (event) => {
     event.preventDefault();
     setMessage("");
+    if (form.adviceTopics.length === 0) {
+      setMessage("Please select at least one advice topic.");
+      return;
+    }
     try {
       await apiClient.put("/mentors/me", {
         ...form,
-        adviceTopics: form.adviceTopics
-          .split(",")
-          .map((topic) => topic.trim())
-          .filter(Boolean),
+        adviceTopics: form.adviceTopics,
         meetingsOffered: Number(form.meetingsOffered),
         meetingLengthMinutes: Number(form.meetingLengthMinutes),
       });
@@ -85,7 +89,7 @@ export default function MentorProfile() {
           Your mentor profile
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>
-          Keep your mentoring offer current. Topics should be comma-separated.
+          Keep your mentoring offer current. Choose the topics you can advise on.
         </Typography>
         {message && (
           <Alert
@@ -109,12 +113,32 @@ export default function MentorProfile() {
             minRows={5}
             required
           />
-          <TextField
-            label="Advice topics"
+          <Autocomplete
+            multiple
+            freeSolo
+            options={ADVICE_TOPICS}
+            groupBy={groupForTopic}
             value={form.adviceTopics}
-            onChange={update("adviceTopics")}
-            placeholder="Career planning, mock interviews"
-            required
+            onChange={(event, newValue) => {
+              // Trim, drop empties/overlong entries, and de-duplicate so a
+              // custom topic is stored just like a built-in one.
+              const cleaned = [];
+              newValue.forEach((raw) => {
+                const topic = String(raw).trim();
+                if (topic && topic.length <= MAX_TOPIC_LENGTH && !cleaned.includes(topic)) {
+                  cleaned.push(topic);
+                }
+              });
+              setForm({ ...form, adviceTopics: cleaned });
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Advice topics"
+                placeholder="Choose from the list or type your own"
+                helperText="Pick built-in topics, or type your own and press Enter."
+              />
+            )}
           />
           <TextField
             label="Meetings offered"

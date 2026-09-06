@@ -92,7 +92,7 @@ describe("mentorProfilesService", () => {
   describe("upsertMentorProfile", () => {
     const data = {
       background: "10 years in backend engineering.",
-      adviceTopics: ["career planning"],
+      adviceTopics: ["CV / Resume Review"],
       meetingsOffered: 3,
       meetingLengthMinutes: 30,
     };
