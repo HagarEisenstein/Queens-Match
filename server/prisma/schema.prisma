@@ -41,8 +41,6 @@ model Meeting {
   moreTimesUsed           Boolean             @default(false) @map("more_times_used")
   rescheduleUsed          Boolean             @default(false) @map("reschedule_used")
   retryAfterNoshowUsed    Boolean             @default(false) @map("retry_after_noshow_used")
-  menteeArrivalConfirmed  Boolean             @default(false) @map("mentee_arrival_confirmed")
-  mentorArrivalConfirmed  Boolean             @default(false) @map("mentor_arrival_confirmed")
   createdAt               DateTime            @default(now()) @map("created_at")
   updatedAt               DateTime            @updatedAt @map("updated_at")
   timeSlots               MeetingTimeSlot[]
