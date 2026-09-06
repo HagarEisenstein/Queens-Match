@@ -37,7 +37,7 @@ describe("mentorProfilesService", () => {
 
       expect(result).toEqual([{ id: "m1" }]);
       expect(prisma.mentorProfile.findMany).toHaveBeenCalledWith({
-        where: { user: { roles: { has: "mentor" } } },
+        where: { isActive: true, user: { roles: { has: "mentor" } } },
         include: { user: expect.any(Object) },
         orderBy: { updatedAt: "desc" },
       });
@@ -61,7 +61,7 @@ describe("mentorProfilesService", () => {
 
       expect(result).toEqual({ id: "m1" });
       expect(prisma.mentorProfile.findFirst).toHaveBeenCalledWith({
-        where: { id: "m1", user: { roles: { has: "mentor" } } },
+        where: { id: "m1", isActive: true, user: { roles: { has: "mentor" } } },
         include: { user: expect.any(Object) },
       });
     });

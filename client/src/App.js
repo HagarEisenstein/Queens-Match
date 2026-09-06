@@ -22,6 +22,13 @@ import MeetingsList from "./components/MeetingsList";
 import MeetingCalendar from "./components/MeetingCalendar";
 import MeetingDetail from "./components/MeetingDetail";
 import { NotificationProvider } from "./notifications/NotificationContext";
+import AdminLayout from "./admin/AdminLayout";
+import AdminMeetingsReport from "./admin/MeetingsReport";
+import AdminMeetingsCalendar from "./admin/MeetingsCalendar";
+import AdminMeetingDetail from "./admin/MeetingDetail";
+import AdminUsersList from "./admin/UsersList";
+import AdminUserDetail from "./admin/UserDetail";
+import AdminAlerts from "./admin/Alerts";
 
 function App() {
   return (
@@ -53,14 +60,7 @@ function App() {
                       </RoleGuard>
                     }
                   />
-                  <Route
-                    path="/matches"
-                    element={
-                      <RoleGuard roles={["mentee"]}>
-                        <Matches />
-                      </RoleGuard>
-                    }
-                  />
+                  <Route path="/matches" element={<Matches />} />
                   <Route
                     path="/mentor-profile"
                     element={
@@ -83,6 +83,21 @@ function App() {
                   <Route path="/meetings/:id/arrival" element={<MeetingArrivalPage />} />
                   <Route path="/meetings/:id/outcome" element={<MeetingOutcomePage />} />
                   <Route path="/meetings/:id/feedback" element={<MeetingFeedbackPage />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      <RoleGuard roles={["admin"]}>
+                        <AdminLayout />
+                      </RoleGuard>
+                    }
+                  >
+                    <Route index element={<AdminMeetingsReport />} />
+                    <Route path="calendar" element={<AdminMeetingsCalendar />} />
+                    <Route path="meetings/:id" element={<AdminMeetingDetail />} />
+                    <Route path="users" element={<AdminUsersList />} />
+                    <Route path="users/:id" element={<AdminUserDetail />} />
+                    <Route path="alerts" element={<AdminAlerts />} />
+                  </Route>
                 </Route>
               </Route>
             </Routes>

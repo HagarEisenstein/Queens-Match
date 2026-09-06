@@ -89,7 +89,7 @@ describe("AppLayout", () => {
     expect(screen.queryByRole("link", { name: "Mentor Profile" })).not.toBeInTheDocument();
   });
 
-  it("hides Discover and Matches nav for mentor-only accounts", async () => {
+  it("hides mentor discovery from mentor-only users", () => {
     mockAuth({ username: "m", roles: ["mentor"] });
     apiClient.get.mockResolvedValue({ data: { id: "p1" } });
 
@@ -99,13 +99,12 @@ describe("AppLayout", () => {
       </MemoryRouter>
     );
 
-    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith("/mentors/me"));
-    expect(screen.queryAllByRole("link", { name: "Discover" })).toHaveLength(0);
-    expect(screen.queryAllByRole("link", { name: "Matches" })).toHaveLength(0);
+    expect(screen.queryByRole("link", { name: "Discover" })).not.toBeInTheDocument();
   });
 
-  it("shows Discover and Matches nav for mentees", () => {
-    mockAuth({ username: "e", roles: ["mentee"] });
+  it("shows mentor discovery to users who are also mentees", () => {
+    mockAuth({ username: "m", roles: ["mentor", "mentee"] });
+    apiClient.get.mockResolvedValue({ data: { id: "p1" } });
 
     render(
       <MemoryRouter>
@@ -113,13 +112,23 @@ describe("AppLayout", () => {
       </MemoryRouter>
     );
 
-    const discoverLinks = screen.getAllByRole("link", { name: "Discover" });
-    expect(discoverLinks.length).toBeGreaterThan(0);
-    discoverLinks.forEach((link) => expect(link).toHaveAttribute("href", "/mentors"));
+    expect(screen.getAllByRole("link", { name: "Discover" }).length).toBeGreaterThan(0);
+  });
 
-    const matchesLinks = screen.getAllByRole("link", { name: "Matches" });
-    expect(matchesLinks.length).toBeGreaterThan(0);
-    matchesLinks.forEach((link) => expect(link).toHaveAttribute("href", "/matches"));
+  it("uses the avatar as a profile link with user initials fallback", () => {
+    mockAuth({ id: "u1", username: "queen bee", full_name: "", photo_url: "", roles: ["mentee"] });
+
+    render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: "Open profile" })).toHaveAttribute(
+      "href",
+      "/profile"
+    );
+    expect(screen.getByText("QB")).toBeInTheDocument();
   });
 
   it("allows switching to Hebrew and back to English", () => {

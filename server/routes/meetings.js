@@ -6,6 +6,9 @@ const {
   offerTimes,
   rejectMeeting,
   selectTime,
+  requestMoreTimes,
+  reportCannotAttend,
+  confirmArrival,
   getMeetingById,
   listMeetingsForUser,
 } = require("../modules/scheduling/schedulingService");
@@ -35,7 +38,7 @@ function createMeetingsRouter({ authenticate }) {
   router.use(authenticate);
 
   // Mentee expresses interest [R4.2]. Mentor-only accounts cannot request meetings.
-  router.post("/", requireAnyRole("mentee"), requestValidation, async (req, res, next) => {
+  router.post(["/", "/request"], requireAnyRole("mentee"), requestValidation, async (req, res, next) => {
     try {
       const meeting = await requestMeeting({
         menteeId: req.user.id,
@@ -77,6 +80,9 @@ function createMeetingsRouter({ authenticate }) {
       next(error);
     }
   });
+  router.put("/:id/offer-times", offerTimesValidation, async (req, res, next) => {
+    try { res.json(await offerTimes({ meetingId: req.params.id, actorId: req.user.id, slots: req.body.slots })); } catch (error) { next(error); }
+  });
 
   // Mentor rejects the request [R4.3].
   router.post("/:id/reject", async (req, res, next) => {
@@ -89,6 +95,9 @@ function createMeetingsRouter({ authenticate }) {
     } catch (error) {
       next(error);
     }
+  });
+  router.put("/:id/reject", async (req, res, next) => {
+    try { res.json(await rejectMeeting({ meetingId: req.params.id, actorId: req.user.id })); } catch (error) { next(error); }
   });
 
   // Mentee picks exactly one offered time [R4.4].
@@ -103,6 +112,19 @@ function createMeetingsRouter({ authenticate }) {
     } catch (error) {
       next(error);
     }
+  });
+  router.put("/:id/select-time", selectTimeValidation, async (req, res, next) => {
+    try { res.json(await selectTime({ meetingId: req.params.id, actorId: req.user.id, slotId: req.body.slotId })); } catch (error) { next(error); }
+  });
+
+  router.put("/:id/request-more-times", async (req, res, next) => {
+    try { res.json(await requestMoreTimes({ meetingId: req.params.id, actorId: req.user.id })); } catch (error) { next(error); }
+  });
+  router.put("/:id/cannot-attend", async (req, res, next) => {
+    try { res.json(await reportCannotAttend({ meetingId: req.params.id, actorId: req.user.id })); } catch (error) { next(error); }
+  });
+  router.put("/:id/arrival", async (req, res, next) => {
+    try { res.json(await confirmArrival({ meetingId: req.params.id, actorId: req.user.id })); } catch (error) { next(error); }
   });
 
   return router;
