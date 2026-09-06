@@ -125,6 +125,7 @@ Desktop.ini
 .claude/
 .cursor/
 .cursorrules
-.gsd/phases
 .devin/
+
+# Local GSD planning artifacts
 /.gsd/phases/
