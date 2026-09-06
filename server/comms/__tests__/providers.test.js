@@ -4,6 +4,7 @@ const { createConsoleProvider } = require("../providers/consoleProvider");
 const { createEmailProvider } = require("../providers/emailProvider");
 const { createNotificationProvider } = require("../providers/providerFactory");
 const { createWhatsAppProvider } = require("../providers/whatsappProvider");
+const { createWhatsAppOrEmailProvider } = require("../providers/whatsappOrEmailProvider");
 
 test("console provider writes a structured notification", async () => {
   const entries = [];
@@ -103,4 +104,30 @@ test("WhatsApp provider sends an authenticated Twilio message", async () => {
   assert.match(requests[0].options.headers.Authorization, /^Basic /);
   assert.equal(requests[0].options.body.get("From"), "whatsapp:+14155552671");
   assert.equal(requests[0].options.body.get("To"), "whatsapp:+14155552672");
+});
+
+test("WhatsApp-or-email provider uses email when phone is optional and absent", async () => {
+  const sent = [];
+  const provider = createWhatsAppOrEmailProvider(
+    {},
+    {
+      whatsappProvider: { send: async () => { throw new Error("WhatsApp should not be used"); } },
+      emailProvider: {
+        async send(input) {
+          sent.push(input);
+          return { providerMessageId: "email-123" };
+        },
+      },
+    },
+  );
+
+  const result = await provider.send({
+    recipient: { id: "user-1", email: "user@example.com" },
+    title: "Meeting reminder",
+    message: "Your meeting starts soon",
+  });
+
+  assert.equal(provider.channel, "whatsapp-or-email");
+  assert.equal(result.providerMessageId, "email-123");
+  assert.equal(sent[0].recipient.email, "user@example.com");
 });

@@ -16,6 +16,7 @@ import LocaleToggle from "./LocaleToggle";
 const initialForm = {
   email: "",
   username: "",
+  phone: "",
   password: "",
   confirmPassword: "",
   full_name: "",
@@ -90,6 +91,7 @@ export default function Register() {
     setSubmitting(true);
     const optionalText = [
       "full_name",
+      "phone",
       "job",
       "workplace",
       "github_url",
@@ -224,6 +226,12 @@ export default function Register() {
 
           <TextField label="Email" type="email" required value={form.email} onChange={setField("email")} />
           <TextField label="Username" required value={form.username} onChange={setField("username")} />
+          <TextField
+            label="WhatsApp phone (optional)"
+            placeholder="+14155552671"
+            value={form.phone}
+            onChange={setField("phone")}
+          />
           <TextField
             label="Password"
             type="password"
