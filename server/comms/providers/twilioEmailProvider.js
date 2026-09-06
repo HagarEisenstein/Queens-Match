@@ -11,6 +11,10 @@ function createTwilioEmailProvider(env = process.env, { fetchImpl = global.fetch
   const { TWILIO_ACCOUNT_SID: sid, TWILIO_AUTH_TOKEN: token } = env;
   const fromAddress = env.TWILIO_EMAIL_FROM || (sid ? `${sid}@twilio.email` : "");
   const fromName = env.TWILIO_EMAIL_FROM_NAME || "Queens Match";
+  const parsedTimeoutMilliseconds = Number.parseInt(env.NOTIFICATION_PROVIDER_TIMEOUT_MS || "10000", 10);
+  const timeoutMilliseconds = Number.isFinite(parsedTimeoutMilliseconds) && parsedTimeoutMilliseconds > 0
+    ? parsedTimeoutMilliseconds
+    : 10000;
 
   if (!sid || !token || !fromAddress) {
     throw new Error("TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_EMAIL_FROM are required for Twilio Email");
@@ -25,6 +29,7 @@ function createTwilioEmailProvider(env = process.env, { fetchImpl = global.fetch
 
       const response = await fetchImpl("https://comms.twilio.com/v1/Emails", {
         method: "POST",
+        signal: AbortSignal.timeout(timeoutMilliseconds),
         headers: {
           Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
           "Content-Type": "application/json",

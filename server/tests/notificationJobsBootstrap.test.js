@@ -40,6 +40,9 @@ describe("notification jobs bootstrap", () => {
       reminderLeadTimeMilliseconds: 3600000,
       scanWindowMilliseconds: 1800000,
       feedbackIntervalMilliseconds: 900000,
+      notificationWorkerConcurrency: 5,
+      notificationWorkerMaxAttempts: 5,
+      notificationWorkerRateLimitMs: 0,
     });
     expect(result.meetingReminderJob).toBeTruthy();
     expect(result.postMeetingCheckJob).toBeTruthy();
