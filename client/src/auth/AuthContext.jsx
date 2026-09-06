@@ -91,6 +91,15 @@ export function AuthProvider({ children }) {
     [saveSession]
   );
 
+  const acceptAdminInvite = useCallback(
+    async (payload) => {
+      const { data } = await api.post("/auth/accept-invite", payload);
+      saveSession(data);
+      return data.user;
+    },
+    [saveSession]
+  );
+
   const updateProfile = useCallback(async (profile) => {
     const { data } = await api.put("/users/profile", profile);
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
@@ -112,11 +121,12 @@ export function AuthProvider({ children }) {
       hasRole: (role) => Boolean(user?.roles?.includes(role)),
       login,
       register,
+      acceptAdminInvite,
       logout,
       updateProfile,
       refreshUser,
     }),
-    [token, user, loading, login, register, logout, updateProfile, refreshUser]
+    [token, user, loading, login, register, acceptAdminInvite, logout, updateProfile, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

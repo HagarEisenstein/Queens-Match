@@ -43,6 +43,14 @@ class PostgresUserRepository {
     return result.rows[0] || null;
   }
 
+  async findPublicByEmail(email) {
+    const result = await this.pool.query(
+      `SELECT ${PUBLIC_COLUMNS} FROM users WHERE email = $1`,
+      [email]
+    );
+    return result.rows[0] || null;
+  }
+
   async findPublicById(id) {
     const result = await this.pool.query(
       `SELECT ${PUBLIC_COLUMNS} FROM users WHERE id = $1`,
@@ -66,6 +74,29 @@ class PostgresUserRepository {
        WHERE id = $1
        RETURNING ${PUBLIC_COLUMNS}`,
       [id, ...values]
+    );
+    return result.rows[0] || null;
+  }
+
+  async updateAuthAndRoles(id, { password_hash, roles }) {
+    const result = await this.pool.query(
+      `UPDATE users
+       SET password_hash = $2,
+           roles = $3::text[]
+       WHERE id = $1
+       RETURNING ${PUBLIC_COLUMNS}`,
+      [id, password_hash, roles]
+    );
+    return result.rows[0] || null;
+  }
+
+  async updateRoles(id, roles) {
+    const result = await this.pool.query(
+      `UPDATE users
+       SET roles = $2::text[]
+       WHERE id = $1
+       RETURNING ${PUBLIC_COLUMNS}`,
+      [id, roles]
     );
     return result.rows[0] || null;
   }

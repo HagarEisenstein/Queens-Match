@@ -9,6 +9,7 @@ import Dashboard from "./components/Dashboard";
 import Login from "./components/Login";
 import Profile from "./components/Profile";
 import Register from "./components/Register";
+import AcceptInvite from "./components/AcceptInvite";
 import MentorList from "./components/MentorList";
 import MentorDetail from "./components/MentorDetail";
 import MentorProfile from "./components/MentorProfile";
@@ -28,6 +29,7 @@ import AdminMeetingDetail from "./admin/MeetingDetail";
 import AdminUsersList from "./admin/UsersList";
 import AdminUserDetail from "./admin/UserDetail";
 import AdminAlerts from "./admin/Alerts";
+import AdminInvites from "./admin/AdminInvites";
 
 function App() {
   return (
@@ -39,6 +41,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/accept-invite" element={<AcceptInvite />} />
               <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<Dashboard />} />
@@ -88,6 +91,7 @@ function App() {
                     <Route path="users" element={<AdminUsersList />} />
                     <Route path="users/:id" element={<AdminUserDetail />} />
                     <Route path="alerts" element={<AdminAlerts />} />
+                    <Route path="invites" element={<AdminInvites />} />
                   </Route>
                 </Route>
               </Route>

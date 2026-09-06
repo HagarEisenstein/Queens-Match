@@ -7,7 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 const NotificationContext = createContext(null);
 
 export function NotificationProvider({ children }) {
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [popup, setPopup] = useState(null);
@@ -40,6 +40,22 @@ export function NotificationProvider({ children }) {
     const completedAt = new Date().toISOString();
     updateLocally(notificationId, { readAt: completedAt, actionCompletedAt: completedAt });
   }, [updateLocally]);
+
+  const respondToAdminInvite = useCallback(async (notificationId, action) => {
+    const endpoint =
+      action === "accept" ? "accept-admin" : "decline-admin";
+    const { data } = await api.post(`/notifications/${notificationId}/${endpoint}`);
+    const completedAt = new Date().toISOString();
+    updateLocally(notificationId, {
+      status: data.status,
+      readAt: completedAt,
+      actionCompletedAt: completedAt,
+    });
+    if (action === "accept") {
+      await refreshUser();
+    }
+    return data;
+  }, [refreshUser, updateLocally]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -94,8 +110,9 @@ export function NotificationProvider({ children }) {
     markRead,
     openNotification,
     markActionCompleted,
+    respondToAdminInvite,
     refresh: loadNotifications,
-  }), [notifications, markRead, openNotification, markActionCompleted, loadNotifications]);
+  }), [notifications, markRead, openNotification, markActionCompleted, respondToAdminInvite, loadNotifications]);
 
   return (
     <NotificationContext.Provider value={value}>

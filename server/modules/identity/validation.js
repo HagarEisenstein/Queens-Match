@@ -158,10 +158,28 @@ function validateRegistration(input) {
   };
 }
 
+function validateInviteAcceptance(input, { requireUsername = false } = {}) {
+  const details = {};
+  const token = typeof input.token === "string" ? input.token.trim() : "";
+  if (!token) details.token = ["Invite token is required."];
+  const passwordErrors = passwordIssues(input.password);
+  if (passwordErrors.length) details.password = passwordErrors;
+  if (Object.keys(details).length) throw validationError(details);
+
+  return {
+    token,
+    password: input.password,
+    profile: requireUsername
+      ? validateProfileFields({ username: input.username }, { requireUsername: true })
+      : {},
+  };
+}
+
 module.exports = {
   ALLOWED_ROLES,
   PROFILE_FIELDS,
   normalizeEmail,
+  validateInviteAcceptance,
   validateRegistration,
   validateProfileFields,
 };

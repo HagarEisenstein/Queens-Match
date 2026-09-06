@@ -1,6 +1,13 @@
 const express = require("express");
+const { AppError } = require("../middleware/errors");
 
-function createNotificationsRouter({ authenticate, notificationRepository, realtimeHub, now = () => new Date() }) {
+function createNotificationsRouter({
+  authenticate,
+  notificationRepository,
+  realtimeHub,
+  userRepository,
+  now = () => new Date(),
+}) {
   const router = express.Router();
   router.use(authenticate);
 
@@ -38,6 +45,73 @@ function createNotificationsRouter({ authenticate, notificationRepository, realt
     const unsubscribe = realtimeHub.subscribe(req.user.id, res);
     const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 25000);
     req.on("close", () => { clearInterval(heartbeat); unsubscribe(); });
+  });
+
+  router.post("/:id/accept-admin", async (req, res, next) => {
+    try {
+      const notification = await notificationRepository.findAdminInviteForRecipient(
+        req.params.id,
+        req.user.id
+      );
+      if (!notification) {
+        throw new AppError(404, "NOT_FOUND", "Notification not found.");
+      }
+      if (notification.status !== "pending") {
+        throw new AppError(
+          409,
+          "INVITE_ALREADY_RESOLVED",
+          "This admin invitation has already been responded to."
+        );
+      }
+
+      const user = await userRepository.findPublicById(req.user.id);
+      if (!user) {
+        throw new AppError(404, "USER_NOT_FOUND", "User not found.");
+      }
+
+      const roles = [...new Set([...(user.roles || []), "admin"])];
+      const updatedUser = await userRepository.updateRoles(req.user.id, roles);
+      await notificationRepository.updateAdminInviteStatus(
+        req.params.id,
+        req.user.id,
+        "accepted",
+        now()
+      );
+
+      return res.json({ notificationId: req.params.id, status: "accepted", user: updatedUser });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.post("/:id/decline-admin", async (req, res, next) => {
+    try {
+      const notification = await notificationRepository.findAdminInviteForRecipient(
+        req.params.id,
+        req.user.id
+      );
+      if (!notification) {
+        throw new AppError(404, "NOT_FOUND", "Notification not found.");
+      }
+      if (notification.status !== "pending") {
+        throw new AppError(
+          409,
+          "INVITE_ALREADY_RESOLVED",
+          "This admin invitation has already been responded to."
+        );
+      }
+
+      await notificationRepository.updateAdminInviteStatus(
+        req.params.id,
+        req.user.id,
+        "declined",
+        now()
+      );
+
+      return res.json({ notificationId: req.params.id, status: "declined" });
+    } catch (error) {
+      return next(error);
+    }
   });
 
   return router;

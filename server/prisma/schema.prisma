@@ -74,9 +74,11 @@ model Notification {
   recipientId       String                 @map("recipient_id") @db.Uuid
   meetingId         String?                @map("meeting_id") @db.Uuid
   type              String
+  status            String?
   title             String
   message           String
   actionUrl         String?                @map("action_url")
+  metadata          Json?
   popupEligible     Boolean                @default(true) @map("popup_eligible")
   deduplicationKey  String                 @unique @map("deduplication_key")
   readAt            DateTime?              @map("read_at")
@@ -149,4 +151,19 @@ model AvailabilityBlock {
   @@index([meetingId])
   @@index([mentorId])
   @@map("availability_blocks")
+}
+
+model AdminInvite {
+  id         String    @id @default(uuid()) @db.Uuid
+  email      String
+  tokenHash  String    @unique @map("token_hash")
+  invitedBy  String    @map("invited_by") @db.Uuid
+  acceptedBy String?   @map("accepted_by") @db.Uuid
+  expiresAt  DateTime  @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([email, acceptedAt])
+  @@index([expiresAt])
+  @@map("admin_invites")
 }
