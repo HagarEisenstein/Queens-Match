@@ -45,6 +45,7 @@ model Meeting {
   mentorArrivalConfirmed  Boolean             @default(false) @map("mentor_arrival_confirmed")
   createdAt               DateTime            @default(now()) @map("created_at")
   updatedAt               DateTime            @updatedAt @map("updated_at")
+  timeSlots               MeetingTimeSlot[]
   availabilityBlocks      AvailabilityBlock[]
   feedbacks               Feedback[]
   mentee                  User                @relation("MenteeMeetings", fields: [menteeId], references: [id], onDelete: Cascade)
@@ -55,6 +56,18 @@ model Meeting {
   @@index([scheduledTime])
   @@index([status])
   @@map("meetings")
+}
+
+model MeetingTimeSlot {
+  id        String   @id @default(uuid()) @db.Uuid
+  meetingId String   @map("meeting_id") @db.Uuid
+  startTime DateTime @map("start_time")
+  endTime   DateTime @map("end_time")
+  createdAt DateTime @default(now()) @map("created_at")
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@map("meeting_time_slots")
 }
 
 model Notification {
