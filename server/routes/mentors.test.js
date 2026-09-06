@@ -62,6 +62,42 @@ describe("mentors routes", () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([{ id: "m1" }]);
+      expect(getMentors).toHaveBeenCalledWith();
+    });
+
+    it("passes repeated advice-topic filters to the matching service", async () => {
+      getMentors.mockResolvedValue([{ id: "m1" }]);
+
+      const response = await request(app).get(
+        "/api/mentors?adviceTopics=CV%20%2F%20Resume%20Review&adviceTopics=System%20Design%20Interviews"
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual([{ id: "m1" }]);
+      expect(getMentors).toHaveBeenCalledWith({
+        adviceTopics: ["CV / Resume Review", "System Design Interviews"],
+      });
+    });
+
+    it("accepts the bracketed array format emitted by HTTP clients", async () => {
+      getMentors.mockResolvedValue([{ id: "m1" }]);
+
+      const response = await request(app).get(
+        "/api/mentors?adviceTopics%5B%5D=CV%20%2F%20Resume%20Review&adviceTopics%5B%5D=System%20Design%20Interviews"
+      );
+
+      expect(response.status).toBe(200);
+      expect(getMentors).toHaveBeenCalledWith({
+        adviceTopics: ["CV / Resume Review", "System Design Interviews"],
+      });
+    });
+
+    it("rejects an explicitly empty advice-topic filter", async () => {
+      const response = await request(app).get("/api/mentors?adviceTopics=");
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect(getMentors).not.toHaveBeenCalled();
     });
 
     it("forwards service errors to the standard error shape", async () => {

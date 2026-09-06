@@ -1,4 +1,6 @@
 const prisma = require("../commons/db");
+const logger = require("../commons/logger");
+const { rankMentorsByEngagement } = require("./mentorMatchingService");
 
 const userSelect = {
   id: true,
@@ -16,12 +18,42 @@ const profileInclude = {
   user: { select: userSelect },
 };
 
-async function getMentors() {
-  return prisma.mentorProfile.findMany({
-    where: { user: { roles: { has: "mentor" } } },
+function normalizeAdviceTopics(adviceTopics) {
+  if (!Array.isArray(adviceTopics)) return [];
+  return Array.from(
+    new Set(
+      adviceTopics
+        .filter((topic) => typeof topic === "string")
+        .map((topic) => topic.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+async function getMentors({ adviceTopics = [] } = {}) {
+  const normalizedTopics = normalizeAdviceTopics(adviceTopics);
+  const mentors = await prisma.mentorProfile.findMany({
+    where: {
+      user: { roles: { has: "mentor" } },
+      ...(normalizedTopics.length > 0
+        ? { adviceTopics: { hasSome: normalizedTopics } }
+        : {}),
+    },
     include: profileInclude,
     orderBy: { updatedAt: "desc" },
   });
+
+  if (normalizedTopics.length === 0 || mentors.length < 2) return mentors;
+
+  try {
+    return await rankMentorsByEngagement(mentors, { prismaClient: prisma });
+  } catch (error) {
+    logger.warn(
+      "Mentor engagement ranking unavailable; returning hard-filtered mentors.",
+      { error: error.message }
+    );
+    return mentors;
+  }
 }
 
 async function getMentorById(id) {

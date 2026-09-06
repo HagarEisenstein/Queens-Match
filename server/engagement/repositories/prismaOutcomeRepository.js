@@ -23,6 +23,21 @@ function createPrismaOutcomeRepository(prisma) {
       return rows.map(mapOutcome);
     },
 
+    async findByMeetingIds(meetingIds) {
+      if (!meetingIds.length) return [];
+      const rows = await prisma.meetingOutcomeResponse.findMany({
+        where: { meetingId: { in: meetingIds } },
+        select: {
+          meetingId: true,
+          role: true,
+          happened: true,
+          absentParty: true,
+          stillWantToMeet: true,
+        },
+      });
+      return rows.map(mapOutcome);
+    },
+
     async findByMeetingAndRespondent(meetingId, respondentId) {
       const row = await prisma.meetingOutcomeResponse.findUnique({
         where: {
