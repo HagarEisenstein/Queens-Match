@@ -84,6 +84,7 @@ function createApp(options = {}) {
     authenticate,
     jwtSecret,
     jwtExpiresIn: options.jwtExpiresIn || process.env.JWT_EXPIRES_IN || "15m",
+    notificationService: notifications.notificationService,
   });
 
   const app = express();

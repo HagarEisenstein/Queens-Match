@@ -47,7 +47,8 @@ function createNotificationCenterService({
     const deliveries = [{ channel: "IN_APP", status: "SENT", sentAt: createdAt }];
 
     if (input.emailEligible ?? defaultEmailTypes.has(input.type)) {
-      deliveries.push({ channel: "EMAIL", status: "PENDING", nextAttemptAt: new Date(createdAt.getTime() + emailDelayMilliseconds) });
+      const deliveryDelay = input.emailDelayMilliseconds ?? emailDelayMilliseconds;
+      deliveries.push({ channel: "EMAIL", status: "PENDING", nextAttemptAt: new Date(createdAt.getTime() + deliveryDelay) });
     }
 
     let notification;
