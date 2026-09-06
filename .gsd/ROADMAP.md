@@ -4,3 +4,4 @@
 2. Gemini embedding smoke-test integration — complete.
 3. Persistent mentor embedding storage foundation — complete and deployed.
 4. Semantic mentor retrieval and Help Me panel integration — complete.
+5. Temporary admin mentor-embedding backfill endpoint — complete.

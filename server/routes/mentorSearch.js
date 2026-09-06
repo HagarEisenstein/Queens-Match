@@ -8,6 +8,9 @@ const {
 const {
   searchMentorsBySemanticQuery,
 } = require("../services/mentorSemanticSearchService");
+const {
+  backfillMentorSearchEmbeddings,
+} = require("../services/mentorSearchBackfillService");
 
 const queryValidation = [
   body().custom((requestBody) => {
@@ -49,6 +52,20 @@ function createMentorSearchRouter({ authenticate, authorizeAdmin }) {
     try {
       const embedding = await embedSearchQuery(req.body.query);
       res.json({ ok: true, dimension: embedding.length });
+    } catch (error) {
+      next(error);
+    }
+  });
+  // Temporary deployment backfill endpoint; remove after hosted embeddings exist.
+  router.post("/admin/backfill", authorizeAdmin, async (req, res, next) => {
+    try {
+      const result = await backfillMentorSearchEmbeddings();
+      const { total, updated, skipped, failed, failures } = result;
+      const safeFailures = failures.map(({ mentorProfileId, code }) => ({
+        mentorProfileId,
+        code,
+      }));
+      res.json({ total, updated, skipped, failed, failures: safeFailures });
     } catch (error) {
       next(error);
     }

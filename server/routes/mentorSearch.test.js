@@ -10,6 +10,9 @@ jest.mock("../services/mentorSearchEmbeddingService", () => ({
 jest.mock("../services/mentorSemanticSearchService", () => ({
   searchMentorsBySemanticQuery: jest.fn(),
 }));
+jest.mock("../services/mentorSearchBackfillService", () => ({
+  backfillMentorSearchEmbeddings: jest.fn(),
+}));
 
 const jwt = require("jsonwebtoken");
 const request = require("supertest");
@@ -21,6 +24,9 @@ const {
 const {
   searchMentorsBySemanticQuery,
 } = require("../services/mentorSemanticSearchService");
+const {
+  backfillMentorSearchEmbeddings,
+} = require("../services/mentorSearchBackfillService");
 
 const mentorProfileId = "11111111-1111-4111-8111-111111111111";
 
@@ -284,6 +290,92 @@ describe("POST /api/mentor-search/admin/mentor-embedding", () => {
       updated: false,
       dimensions: 768,
       model: "gemini-embedding-001",
+    });
+  });
+});
+
+describe("POST /api/mentor-search/admin/backfill", () => {
+  beforeEach(() => {
+    backfillMentorSearchEmbeddings.mockReset();
+  });
+
+  it("rejects unauthenticated requests", async () => {
+    const response = await request(app).post(
+      "/api/mentor-search/admin/backfill"
+    );
+
+    expect(response.status).toBe(401);
+    expect(backfillMentorSearchEmbeddings).not.toHaveBeenCalled();
+  });
+
+  it("rejects users whose current database role is not admin", async () => {
+    const response = await request(app)
+      .post("/api/mentor-search/admin/backfill")
+      .set("Authorization", `Bearer ${tokenFor("mentee-user", ["admin"])}`);
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("FORBIDDEN");
+    expect(backfillMentorSearchEmbeddings).not.toHaveBeenCalled();
+  });
+
+  it("returns the safe backfill summary for a current database admin", async () => {
+    const summary = {
+      total: 3,
+      updated: 1,
+      skipped: 1,
+      failed: 1,
+      failures: [
+        {
+          mentorProfileId,
+          code: "EMBEDDING_GENERATION_FAILED",
+        },
+      ],
+    };
+    backfillMentorSearchEmbeddings.mockResolvedValue({
+      ...summary,
+      failures: [
+        {
+          ...summary.failures[0],
+          message: "Gemini provider details",
+          apiKey: "nested-private-api-key",
+        },
+      ],
+      embedding: [0.1, 0.2],
+      documentText: "private mentor document",
+      apiKey: "private-api-key",
+    });
+
+    const response = await request(app)
+      .post("/api/mentor-search/admin/backfill")
+      .set("Authorization", `Bearer ${tokenFor("admin-user", ["admin"])}`);
+
+    expect(response.status).toBe(200);
+    expect(backfillMentorSearchEmbeddings).toHaveBeenCalledTimes(1);
+    expect(response.body).toEqual(summary);
+    expect(JSON.stringify(response.body)).not.toContain("embedding");
+    expect(JSON.stringify(response.body)).not.toContain("documentText");
+    expect(JSON.stringify(response.body)).not.toContain("private-api-key");
+    expect(JSON.stringify(response.body)).not.toContain("Gemini");
+  });
+
+  it("returns 409 when another backfill is already running", async () => {
+    backfillMentorSearchEmbeddings.mockRejectedValue(
+      Object.assign(new Error("Mentor embedding backfill is already running."), {
+        status: 409,
+        code: "MENTOR_EMBEDDING_BACKFILL_IN_PROGRESS",
+      })
+    );
+
+    const response = await request(app)
+      .post("/api/mentor-search/admin/backfill")
+      .set("Authorization", `Bearer ${tokenFor("admin-user", ["admin"])}`);
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
+      error: {
+        code: "MENTOR_EMBEDDING_BACKFILL_IN_PROGRESS",
+        message: "Mentor embedding backfill is already running.",
+      },
     });
   });
 });

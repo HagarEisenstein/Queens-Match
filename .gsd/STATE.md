@@ -1,6 +1,6 @@
 # Current State
 
-- Phase: Semantic mentor retrieval and Help Me panel integration
+- Phase: Temporary admin mentor-embedding backfill endpoint
 - Branch: `ori-rag`
 - Status: complete and verified
-- Next: populate `mentor_search_embeddings` in the configured deployment environment before evaluating real semantic ranking quality
+- Next: deploy to Render, invoke `POST /api/mentor-search/admin/backfill` once as an authenticated current admin, and inspect the returned summary
