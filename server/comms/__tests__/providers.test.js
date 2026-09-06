@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const { createConsoleProvider } = require("../providers/consoleProvider");
 const { createEmailProvider } = require("../providers/emailProvider");
 const { createNotificationProvider } = require("../providers/providerFactory");
+const { createWhatsAppProvider } = require("../providers/whatsappProvider");
 
 test("console provider writes a structured notification", async () => {
   const entries = [];
@@ -74,4 +75,32 @@ test("provider factory selects providers without changing callers", () => {
     "email",
   );
   assert.throws(() => createNotificationProvider("unknown", {}), /Unsupported notification provider/);
+});
+
+test("WhatsApp provider sends an authenticated Twilio message", async () => {
+  const requests = [];
+  const provider = createWhatsAppProvider(
+    {
+      TWILIO_ACCOUNT_SID: "AC123",
+      TWILIO_AUTH_TOKEN: "secret",
+      TWILIO_WHATSAPP_FROM: "whatsapp:+14155552671",
+    },
+    {
+      fetchImpl: async (url, options) => {
+        requests.push({ url, options });
+        return { ok: true, async json() { return { sid: "SM123" }; } };
+      },
+    },
+  );
+
+  const result = await provider.send({
+    recipient: { id: "user-1", phone: "+14155552672" },
+    message: "Meeting reminder",
+  });
+
+  assert.equal(result.providerMessageId, "SM123");
+  assert.equal(requests[0].url, "https://api.twilio.com/2010-04-01/Accounts/AC123/Messages.json");
+  assert.match(requests[0].options.headers.Authorization, /^Basic /);
+  assert.equal(requests[0].options.body.get("From"), "whatsapp:+14155552671");
+  assert.equal(requests[0].options.body.get("To"), "whatsapp:+14155552672");
 });

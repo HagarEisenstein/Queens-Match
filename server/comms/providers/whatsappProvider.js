@@ -8,7 +8,11 @@ function createWhatsAppProvider(env = process.env, { fetchImpl = global.fetch, l
         logger.warn?.("WhatsApp notification skipped: recipient has no phone number", { recipientId: recipient.id });
         return { providerMessageId: null, skipped: true };
       }
-      const body = new URLSearchParams({ From: from, To: `whatsapp:${recipient.phone}`, Body: message });
+      const body = new URLSearchParams({
+        From: from.startsWith("whatsapp:") ? from : `whatsapp:${from}`,
+        To: recipient.phone.startsWith("whatsapp:") ? recipient.phone : `whatsapp:${recipient.phone}`,
+        Body: message,
+      });
       const response = await fetchImpl(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
         method: "POST",
         headers: { Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`, "Content-Type": "application/x-www-form-urlencoded" },

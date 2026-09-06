@@ -26,6 +26,7 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     username: user.username || "",
+    phone: user.phone || "",
     full_name: user.full_name || "",
     job: user.job || "",
     workplace: user.workplace || "",
@@ -42,6 +43,7 @@ export default function Profile() {
   const resetFormFromUser = () => {
     setForm({
       username: user.username || "",
+      phone: user.phone || "",
       full_name: user.full_name || "",
       job: user.job || "",
       workplace: user.workplace || "",
@@ -95,6 +97,7 @@ export default function Profile() {
   const details = [
     { label: "Full name", value: user.full_name || "Not added yet" },
     { label: "Username", value: user.username || "Not added yet" },
+    { label: "WhatsApp phone", value: user.phone || "Not added yet" },
     { label: "Job", value: user.job || "Not added yet" },
     { label: "Workplace", value: user.workplace || "Not added yet" },
     {
@@ -191,6 +194,7 @@ export default function Profile() {
           {isEditing ? (
             <Stack component="form" spacing={2} onSubmit={submit}>
               <TextField label="Username" required value={form.username} onChange={setField("username")} />
+              <TextField label="WhatsApp phone (+country code)" placeholder="+14155552671" value={form.phone} onChange={setField("phone")} />
               <TextField label="Full name" value={form.full_name} onChange={setField("full_name")} />
               <TextField label="Job" value={form.job} onChange={setField("job")} />
               <TextField label="Workplace" value={form.workplace} onChange={setField("workplace")} />

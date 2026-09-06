@@ -18,7 +18,7 @@ services:
       - key: BCRYPT_ROUNDS
         value: "12"
       - key: NOTIFICATION_PROVIDER
-        value: console
+        value: whatsapp
       - key: NOTIFICATION_JOBS_CRON
         value: "0 * * * *"
       - key: REQUEST_BODY_LIMIT
@@ -28,4 +28,10 @@ services:
       - key: AUTH_RATE_LIMIT_MAX
         value: "20"
       - key: DATABASE_URL
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
         sync: false

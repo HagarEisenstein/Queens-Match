@@ -103,7 +103,7 @@ Push this repo to a GitHub remote you own.
 
 ## Notifications
 
-Default `NOTIFICATION_PROVIDER=console`. For email via Brevo SMTP, set `NOTIFICATION_PROVIDER=email` plus `EMAIL_*`. WhatsApp can be enabled with `NOTIFICATION_PROVIDER=whatsapp` and all `TWILIO_*` credentials; without those credentials the app will fail fast rather than claim WhatsApp delivery. See `server/.env.example`.
+Render is configured for WhatsApp notifications with `NOTIFICATION_PROVIDER=whatsapp`. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_FROM` in Render. Without a WhatsApp Business sender, use Twilio’s WhatsApp Sandbox sender (`whatsapp:+14155238886`) and have each recipient join the sandbox first. WhatsApp messages must come from the Twilio sender; they cannot come from each recipient’s personal number. Users must save a phone number in international E.164 format in their profile. For local development, the default remains `NOTIFICATION_PROVIDER=console`; email via Brevo SMTP uses `NOTIFICATION_PROVIDER=email` plus `EMAIL_*`. Without the WhatsApp credentials, the app fails fast rather than claim delivery. See `server/.env.example`.
 
 ## Admin alerts and account inactivity
 
