@@ -21,6 +21,7 @@ import {
 import { getMentors } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { ADVICE_TOPICS } from "../constants/adviceTopics";
+import MentorSearchAssistant from "./MentorSearchAssistant";
 
 const LIKED_KEY = "queens_match_liked_mentors";
 
@@ -365,6 +366,8 @@ export default function MentorList() {
           </Alert>
         </Fade>
       )}
+
+      <MentorSearchAssistant />
     </Container>
   );
 }
