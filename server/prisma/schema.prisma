@@ -36,7 +36,7 @@ model Meeting {
   id                      String              @id @default(uuid()) @db.Uuid
   menteeId                String              @map("mentee_id") @db.Uuid
   mentorId                String              @map("mentor_id") @db.Uuid
-  status                  MeetingStatus
+  status                  String              @default("pending_mentor_times")
   scheduledTime           DateTime?           @map("scheduled_time")
   moreTimesUsed           Boolean             @default(false) @map("more_times_used")
   rescheduleUsed          Boolean             @default(false) @map("reschedule_used")
@@ -137,16 +137,4 @@ model AvailabilityBlock {
   @@index([meetingId])
   @@index([mentorId])
   @@map("availability_blocks")
-}
-
-enum MeetingStatus {
-  pending_mentor_times
-  pending_mentee_selection
-  scheduled
-  arrival_confirmed
-  completed
-  not_completed
-  feedback_submitted
-  rejected
-  cancelled
 }
