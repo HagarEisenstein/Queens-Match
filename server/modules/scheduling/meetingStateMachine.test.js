@@ -55,32 +55,14 @@ describe("meetingStateMachine", () => {
       ).toThrow(IllegalTransitionError);
     });
 
-    it("rejects coordination actions on a scheduled meeting", () => {
-      const stillIllegal = [
-        MEETING_ACTION.OFFER_TIMES,
-        MEETING_ACTION.REJECT,
-        MEETING_ACTION.SELECT_TIME,
-        MEETING_ACTION.REQUEST_MORE_TIMES,
-        MEETING_ACTION.MENTEE_REJECT,
-      ];
-      for (const action of stillIllegal) {
-        expect(() => transition(MEETING_STATUS.SCHEDULED, action)).toThrow(
-          IllegalTransitionError
-        );
-      }
+    it("allows post-match lifecycle actions from a scheduled meeting", () => {
+      expect(transition(MEETING_STATUS.SCHEDULED, MEETING_ACTION.CANNOT_ATTEND)).toBe(MEETING_STATUS.PENDING_MENTOR_TIMES);
+      expect(transition(MEETING_STATUS.SCHEDULED, MEETING_ACTION.CONFIRM_ARRIVAL)).toBe(MEETING_STATUS.ARRIVAL_CONFIRMED);
     });
 
     it("rejects any action on a rejected meeting", () => {
       for (const action of Object.values(MEETING_ACTION)) {
         expect(() => transition(MEETING_STATUS.REJECTED, action)).toThrow(
-          IllegalTransitionError
-        );
-      }
-    });
-
-    it("rejects any action on a cancelled meeting", () => {
-      for (const action of Object.values(MEETING_ACTION)) {
-        expect(() => transition(MEETING_STATUS.CANCELLED, action)).toThrow(
           IllegalTransitionError
         );
       }
@@ -117,51 +99,28 @@ describe("meetingStateMachine", () => {
   });
 
   describe("isTerminal", () => {
-    it("treats rejected and cancelled as terminal", () => {
+    it("treats feedback-complete, cancelled, and rejected as terminal", () => {
+      expect(isTerminal(MEETING_STATUS.FEEDBACK_SUBMITTED)).toBe(true);
       expect(isTerminal(MEETING_STATUS.REJECTED)).toBe(true);
       expect(isTerminal(MEETING_STATUS.CANCELLED)).toBe(true);
     });
 
-    it("treats the two pending states and scheduled as non-terminal", () => {
+    it("treats the two pending states as non-terminal", () => {
       expect(isTerminal(MEETING_STATUS.PENDING_MENTOR_TIMES)).toBe(false);
       expect(isTerminal(MEETING_STATUS.PENDING_MENTEE_SELECTION)).toBe(false);
-      expect(isTerminal(MEETING_STATUS.SCHEDULED)).toBe(false);
     });
   });
 
-  describe("re-coordination [R4.6]", () => {
-    it("moves back to awaiting mentor times when the mentee requests more times", () => {
-      expect(
-        transition(MEETING_STATUS.PENDING_MENTEE_SELECTION, MEETING_ACTION.REQUEST_MORE_TIMES)
-      ).toBe(MEETING_STATUS.PENDING_MENTOR_TIMES);
+  describe("lifecycle paths", () => {
+    it("supports the arrival and completed paths", () => {
+      expect(transition(MEETING_STATUS.ARRIVAL_CONFIRMED, MEETING_ACTION.CONFIRM_HAPPENED)).toBe(MEETING_STATUS.COMPLETED);
+      expect(transition(MEETING_STATUS.COMPLETED, MEETING_ACTION.SUBMIT_FEEDBACK)).toBe(MEETING_STATUS.FEEDBACK_SUBMITTED);
+      expect(transition(MEETING_STATUS.ARRIVAL_CONFIRMED, MEETING_ACTION.CONFIRM_NOT_HAPPENED)).toBe(MEETING_STATUS.NOT_COMPLETED);
+      expect(transition(MEETING_STATUS.NOT_COMPLETED, MEETING_ACTION.RETRY_AFTER_NOSHOW)).toBe(MEETING_STATUS.PENDING_MENTOR_TIMES);
     });
 
-    it("moves to rejected when the mentee declines the offered times", () => {
-      expect(
-        transition(MEETING_STATUS.PENDING_MENTEE_SELECTION, MEETING_ACTION.MENTEE_REJECT)
-      ).toBe(MEETING_STATUS.REJECTED);
-    });
-  });
-
-  describe("cancellation [R5]", () => {
-    it("moves a scheduled meeting back to awaiting mentor times on reschedule", () => {
-      expect(
-        transition(MEETING_STATUS.SCHEDULED, MEETING_ACTION.RESCHEDULE)
-      ).toBe(MEETING_STATUS.PENDING_MENTOR_TIMES);
-    });
-
-    it("moves a scheduled meeting to cancelled on a second can't-make-it", () => {
-      expect(
-        transition(MEETING_STATUS.SCHEDULED, MEETING_ACTION.CANCEL)
-      ).toBe(MEETING_STATUS.CANCELLED);
-    });
-  });
-
-  describe("no-show retry [R7]", () => {
-    it("reopens a scheduled meeting for a fresh round of times", () => {
-      expect(
-        transition(MEETING_STATUS.SCHEDULED, MEETING_ACTION.REOPEN_AFTER_NO_SHOW)
-      ).toBe(MEETING_STATUS.PENDING_MENTOR_TIMES);
+    it("supports one request-more-times transition", () => {
+      expect(transition(MEETING_STATUS.PENDING_MENTEE_SELECTION, MEETING_ACTION.REQUEST_MORE_TIMES)).toBe(MEETING_STATUS.PENDING_MENTOR_TIMES);
     });
   });
 });

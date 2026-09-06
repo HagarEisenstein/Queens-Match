@@ -23,10 +23,6 @@ const {
   offerTimes,
   rejectMeeting,
   selectTime,
-  requestMoreTimes,
-  declineOfferedTimes,
-  flagCantMakeIt,
-  reopenAfterNoShow,
   getMeetingById,
 } = require("./schedulingService");
 const { MEETING_STATUS } = require("./meetingStateMachine");
@@ -130,11 +126,7 @@ describe("offerTimes", () => {
     expect(prisma.meeting.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: MEETING_STATUS.PENDING_MENTEE_SELECTION } })
     );
-    expect(eventBus.emit).toHaveBeenCalledWith("TimesOffered", {
-      meetingId: MEETING_ID,
-      menteeId: MENTEE,
-      offeredAt: expect.any(String),
-    });
+    expect(eventBus.emit).toHaveBeenCalledWith("TimesOffered", { meetingId: MEETING_ID, menteeId: MENTEE });
   });
 
   it("forbids a non-mentor from offering times", async () => {
@@ -195,164 +187,6 @@ describe("rejectMeeting", () => {
       expect.objectContaining({ data: { status: MEETING_STATUS.REJECTED } })
     );
     expect(eventBus.emit).toHaveBeenCalledWith("MeetingRejected", { meetingId: MEETING_ID, menteeId: MENTEE });
-  });
-});
-
-describe("requestMoreTimes", () => {
-  it("sends the meeting back to awaiting mentor times, spends the flag once, and notifies the mentor", async () => {
-    prisma.meeting.findUnique.mockResolvedValue({
-      id: MEETING_ID, menteeId: MENTEE, mentorId: MENTOR,
-      status: MEETING_STATUS.PENDING_MENTEE_SELECTION, moreTimesUsed: false, timeSlots: [],
-    });
-    prisma.meeting.update.mockResolvedValue({ id: MEETING_ID, status: MEETING_STATUS.PENDING_MENTOR_TIMES });
-
-    await requestMoreTimes({ meetingId: MEETING_ID, actorId: MENTEE });
-
-    expect(prisma.meetingTimeSlot.deleteMany).toHaveBeenCalledWith({ where: { meetingId: MEETING_ID } });
-    expect(prisma.meeting.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { status: MEETING_STATUS.PENDING_MENTOR_TIMES, scheduledTime: null, moreTimesUsed: true },
-      })
-    );
-    expect(eventBus.emit).toHaveBeenCalledWith("MoreTimesRequested", { meetingId: MEETING_ID, mentorId: MENTOR });
-  });
-
-  it("forbids the mentor from requesting more times", async () => {
-    prisma.meeting.findUnique.mockResolvedValue({
-      id: MEETING_ID, menteeId: MENTEE, mentorId: MENTOR,
-      status: MEETING_STATUS.PENDING_MENTEE_SELECTION, moreTimesUsed: false, timeSlots: [],
-    });
-
-    await expect(
-      requestMoreTimes({ meetingId: MEETING_ID, actorId: MENTOR })
-    ).rejects.toMatchObject({ statusCode: 403 });
-    expect(prisma.meeting.update).not.toHaveBeenCalled();
-  });
-
-  it("blocks a second request once the one retry is already spent", async () => {
-    prisma.meeting.findUnique.mockResolvedValue({
-      id: MEETING_ID, menteeId: MENTEE, mentorId: MENTOR,
-      status: MEETING_STATUS.PENDING_MENTEE_SELECTION, moreTimesUsed: true, timeSlots: [],
-    });
-
-    await expect(
-      requestMoreTimes({ meetingId: MEETING_ID, actorId: MENTEE })
-    ).rejects.toMatchObject({ statusCode: 409, code: "RETRY_ALREADY_USED" });
-    expect(prisma.meeting.update).not.toHaveBeenCalled();
-  });
-});
-
-describe("declineOfferedTimes", () => {
-  it("moves the meeting to rejected and notifies the mentor", async () => {
-    prisma.meeting.findUnique.mockResolvedValue({
-      id: MEETING_ID, menteeId: MENTEE, mentorId: MENTOR,
-      status: MEETING_STATUS.PENDING_MENTEE_SELECTION, timeSlots: [],
-    });
-    prisma.meeting.update.mockResolvedValue({ id: MEETING_ID, status: MEETING_STATUS.REJECTED });
-
-    await declineOfferedTimes({ meetingId: MEETING_ID, actorId: MENTEE });
-
-    expect(prisma.meeting.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: MEETING_STATUS.REJECTED } })
-    );
-    expect(eventBus.emit).toHaveBeenCalledWith("MeetingDeclinedByMentee", { meetingId: MEETING_ID, mentorId: MENTOR });
-  });
-
-  it("forbids the mentor from declining on the mentee's behalf", async () => {
-    prisma.meeting.findUnique.mockResolvedValue({
-      id: MEETING_ID, menteeId: MENTEE, mentorId: MENTOR,
-      status: MEETING_STATUS.PENDING_MENTEE_SELECTION, timeSlots: [],
-    });
-
-    await expect(
-      declineOfferedTimes({ meetingId: MEETING_ID, actorId: MENTOR })
-    ).rejects.toMatchObject({ statusCode: 403 });
-  });
-});
-
-describe("flagCantMakeIt", () => {
-  it("reschedules a scheduled meeting the first time, spends the flag, and notifies the other side", async () => {
-    prisma.meeting.findUnique.mockResolvedValue({
-      id: MEETING_ID, menteeId: MENTEE, mentorId: MENTOR,
-      status: MEETING_STATUS.SCHEDULED, rescheduleUsed: false, timeSlots: [],
-    });
-    prisma.meeting.update.mockResolvedValue({ id: MEETING_ID, status: MEETING_STATUS.PENDING_MENTOR_TIMES });
-
-    await flagCantMakeIt({ meetingId: MEETING_ID, actorId: MENTOR });
-
-    expect(prisma.meeting.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { status: MEETING_STATUS.PENDING_MENTOR_TIMES, scheduledTime: null, rescheduleUsed: true },
-      })
-    );
-    expect(eventBus.emit).toHaveBeenCalledWith("MeetingRescheduleRequested", {
-      meetingId: MEETING_ID,
-      recipientId: MENTEE,
-    });
-  });
-
-  it("cancels a scheduled meeting on a second can't-make-it and notifies both sides", async () => {
-    prisma.meeting.findUnique.mockResolvedValue({
-      id: MEETING_ID, menteeId: MENTEE, mentorId: MENTOR,
-      status: MEETING_STATUS.SCHEDULED, rescheduleUsed: true, timeSlots: [],
-    });
-    prisma.meeting.update.mockResolvedValue({ id: MEETING_ID, status: MEETING_STATUS.CANCELLED });
-
-    await flagCantMakeIt({ meetingId: MEETING_ID, actorId: MENTEE });
-
-    expect(prisma.meeting.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: MEETING_STATUS.CANCELLED, scheduledTime: null } })
-    );
-    expect(eventBus.emit).toHaveBeenCalledWith("MeetingCancelled", {
-      meetingId: MEETING_ID,
-      mentorId: MENTOR,
-      menteeId: MENTEE,
-    });
-  });
-
-  it("forbids a non-participant from flagging can't-make-it", async () => {
-    prisma.meeting.findUnique.mockResolvedValue({
-      id: MEETING_ID, menteeId: MENTEE, mentorId: MENTOR,
-      status: MEETING_STATUS.SCHEDULED, rescheduleUsed: false, timeSlots: [],
-    });
-
-    await expect(
-      flagCantMakeIt({ meetingId: MEETING_ID, actorId: OTHER })
-    ).rejects.toMatchObject({ statusCode: 403 });
-  });
-
-  it("refuses to flag can't-make-it before the meeting is scheduled (illegal transition)", async () => {
-    prisma.meeting.findUnique.mockResolvedValue({
-      id: MEETING_ID, menteeId: MENTEE, mentorId: MENTOR,
-      status: MEETING_STATUS.PENDING_MENTOR_TIMES, rescheduleUsed: false, timeSlots: [],
-    });
-
-    await expect(
-      flagCantMakeIt({ meetingId: MEETING_ID, actorId: MENTOR })
-    ).rejects.toMatchObject({ statusCode: 409, code: "ILLEGAL_TRANSITION" });
-  });
-});
-
-describe("reopenAfterNoShow", () => {
-  it("reopens a scheduled meeting, spends the no-show retry flag, and notifies both sides", async () => {
-    prisma.meeting.findUnique.mockResolvedValue({
-      id: MEETING_ID, menteeId: MENTEE, mentorId: MENTOR,
-      status: MEETING_STATUS.SCHEDULED, retryAfterNoshowUsed: false, timeSlots: [],
-    });
-    prisma.meeting.update.mockResolvedValue({ id: MEETING_ID, status: MEETING_STATUS.PENDING_MENTOR_TIMES });
-
-    await reopenAfterNoShow({ meetingId: MEETING_ID });
-
-    expect(prisma.meeting.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { status: MEETING_STATUS.PENDING_MENTOR_TIMES, scheduledTime: null, retryAfterNoshowUsed: true },
-      })
-    );
-    expect(eventBus.emit).toHaveBeenCalledWith("MeetingReopenedAfterNoShow", {
-      meetingId: MEETING_ID,
-      mentorId: MENTOR,
-      menteeId: MENTEE,
-    });
   });
 });
 

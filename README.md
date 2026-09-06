@@ -103,7 +103,14 @@ Push this repo to a GitHub remote you own.
 
 ## Notifications
 
-Default `NOTIFICATION_PROVIDER=console`. For email via Brevo SMTP, set provider + `EMAIL_*` in `server/.env` (see `.env.example`).
+Default `NOTIFICATION_PROVIDER=console`. For email via Brevo SMTP, set `NOTIFICATION_PROVIDER=email` plus `EMAIL_*`. WhatsApp can be enabled with `NOTIFICATION_PROVIDER=whatsapp` and all `TWILIO_*` credentials; without those credentials the app will fail fast rather than claim WhatsApp delivery. See `server/.env.example`.
+
+## Admin alerts and account inactivity
+
+`AdminAlert` records are created by the scheduled scan and keyed by a unique idempotency key, so rerunning the scan does not duplicate the same exception. Admins can review open records at `/api/admin/alerts/persistent` and approve or resolve one with `PUT /api/admin/alerts/:id/review` (`{ "status": "approved" | "resolved", "note": "..." }`). These alerts are intentionally in-app/admin-dashboard records; they do not create personal admin email notifications.
+
+The scan covers cancelled meetings, mentor responses older than 72 hours, stalled pre-arrival meetings, not-completed meetings, overdue feedback, and overloaded mentors using genuinely completed meetings. Mentee accounts use `last_activity_at`; after one year of inactivity they receive an in-app warning and are scheduled for deletion one week later. A successful login clears the warning and deletion schedule.
+
 
 ## License
 

@@ -13,6 +13,10 @@ const MEETING_STATUS = Object.freeze({
   PENDING_MENTOR_TIMES: "pending_mentor_times",
   PENDING_MENTEE_SELECTION: "pending_mentee_selection",
   SCHEDULED: "scheduled",
+  ARRIVAL_CONFIRMED: "arrival_confirmed",
+  COMPLETED: "completed",
+  NOT_COMPLETED: "not_completed",
+  FEEDBACK_SUBMITTED: "feedback_submitted",
   REJECTED: "rejected",
   CANCELLED: "cancelled",
 });
@@ -21,19 +25,22 @@ const MEETING_ACTION = Object.freeze({
   OFFER_TIMES: "OFFER_TIMES",
   REJECT: "REJECT",
   SELECT_TIME: "SELECT_TIME",
-  // Epic 4 — re-coordination & cancellation.
   REQUEST_MORE_TIMES: "REQUEST_MORE_TIMES",
-  MENTEE_REJECT: "MENTEE_REJECT",
-  RESCHEDULE: "RESCHEDULE",
-  CANCEL: "CANCEL",
-  REOPEN_AFTER_NO_SHOW: "REOPEN_AFTER_NO_SHOW",
+  CANNOT_ATTEND: "CANNOT_ATTEND",
+  CONFIRM_ARRIVAL: "CONFIRM_ARRIVAL",
+  CONFIRM_HAPPENED: "CONFIRM_HAPPENED",
+  CONFIRM_NOT_HAPPENED: "CONFIRM_NOT_HAPPENED",
+  RETRY_AFTER_NOSHOW: "RETRY_AFTER_NOSHOW",
+  SUBMIT_FEEDBACK: "SUBMIT_FEEDBACK",
 });
 
 // The status a meeting is born in the moment a mentee expresses interest [R4.2].
 const INITIAL_STATUS = MEETING_STATUS.PENDING_MENTOR_TIMES;
 
-// Statuses from which no further coordination is possible.
+// Statuses from which no further coordination is expected within Epic 3.
+// (Epic 4 later reopens `scheduled` for re-coordination; that lives elsewhere.)
 const TERMINAL_STATUSES = Object.freeze([
+  MEETING_STATUS.FEEDBACK_SUBMITTED,
   MEETING_STATUS.REJECTED,
   MEETING_STATUS.CANCELLED,
 ]);
@@ -42,12 +49,6 @@ const TERMINAL_STATUSES = Object.freeze([
  * The complete transition table. A status maps to the actions it allows and
  * the status each action lands on. Anything not listed here is, by definition,
  * illegal — there is no implicit fall-through.
- *
- * The one-iteration-only business rules (R4.6, R5, R7) are NOT encoded here —
- * this table only says what's structurally possible. The service layer decides
- * which action to fire based on each meeting's per-situation retry flags
- * (`moreTimesUsed` / `rescheduleUsed` / `retryAfterNoshowUsed`), so the pure
- * FSM stays a deterministic function of (status, action) alone.
  */
 const TRANSITIONS = Object.freeze({
   [MEETING_STATUS.PENDING_MENTOR_TIMES]: {
@@ -59,19 +60,22 @@ const TRANSITIONS = Object.freeze({
   [MEETING_STATUS.PENDING_MENTEE_SELECTION]: {
     // Mentee picks exactly one offered time [R4.4] → confirmed [R4.5].
     [MEETING_ACTION.SELECT_TIME]: MEETING_STATUS.SCHEDULED,
-    // Mentee can't do any offered time and asks for a fresh set, once [R4.6].
     [MEETING_ACTION.REQUEST_MORE_TIMES]: MEETING_STATUS.PENDING_MENTOR_TIMES,
-    // Mentee can't do any offered time and gives up (the forced end-state
-    // after the one retry above is spent, or a voluntary decline before it).
-    [MEETING_ACTION.MENTEE_REJECT]: MEETING_STATUS.REJECTED,
   },
   [MEETING_STATUS.SCHEDULED]: {
-    // Either side flags "can't make it", once [R5] — back to offer-times.
-    [MEETING_ACTION.RESCHEDULE]: MEETING_STATUS.PENDING_MENTOR_TIMES,
-    // A second "can't make it" on the same meeting — no more retries.
-    [MEETING_ACTION.CANCEL]: MEETING_STATUS.CANCELLED,
-    // The meeting didn't happen and both sides still want to meet, once [R7].
-    [MEETING_ACTION.REOPEN_AFTER_NO_SHOW]: MEETING_STATUS.PENDING_MENTOR_TIMES,
+    [MEETING_ACTION.CANNOT_ATTEND]: MEETING_STATUS.PENDING_MENTOR_TIMES,
+    [MEETING_ACTION.CONFIRM_ARRIVAL]: MEETING_STATUS.ARRIVAL_CONFIRMED,
+    [`${MEETING_ACTION.CANNOT_ATTEND}_AGAIN`]: MEETING_STATUS.CANCELLED,
+  },
+  [MEETING_STATUS.ARRIVAL_CONFIRMED]: {
+    [MEETING_ACTION.CONFIRM_HAPPENED]: MEETING_STATUS.COMPLETED,
+    [MEETING_ACTION.CONFIRM_NOT_HAPPENED]: MEETING_STATUS.NOT_COMPLETED,
+  },
+  [MEETING_STATUS.NOT_COMPLETED]: {
+    [MEETING_ACTION.RETRY_AFTER_NOSHOW]: MEETING_STATUS.PENDING_MENTOR_TIMES,
+  },
+  [MEETING_STATUS.COMPLETED]: {
+    [MEETING_ACTION.SUBMIT_FEEDBACK]: MEETING_STATUS.FEEDBACK_SUBMITTED,
   },
   [MEETING_STATUS.REJECTED]: {},
   [MEETING_STATUS.CANCELLED]: {},

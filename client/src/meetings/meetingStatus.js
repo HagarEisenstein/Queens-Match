@@ -7,7 +7,6 @@ export const MEETING_STATUS = Object.freeze({
   PENDING_MENTEE_SELECTION: "pending_mentee_selection",
   SCHEDULED: "scheduled",
   REJECTED: "rejected",
-  CANCELLED: "cancelled",
 });
 
 const STATUS_META = {
@@ -15,7 +14,6 @@ const STATUS_META = {
   [MEETING_STATUS.PENDING_MENTEE_SELECTION]: { label: "Awaiting time selection", color: "info" },
   [MEETING_STATUS.SCHEDULED]: { label: "Scheduled", color: "success" },
   [MEETING_STATUS.REJECTED]: { label: "Rejected", color: "default" },
-  [MEETING_STATUS.CANCELLED]: { label: "Cancelled", color: "default" },
 };
 
 export function statusMeta(status) {
@@ -40,8 +38,6 @@ export function statusPrompt(status, role) {
       return "This meeting is confirmed.";
     case MEETING_STATUS.REJECTED:
       return "This request was declined.";
-    case MEETING_STATUS.CANCELLED:
-      return "This meeting was cancelled.";
     default:
       return "";
   }

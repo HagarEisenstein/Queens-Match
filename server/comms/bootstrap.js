@@ -9,6 +9,7 @@ const { createPrismaDeliveryRepository } = require("./repositories/prismaDeliver
 const { createEmailFallbackJob } = require("./jobs/emailFallbackJob");
 const { createBrevoProvider } = require("./providers/brevoProvider");
 const { createConsoleProvider } = require("./providers/consoleProvider");
+const { createWhatsAppProvider } = require("./providers/whatsappProvider");
 const { registerNotificationEventHandlers } = require("./registerEventHandlers");
 const { createMeetingReminderJob } = require("./jobs/meetingReminderJob");
 const { createPostMeetingCheckJob } = require("./jobs/postMeetingCheckJob");
@@ -53,10 +54,12 @@ function bootstrapNotifications({
     realtimeHub,
     emailDelayMilliseconds,
   });
-  const emailProvider = env.NOTIFICATION_PROVIDER === "email"
+  const provider = env.NOTIFICATION_PROVIDER === "email"
     ? createBrevoProvider(env)
-    : createConsoleProvider({ logger });
-  const emailFallbackJob = createEmailFallbackJob({ deliveryRepository, emailProvider });
+    : env.NOTIFICATION_PROVIDER === "whatsapp"
+      ? createWhatsAppProvider(env, { logger })
+      : createConsoleProvider({ logger });
+  const emailFallbackJob = createEmailFallbackJob({ deliveryRepository, emailProvider: provider });
   const unregisterHandlers = registerNotificationEventHandlers({ eventBus, notificationService, logger });
   const scheduledTask = env.NODE_ENV === "test" ? null : scheduler.schedule("* * * * *", () =>
     emailFallbackJob.run().catch((error) => logger.error("Email fallback job failed", { error: error.message }))
@@ -80,7 +83,6 @@ function bootstrapNotifications({
       reminderIntervalMilliseconds: feedbackIntervalMilliseconds,
     })
     : null;
-
   const meetingTask =
     env.NODE_ENV !== "test" &&
     meetingReminderJob &&

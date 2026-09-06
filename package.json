@@ -20,7 +20,7 @@
     "build": "cd client && npm run build",
     "build:prod": "npm --prefix server run db:generate && npm run build",
     "db:migrate:deploy": "npm --prefix server run db:migrate:deploy",
-    "render:build": "npm run install-all && npm run db:migrate:deploy && npm run build",
+    "render:build": "npm run install-all && npm run build",
     "start": "npm --prefix server start",
     "start:prod": "npm run start"
   },

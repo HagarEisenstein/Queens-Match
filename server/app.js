@@ -14,15 +14,14 @@ const {
 } = require("./modules/identity/userRepository");
 const createMentorsRouter = require("./routes/mentors");
 const createMeetingsRouter = require("./routes/meetings");
-const schedulingService = require("./modules/scheduling/schedulingService");
-const { createSchedulingMeetingQueryPort } = require("./modules/scheduling/meetingQueryPort");
-const { createSchedulingMeetingLifecyclePort } = require("./modules/scheduling/meetingLifecyclePort");
 const { bootstrapNotifications } = require("./comms/bootstrap");
 const { createNotificationsRouter } = require("./comms/routes");
 const {
   bootstrapEngagement,
   createPrismaFeedbackRepository,
 } = require("./engagement");
+const { createPrismaMeetingQueryRepository } = require("./engagement/repositories/prismaMeetingQueryRepository");
+const { createPrismaMeetingLifecycleRepository } = require("./engagement/repositories/prismaMeetingLifecycleRepository");
 const prisma = require("./commons/db");
 
 function mountClientApp(app) {
@@ -56,12 +55,9 @@ function createApp(options = {}) {
   const authorizeAdmin = requireCurrentRole(userRepository, "admin");
 
   const meetingQueryPort =
-    options.meetingQueryPort || createSchedulingMeetingQueryPort();
+    options.meetingQueryPort || createPrismaMeetingQueryRepository(prisma);
   const meetingLifecyclePort =
-    options.meetingLifecyclePort ||
-    createSchedulingMeetingLifecyclePort({
-      reopenAfterNoShow: schedulingService.reopenAfterNoShow,
-    });
+    options.meetingLifecyclePort || createPrismaMeetingLifecycleRepository(prisma);
   const feedbackRepository =
     options.feedbackRepository || createPrismaFeedbackRepository(prisma);
 
@@ -94,7 +90,7 @@ function createApp(options = {}) {
   if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
   // When serving client/build from this server, the browser Origin is :PORT
   // (not CRA's :3000). Allow both in local/dev so either workflow works.
-  const port = String(process.env.PORT || 5001);
+  const port = String(process.env.PORT || 5000);
   const localDevOrigins =
     process.env.NODE_ENV === "production"
       ? []
@@ -125,9 +121,24 @@ function createApp(options = {}) {
       },
     },
   }));
+  const isAllowedDevOrigin = (origin) => {
+    if (process.env.NODE_ENV === "production") {
+      return false;
+    }
+
+    try {
+      const { hostname, protocol } = new URL(origin);
+      return protocol === "http:" && (hostname === "localhost" || hostname === "127.0.0.1");
+    } catch {
+      return false;
+    }
+  };
+
   app.use(cors({
     origin(origin, callback) {
-      if (!origin || configuredOrigins.includes(origin)) return callback(null, true);
+      if (!origin || configuredOrigins.includes(origin) || isAllowedDevOrigin(origin)) {
+        return callback(null, true);
+      }
       return callback(new AppError(403, "CORS_FORBIDDEN", "Origin is not allowed."));
     },
   }));

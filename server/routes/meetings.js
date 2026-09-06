@@ -7,8 +7,8 @@ const {
   rejectMeeting,
   selectTime,
   requestMoreTimes,
-  declineOfferedTimes,
-  flagCantMakeIt,
+  reportCannotAttend,
+  confirmArrival,
   getMeetingById,
   listMeetingsForUser,
 } = require("../modules/scheduling/schedulingService");
@@ -37,7 +37,7 @@ function createMeetingsRouter({ authenticate }) {
   router.use(authenticate);
 
   // Mentee expresses interest [R4.2].
-  router.post("/", requestValidation, async (req, res, next) => {
+  router.post(["/", "/request"], requestValidation, async (req, res, next) => {
     try {
       const meeting = await requestMeeting({
         menteeId: req.user.id,
@@ -79,6 +79,9 @@ function createMeetingsRouter({ authenticate }) {
       next(error);
     }
   });
+  router.put("/:id/offer-times", offerTimesValidation, async (req, res, next) => {
+    try { res.json(await offerTimes({ meetingId: req.params.id, actorId: req.user.id, slots: req.body.slots })); } catch (error) { next(error); }
+  });
 
   // Mentor rejects the request [R4.3].
   router.post("/:id/reject", async (req, res, next) => {
@@ -91,6 +94,9 @@ function createMeetingsRouter({ authenticate }) {
     } catch (error) {
       next(error);
     }
+  });
+  router.put("/:id/reject", async (req, res, next) => {
+    try { res.json(await rejectMeeting({ meetingId: req.params.id, actorId: req.user.id })); } catch (error) { next(error); }
   });
 
   // Mentee picks exactly one offered time [R4.4].
@@ -106,44 +112,18 @@ function createMeetingsRouter({ authenticate }) {
       next(error);
     }
   });
-
-  // Mentee can't do any offered time and asks for a fresh set, once [R4.6].
-  router.post("/:id/request-more-times", async (req, res, next) => {
-    try {
-      const meeting = await requestMoreTimes({
-        meetingId: req.params.id,
-        actorId: req.user.id,
-      });
-      res.json(meeting);
-    } catch (error) {
-      next(error);
-    }
+  router.put("/:id/select-time", selectTimeValidation, async (req, res, next) => {
+    try { res.json(await selectTime({ meetingId: req.params.id, actorId: req.user.id, slotId: req.body.slotId })); } catch (error) { next(error); }
   });
 
-  // Mentee can't do any offered time and gives up [R4.6].
-  router.post("/:id/decline", async (req, res, next) => {
-    try {
-      const meeting = await declineOfferedTimes({
-        meetingId: req.params.id,
-        actorId: req.user.id,
-      });
-      res.json(meeting);
-    } catch (error) {
-      next(error);
-    }
+  router.put("/:id/request-more-times", async (req, res, next) => {
+    try { res.json(await requestMoreTimes({ meetingId: req.params.id, actorId: req.user.id })); } catch (error) { next(error); }
   });
-
-  // Either side flags "can't make it" on a scheduled meeting [R5].
-  router.post("/:id/cant-make-it", async (req, res, next) => {
-    try {
-      const meeting = await flagCantMakeIt({
-        meetingId: req.params.id,
-        actorId: req.user.id,
-      });
-      res.json(meeting);
-    } catch (error) {
-      next(error);
-    }
+  router.put("/:id/cannot-attend", async (req, res, next) => {
+    try { res.json(await reportCannotAttend({ meetingId: req.params.id, actorId: req.user.id })); } catch (error) { next(error); }
+  });
+  router.put("/:id/arrival", async (req, res, next) => {
+    try { res.json(await confirmArrival({ meetingId: req.params.id, actorId: req.user.id })); } catch (error) { next(error); }
   });
 
   return router;
