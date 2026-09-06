@@ -5,8 +5,22 @@ const { embedSearchQuery } = require("../services/embeddingService");
 const {
   generateMentorSearchEmbedding,
 } = require("../services/mentorSearchEmbeddingService");
+const {
+  searchMentorsBySemanticQuery,
+} = require("../services/mentorSemanticSearchService");
 
 const queryValidation = [
+  body().custom((requestBody) => {
+    if (
+      !requestBody ||
+      typeof requestBody !== "object" ||
+      Array.isArray(requestBody) ||
+      Object.keys(requestBody).some((key) => key !== "query")
+    ) {
+      throw new Error("request body may only contain query");
+    }
+    return true;
+  }),
   body("query")
     .isString()
     .withMessage("query must be a non-empty string")
@@ -23,6 +37,14 @@ function createMentorSearchRouter({ authenticate, authorizeAdmin }) {
   const router = express.Router();
 
   router.use(authenticate);
+  router.post("/", queryValidation, async (req, res, next) => {
+    try {
+      const mentors = await searchMentorsBySemanticQuery(req.body.query);
+      res.json({ mentors });
+    } catch (error) {
+      next(error);
+    }
+  });
   router.post("/embedding", queryValidation, async (req, res, next) => {
     try {
       const embedding = await embedSearchQuery(req.body.query);

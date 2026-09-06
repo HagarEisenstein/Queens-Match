@@ -7,6 +7,9 @@ jest.mock("../services/embeddingService", () => ({
 jest.mock("../services/mentorSearchEmbeddingService", () => ({
   generateMentorSearchEmbedding: jest.fn(),
 }));
+jest.mock("../services/mentorSemanticSearchService", () => ({
+  searchMentorsBySemanticQuery: jest.fn(),
+}));
 
 const jwt = require("jsonwebtoken");
 const request = require("supertest");
@@ -15,6 +18,9 @@ const { embedSearchQuery } = require("../services/embeddingService");
 const {
   generateMentorSearchEmbedding,
 } = require("../services/mentorSearchEmbeddingService");
+const {
+  searchMentorsBySemanticQuery,
+} = require("../services/mentorSemanticSearchService");
 
 const mentorProfileId = "11111111-1111-4111-8111-111111111111";
 
@@ -34,6 +40,73 @@ const app = createApp({
       roles: userId === "admin-user" ? ["admin"] : ["mentee"],
     }),
   },
+});
+
+describe("POST /api/mentor-search", () => {
+  beforeEach(() => {
+    searchMentorsBySemanticQuery.mockReset();
+  });
+
+  it("returns semantic mentor matches for query text only", async () => {
+    const mentors = [
+      {
+        id: mentorProfileId,
+        background: "Backend engineer",
+        adviceTopics: ["CV / Resume Review"],
+        meetingsOffered: 2,
+        meetingLengthMinutes: 45,
+        user: {
+          id: "22222222-2222-4222-8222-222222222222",
+          username: "ada",
+          fullName: "Ada Mentor",
+          photoUrl: null,
+          job: "Staff Engineer",
+          workplace: "QueenB",
+          techStack: ["Node.js"],
+        },
+        semanticScore: 0.88,
+      },
+    ];
+    searchMentorsBySemanticQuery.mockResolvedValue(mentors);
+
+    const response = await request(app)
+      .post("/api/mentor-search")
+      .set("Authorization", `Bearer ${tokenFor("user-1")}`)
+      .send({ query: "  backend interview and CV review  " });
+
+    expect(response.status).toBe(200);
+    expect(searchMentorsBySemanticQuery).toHaveBeenCalledWith(
+      "backend interview and CV review"
+    );
+    expect(response.body).toEqual({ mentors });
+    expect(JSON.stringify(response.body)).not.toContain("embedding");
+    expect(JSON.stringify(response.body)).not.toContain("documentText");
+  });
+
+  it.each([
+    ["missing", {}],
+    ["empty", { query: "" }],
+    ["non-string", { query: ["backend"] }],
+    ["client vector", { query: "backend", embedding: [0.1, 0.2] }],
+  ])("rejects a %s request", async (_, body) => {
+    const response = await request(app)
+      .post("/api/mentor-search")
+      .set("Authorization", `Bearer ${tokenFor("user-1")}`)
+      .send(body);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    expect(searchMentorsBySemanticQuery).not.toHaveBeenCalled();
+  });
+
+  it("requires authentication", async () => {
+    const response = await request(app)
+      .post("/api/mentor-search")
+      .send({ query: "backend interview" });
+
+    expect(response.status).toBe(401);
+    expect(searchMentorsBySemanticQuery).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/mentor-search/embedding", () => {

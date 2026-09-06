@@ -1,4 +1,8 @@
-import apiClient, { getMentors, verifyMentorSearchEmbedding } from "./client";
+import apiClient, {
+  getMentors,
+  searchMentorsBySemanticQuery,
+  verifyMentorSearchEmbedding,
+} from "./client";
 
 describe("getMentors", () => {
   afterEach(() => jest.restoreAllMocks());
@@ -33,6 +37,22 @@ describe("verifyMentorSearchEmbedding", () => {
     await verifyMentorSearchEmbedding("Help with backend interviews");
 
     expect(post).toHaveBeenCalledWith("/mentor-search/embedding", {
+      query: "Help with backend interviews",
+    });
+  });
+});
+
+describe("searchMentorsBySemanticQuery", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("posts only the raw query text to semantic mentor search", async () => {
+    const post = jest.spyOn(apiClient, "post").mockResolvedValue({
+      data: { mentors: [] },
+    });
+
+    await searchMentorsBySemanticQuery("Help with backend interviews");
+
+    expect(post).toHaveBeenCalledWith("/mentor-search", {
       query: "Help with backend interviews",
     });
   });

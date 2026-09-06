@@ -1,21 +1,48 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import MentorSearchAssistant from "./MentorSearchAssistant";
-import { verifyMentorSearchEmbedding } from "../api/client";
+import { searchMentorsBySemanticQuery } from "../api/client";
 
 jest.mock("../api/client", () => ({
-  verifyMentorSearchEmbedding: jest.fn(),
+  searchMentorsBySemanticQuery: jest.fn(),
 }));
+
+const semanticMentor = {
+  id: "m1",
+  background: "Backend engineer and interview coach",
+  adviceTopics: ["Backend Development", "CV / Resume Review"],
+  meetingsOffered: 3,
+  meetingLengthMinutes: 45,
+  user: {
+    id: "u1",
+    username: "ada",
+    fullName: "Ada Mentor",
+    photoUrl: null,
+    job: "Staff Engineer",
+    workplace: "QueenB",
+    techStack: ["Node.js", "PostgreSQL"],
+  },
+  semanticScore: 0.875,
+};
+
+function renderAssistant() {
+  return render(
+    <MemoryRouter>
+      <MentorSearchAssistant />
+    </MemoryRouter>
+  );
+}
 
 describe("MentorSearchAssistant", () => {
   beforeEach(() => {
-    verifyMentorSearchEmbedding.mockReset();
+    searchMentorsBySemanticQuery.mockReset();
   });
 
   it("opens and closes the mentor search panel", async () => {
     const user = userEvent.setup();
-    render(<MentorSearchAssistant />);
+    renderAssistant();
 
     expect(screen.queryByText("Find your mentor")).not.toBeInTheDocument();
 
@@ -37,15 +64,15 @@ describe("MentorSearchAssistant", () => {
     );
   });
 
-  it("posts the entered text and shows loading and success states", async () => {
+  it("posts the entered text and renders ranked semantic mentor matches", async () => {
     const user = userEvent.setup();
     let resolveRequest;
-    verifyMentorSearchEmbedding.mockReturnValue(
+    searchMentorsBySemanticQuery.mockReturnValue(
       new Promise((resolve) => {
         resolveRequest = resolve;
       })
     );
-    render(<MentorSearchAssistant />);
+    renderAssistant();
 
     await user.click(
       screen.getByRole("button", { name: "Help me find a mentor" })
@@ -68,27 +95,50 @@ describe("MentorSearchAssistant", () => {
 
     await user.click(submitButton);
 
-    expect(verifyMentorSearchEmbedding).toHaveBeenCalledWith(
+    expect(searchMentorsBySemanticQuery).toHaveBeenCalledWith(
       "Help with backend interviews"
     );
     expect(submitButton).toBeDisabled();
     expect(
-      screen.getByRole("progressbar", { name: "Understanding search" })
+      screen.getByRole("progressbar", { name: "Searching for mentors" })
     ).toBeInTheDocument();
 
-    resolveRequest({ data: { ok: true, dimension: 3072 } });
+    resolveRequest({ data: { mentors: [semanticMentor] } });
 
-    expect(
-      await screen.findByText("Search understanding is working")
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Ada Mentor")).toBeInTheDocument();
+    expect(screen.getByText("Backend engineer and interview coach")).toBeInTheDocument();
+    expect(screen.getByText("88% semantic match")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View Ada Mentor's profile" })).toHaveAttribute(
+      "href",
+      "/mentors/m1"
+    );
     expect(input).toHaveValue("Help with backend interviews");
     expect(screen.getByText("Find your mentor")).toBeInTheDocument();
   });
 
+  it("shows an empty result state when no stored mentor embeddings match", async () => {
+    const user = userEvent.setup();
+    searchMentorsBySemanticQuery.mockResolvedValue({ data: { mentors: [] } });
+    renderAssistant();
+
+    await user.click(
+      screen.getByRole("button", { name: "Help me find a mentor" })
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "What kind of help do you need?" }),
+      "Quantum mentorship"
+    );
+    await user.click(screen.getByRole("button", { name: "Find mentors" }));
+
+    expect(
+      await screen.findByText("No semantic mentor matches are available yet.")
+    ).toBeInTheDocument();
+  });
+
   it("shows a friendly error and preserves the entered text", async () => {
     const user = userEvent.setup();
-    verifyMentorSearchEmbedding.mockRejectedValue(new Error("network down"));
-    render(<MentorSearchAssistant />);
+    searchMentorsBySemanticQuery.mockRejectedValue(new Error("network down"));
+    renderAssistant();
 
     await user.click(
       screen.getByRole("button", { name: "Help me find a mentor" })
@@ -101,7 +151,7 @@ describe("MentorSearchAssistant", () => {
 
     expect(
       await screen.findByText(
-        "We couldn’t understand your search right now. Please try again."
+        "We couldn’t find mentors right now. Please try again."
       )
     ).toBeInTheDocument();
     expect(input).toHaveValue("Help with my CV");

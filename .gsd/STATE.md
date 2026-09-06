@@ -1,6 +1,6 @@
 # Current State
 
-- Phase: Persistent mentor embedding storage foundation
+- Phase: Semantic mentor retrieval and Help Me panel integration
 - Branch: `ori-rag`
-- Status: implementation and verification complete; hosted migration intentionally not applied
-- Next: review/apply the migration to the configured Neon database, then generate individual mentor embeddings with the maintenance script
+- Status: complete and verified
+- Next: populate `mentor_search_embeddings` in the configured deployment environment before evaluating real semantic ranking quality

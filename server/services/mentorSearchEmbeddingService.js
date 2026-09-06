@@ -6,6 +6,7 @@ const {
   getEmbeddingMetadata,
 } = require("./embeddingService");
 const { buildMentorSearchDocument } = require("./mentorSearchDocument");
+const { toPgVectorLiteral } = require("./pgVector");
 
 const mentorSearchDocumentSelect = {
   id: true,
@@ -25,19 +26,6 @@ function hashMentorSearchDocument(documentText) {
     throw new TypeError("Mentor search document must be a string");
   }
   return createHash("sha256").update(documentText, "utf8").digest("hex");
-}
-
-function toPgVectorLiteral(embedding, expectedDimensions) {
-  if (
-    !Array.isArray(embedding) ||
-    embedding.length !== expectedDimensions ||
-    !embedding.every(Number.isFinite)
-  ) {
-    throw new TypeError(
-      `Embedding must contain exactly ${expectedDimensions} finite numbers`
-    );
-  }
-  return `[${embedding.join(",")}]`;
 }
 
 function createMentorSearchEmbeddingRepository(prismaClient) {
