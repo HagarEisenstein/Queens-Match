@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import {
+  Alert,
   Box,
   Button,
+  CircularProgress,
   Drawer,
   Fab,
   IconButton,
@@ -11,14 +13,37 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { verifyMentorSearchEmbedding } from "../api/client";
 
 export default function MentorSearchAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [requestStatus, setRequestStatus] = useState("idle");
 
-  const handleSubmit = (event) => {
+  useEffect(() => {
+    if (requestStatus !== "success") return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setRequestStatus("idle");
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [requestStatus]);
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    if (!searchText.trim() || requestStatus === "loading") return;
+
+    setRequestStatus("loading");
+    try {
+      await verifyMentorSearchEmbedding(searchText.trim());
+      setRequestStatus("success");
+    } catch {
+      setRequestStatus("error");
+    }
   };
+
+  const isLoading = requestStatus === "loading";
 
   return (
     <>
@@ -100,19 +125,47 @@ export default function MentorSearchAssistant() {
             label="What kind of help do you need?"
             placeholder="I’m looking for someone who can help me prepare for a backend interview and review my CV"
             value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
+            onChange={(event) => {
+              setSearchText(event.target.value);
+              if (requestStatus !== "loading") setRequestStatus("idle");
+            }}
+            disabled={isLoading}
             multiline
             minRows={5}
             fullWidth
           />
 
+          {requestStatus === "success" && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              Search understanding is working
+            </Alert>
+          )}
+
+          {requestStatus === "error" && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              We couldn’t understand your search right now. Please try again.
+            </Alert>
+          )}
+
           <Button
             type="submit"
             variant="contained"
-            disabled={!searchText.trim()}
+            disabled={!searchText.trim() || isLoading}
             sx={{ mt: 2 }}
           >
-            Find mentors
+            {isLoading ? (
+              <>
+                <CircularProgress
+                  size={18}
+                  color="inherit"
+                  aria-label="Understanding search"
+                  sx={{ mr: 1 }}
+                />
+                Checking…
+              </>
+            ) : (
+              "Find mentors"
+            )}
           </Button>
         </Box>
       </Drawer>

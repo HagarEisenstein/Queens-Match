@@ -16,4 +16,8 @@ export function getMentors(adviceTopics = []) {
   return apiClient.get(query ? `/mentors?${query}` : "/mentors");
 }
 
+export function verifyMentorSearchEmbedding(query) {
+  return apiClient.post("/mentor-search/embedding", { query });
+}
+
 export default apiClient;

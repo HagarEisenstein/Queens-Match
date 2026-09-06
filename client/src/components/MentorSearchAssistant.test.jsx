@@ -2,8 +2,17 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MentorSearchAssistant from "./MentorSearchAssistant";
+import { verifyMentorSearchEmbedding } from "../api/client";
+
+jest.mock("../api/client", () => ({
+  verifyMentorSearchEmbedding: jest.fn(),
+}));
 
 describe("MentorSearchAssistant", () => {
+  beforeEach(() => {
+    verifyMentorSearchEmbedding.mockReset();
+  });
+
   it("opens and closes the mentor search panel", async () => {
     const user = userEvent.setup();
     render(<MentorSearchAssistant />);
@@ -28,8 +37,14 @@ describe("MentorSearchAssistant", () => {
     );
   });
 
-  it("stores the entered text locally and submits without making a request", async () => {
+  it("posts the entered text and shows loading and success states", async () => {
     const user = userEvent.setup();
+    let resolveRequest;
+    verifyMentorSearchEmbedding.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRequest = resolve;
+      })
+    );
     render(<MentorSearchAssistant />);
 
     await user.click(
@@ -53,7 +68,42 @@ describe("MentorSearchAssistant", () => {
 
     await user.click(submitButton);
 
+    expect(verifyMentorSearchEmbedding).toHaveBeenCalledWith(
+      "Help with backend interviews"
+    );
+    expect(submitButton).toBeDisabled();
+    expect(
+      screen.getByRole("progressbar", { name: "Understanding search" })
+    ).toBeInTheDocument();
+
+    resolveRequest({ data: { ok: true, dimension: 3072 } });
+
+    expect(
+      await screen.findByText("Search understanding is working")
+    ).toBeInTheDocument();
     expect(input).toHaveValue("Help with backend interviews");
     expect(screen.getByText("Find your mentor")).toBeInTheDocument();
+  });
+
+  it("shows a friendly error and preserves the entered text", async () => {
+    const user = userEvent.setup();
+    verifyMentorSearchEmbedding.mockRejectedValue(new Error("network down"));
+    render(<MentorSearchAssistant />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Help me find a mentor" })
+    );
+    const input = screen.getByRole("textbox", {
+      name: "What kind of help do you need?",
+    });
+    await user.type(input, "Help with my CV");
+    await user.click(screen.getByRole("button", { name: "Find mentors" }));
+
+    expect(
+      await screen.findByText(
+        "We couldn’t understand your search right now. Please try again."
+      )
+    ).toBeInTheDocument();
+    expect(input).toHaveValue("Help with my CV");
   });
 });
