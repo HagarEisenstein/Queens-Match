@@ -174,7 +174,10 @@ function createApp(options = {}) {
   app.use("/api/auth", authLimiter, authRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/mentors", createMentorsRouter({ authenticate }));
-  app.use("/api/mentor-search", createMentorSearchRouter({ authenticate }));
+  app.use(
+    "/api/mentor-search",
+    createMentorSearchRouter({ authenticate, authorizeAdmin })
+  );
   app.use("/api/meetings", createMeetingsRouter({ authenticate }));
   app.use(
     "/api/notifications",

@@ -2,6 +2,9 @@ const express = require("express");
 const { body } = require("express-validator");
 const { validate } = require("../commons/validation.middleware");
 const { embedSearchQuery } = require("../services/embeddingService");
+const {
+  generateMentorSearchEmbedding,
+} = require("../services/mentorSearchEmbeddingService");
 
 const queryValidation = [
   body("query")
@@ -14,7 +17,9 @@ const queryValidation = [
   validate,
 ];
 
-function createMentorSearchRouter({ authenticate }) {
+const mentorProfileIdValidation = [body("mentorProfileId").isUUID(), validate];
+
+function createMentorSearchRouter({ authenticate, authorizeAdmin }) {
   const router = express.Router();
 
   router.use(authenticate);
@@ -26,6 +31,23 @@ function createMentorSearchRouter({ authenticate }) {
       next(error);
     }
   });
+  // Temporary deployment-verification endpoint; remove after production validation.
+  router.post(
+    "/admin/mentor-embedding",
+    authorizeAdmin,
+    mentorProfileIdValidation,
+    async (req, res, next) => {
+      try {
+        const result = await generateMentorSearchEmbedding(
+          req.body.mentorProfileId
+        );
+        const { mentorProfileId, updated, dimensions, model } = result;
+        res.json({ mentorProfileId, updated, dimensions, model });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
 
   return router;
 }
