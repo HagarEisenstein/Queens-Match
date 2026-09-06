@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const multer = require("multer");
 const { AppError } = require("../../middleware/errors");
 const {
   normalizeEmail,
@@ -8,6 +9,7 @@ const {
   validateProfileFields,
   validateRegistration,
 } = require("./validation");
+const { getAvatarStorageConfigError } = require("./avatarStorage");
 
 function createIdentityRouters({
   userRepository,
@@ -17,9 +19,31 @@ function createIdentityRouters({
   adminInviteRepository,
   notificationService,
   logger = console,
+  avatarStorage = null,
 }) {
   const authRouter = express.Router();
   const usersRouter = express.Router();
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter(req, file, callback) {
+      const allowedMimeTypes = new Set([
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+      ]);
+      if (!allowedMimeTypes.has(file.mimetype)) {
+        return callback(
+          new AppError(
+            400,
+            "INVALID_AVATAR_FILE",
+            "Avatar must be a JPEG, PNG, or WebP image."
+          )
+        );
+      }
+      return callback(null, true);
+    },
+  });
   const createAccessToken = (user) =>
     jwt.sign({ id: user.id, roles: user.roles }, jwtSecret, {
       expiresIn: jwtExpiresIn,
@@ -226,6 +250,64 @@ function createIdentityRouters({
       return next(error);
     }
   });
+
+  usersRouter.post(
+    "/avatar",
+    authenticate,
+    (req, res, next) => {
+      upload.single("avatar")(req, res, (error) => {
+        if (error?.code === "LIMIT_FILE_SIZE") {
+          return next(
+            new AppError(
+              400,
+              "AVATAR_TOO_LARGE",
+              "Avatar must be 5MB or smaller."
+            )
+          );
+        }
+        return error ? next(error) : next();
+      });
+    },
+    async (req, res, next) => {
+      try {
+        if (!avatarStorage) {
+          const configError = getAvatarStorageConfigError();
+          throw new AppError(
+            503,
+            "AVATAR_STORAGE_NOT_CONFIGURED",
+            configError || "Avatar storage is not configured."
+          );
+        }
+        if (!req.file) {
+          throw new AppError(
+            400,
+            "AVATAR_REQUIRED",
+            "Attach an avatar image using the avatar field."
+          );
+        }
+
+        const avatarUrl = await avatarStorage.uploadUserAvatar({
+          userId: req.user.id,
+          file: req.file,
+        });
+        const user = await userRepository.updatePhotoUrl(req.user.id, avatarUrl);
+        if (!user) throw new AppError(404, "USER_NOT_FOUND", "User not found.");
+
+        return res.status(201).json({ user, photoUrl: user.photo_url });
+      } catch (error) {
+        console.error("Avatar upload failed", {
+          message: error.message,
+          stack: error.stack,
+          code: error.code,
+          userId: req.user?.id,
+          hasFile: Boolean(req.file),
+          mimeType: req.file?.mimetype,
+          size: req.file?.size,
+        });
+        return next(error);
+      }
+    }
+  );
 
   return { authRouter, usersRouter };
 }

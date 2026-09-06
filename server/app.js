@@ -13,6 +13,7 @@ const { PrismaAdminInviteRepository } = require("./modules/identity/adminInviteR
 const {
   PostgresUserRepository,
 } = require("./modules/identity/userRepository");
+const { createAvatarStorage } = require("./modules/identity/avatarStorage");
 const createAdminRouter = require("./routes/admin");
 const createMentorsRouter = require("./routes/mentors");
 const createMeetingsRouter = require("./routes/meetings");
@@ -90,6 +91,7 @@ function createApp(options = {}) {
     jwtExpiresIn: options.jwtExpiresIn || process.env.JWT_EXPIRES_IN || "15m",
     adminInviteRepository,
     notificationService: notifications.notificationService,
+    avatarStorage: options.avatarStorage || createAvatarStorage(),
   });
 
   const app = express();

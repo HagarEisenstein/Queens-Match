@@ -107,6 +107,19 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  const uploadAvatar = useCallback(async (file) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    const { data } = await api.post("/users/avatar", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    setUser(data.user);
+    return data.user;
+  }, []);
+
   const logout = useCallback(() => {
     clearSession();
     navigate("/login", { replace: true });
@@ -124,9 +137,10 @@ export function AuthProvider({ children }) {
       acceptAdminInvite,
       logout,
       updateProfile,
+      uploadAvatar,
       refreshUser,
     }),
-    [token, user, loading, login, register, acceptAdminInvite, logout, updateProfile, refreshUser]
+    [token, user, loading, login, register, acceptAdminInvite, logout, updateProfile, uploadAvatar, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -15,8 +15,9 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 export default function Profile() {
-  const { user, updateProfile, hasRole } = useAuth();
+  const { user, updateProfile, uploadAvatar, hasRole } = useAuth();
   const displayName = user.full_name || user.username || "User";
+  const avatarSrc = user.photo_url || "";
   const initials = displayName
     .split(/\s+/)
     .map((part) => part[0])
@@ -39,6 +40,7 @@ export default function Profile() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const resetFormFromUser = () => {
     setForm({
@@ -116,6 +118,26 @@ export default function Profile() {
     { label: "Photo URL", value: user.photo_url || "Not added yet" },
   ];
 
+  const handleAvatarChange = async (event) => {
+    const [file] = event.target.files || [];
+    event.target.value = "";
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    setMessage("");
+    setError("");
+    try {
+      await uploadAvatar(file);
+      setMessage("Profile photo updated.");
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.error?.message || "Unable to upload profile photo."
+      );
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   return (
     <Box maxWidth="md" mx="auto">
       <Paper
@@ -131,7 +153,7 @@ export default function Profile() {
           >
             <Stack direction="row" spacing={2} alignItems="center">
               <Avatar
-                src={user.photo_url || undefined}
+                src={avatarSrc || undefined}
                 alt={displayName}
                 sx={{ width: 72, height: 72, bgcolor: "primary.main", fontSize: 24 }}
               >
@@ -142,6 +164,21 @@ export default function Profile() {
                   Your profile
                 </Typography>
                 <Typography color="text.secondary">{user.email}</Typography>
+                <Button
+                  component="label"
+                  variant="text"
+                  size="small"
+                  sx={{ mt: 1, px: 0 }}
+                  disabled={uploadingAvatar}
+                >
+                  {uploadingAvatar ? "Uploading photo..." : "Upload profile photo"}
+                  <input
+                    hidden
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleAvatarChange}
+                  />
+                </Button>
               </Box>
             </Stack>
             <Button
@@ -209,6 +246,9 @@ export default function Profile() {
               <TextField label="GitHub URL" type="url" value={form.github_url} onChange={setField("github_url")} />
               <TextField label="LinkedIn URL" type="url" value={form.linkedin_url} onChange={setField("linkedin_url")} />
               <TextField label="Photo URL" type="url" value={form.photo_url} onChange={setField("photo_url")} />
+              <Typography variant="body2" color="text.secondary">
+                Uploading a profile photo updates the existing photo URL field automatically.
+              </Typography>
               <Button type="submit" variant="contained" disabled={submitting}>
                 {submitting ? "Saving…" : "Save profile"}
               </Button>

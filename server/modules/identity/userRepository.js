@@ -100,6 +100,17 @@ class PostgresUserRepository {
     );
     return result.rows[0] || null;
   }
+
+  async updatePhotoUrl(id, photo_url) {
+    const result = await this.pool.query(
+      `UPDATE users
+       SET photo_url = $2
+       WHERE id = $1
+       RETURNING ${PUBLIC_COLUMNS}`,
+      [id, photo_url]
+    );
+    return result.rows[0] || null;
+  }
 }
 
 module.exports = { PostgresUserRepository };
