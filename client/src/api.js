@@ -1,1 +1,1 @@
-export { default } from "./api/client";
+export { default, getMentors } from "./api/client";

@@ -8,4 +8,12 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+export function getMentors(adviceTopics = []) {
+  const searchParams = new URLSearchParams();
+  adviceTopics.forEach((topic) => searchParams.append("adviceTopics", topic));
+  const query = searchParams.toString();
+
+  return apiClient.get(query ? `/mentors?${query}` : "/mentors");
+}
+
 export default apiClient;

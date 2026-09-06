@@ -1,11 +1,12 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import MentorList from "./MentorList";
-import apiClient from "../api/client";
+import { getMentors } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
-jest.mock("../api/client", () => ({ get: jest.fn(), put: jest.fn() }));
+jest.mock("../api/client", () => ({ getMentors: jest.fn() }));
 jest.mock("../auth/AuthContext", () => ({ useAuth: jest.fn() }));
 
 const mentor = {
@@ -33,7 +34,7 @@ describe("MentorList", () => {
   afterEach(() => jest.resetAllMocks());
 
   it("shows a loading indicator while the request is in flight", () => {
-    apiClient.get.mockReturnValue(new Promise(() => {}));
+    getMentors.mockReturnValue(new Promise(() => {}));
 
     renderList();
 
@@ -41,7 +42,7 @@ describe("MentorList", () => {
   });
 
   it("renders each mentor's details once the list loads", async () => {
-    apiClient.get.mockResolvedValue({ data: [mentor] });
+    getMentors.mockResolvedValue({ data: [mentor] });
 
     renderList();
 
@@ -51,11 +52,11 @@ describe("MentorList", () => {
     expect(screen.getByText("mock interviews")).toBeInTheDocument();
     expect(screen.getByText("2 meetings · 45 minutes each")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View profile" })).toHaveAttribute("href", "/mentors/m1");
-    expect(apiClient.get).toHaveBeenCalledWith("/mentors");
+    expect(getMentors).toHaveBeenCalledWith([]);
   });
 
   it("shows an empty state when there are no mentors yet", async () => {
-    apiClient.get.mockResolvedValue({ data: [] });
+    getMentors.mockResolvedValue({ data: [] });
 
     renderList();
 
@@ -63,7 +64,7 @@ describe("MentorList", () => {
   });
 
   it("does not offer the signed-in user's own mentor profile", async () => {
-    apiClient.get.mockResolvedValue({
+    getMentors.mockResolvedValue({
       data: [
         { ...mentor, user: { ...mentor.user, id: "current-user" } },
         { ...mentor, id: "m2", user: { ...mentor.user, id: "u2", fullName: "Bella Mentor" } },
@@ -77,7 +78,7 @@ describe("MentorList", () => {
   });
 
   it("shows an error state when the request fails", async () => {
-    apiClient.get.mockRejectedValue(new Error("network down"));
+    getMentors.mockRejectedValue(new Error("network down"));
 
     renderList();
 
@@ -86,10 +87,52 @@ describe("MentorList", () => {
 
   it("falls back to the username when no full name is set", async () => {
     const noName = { ...mentor, user: { ...mentor.user, fullName: null } };
-    apiClient.get.mockResolvedValue({ data: [noName] });
+    getMentors.mockResolvedValue({ data: [noName] });
 
     renderList();
 
     await waitFor(() => expect(screen.getByText("alice")).toBeInTheDocument());
+  });
+
+  it("refetches mentors with every selected advice topic", async () => {
+    const user = userEvent.setup();
+    getMentors.mockResolvedValue({ data: [mentor] });
+
+    renderList();
+    await screen.findByText("Alice Admin");
+
+    await user.click(screen.getByRole("checkbox", { name: "CV / Resume Review" }));
+    await waitFor(() =>
+      expect(getMentors).toHaveBeenLastCalledWith(["CV / Resume Review"])
+    );
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "System Design Interviews" })
+    );
+    await waitFor(() =>
+      expect(getMentors).toHaveBeenLastCalledWith([
+        "CV / Resume Review",
+        "System Design Interviews",
+      ])
+    );
+  });
+
+  it("falls back to the unfiltered request after clearing the selected topics", async () => {
+    const user = userEvent.setup();
+    getMentors.mockResolvedValue({ data: [mentor] });
+
+    renderList();
+    await screen.findByText("Alice Admin");
+
+    const topicCheckbox = screen.getByRole("checkbox", {
+      name: "Technical Mock Interviews",
+    });
+    await user.click(topicCheckbox);
+    await waitFor(() =>
+      expect(getMentors).toHaveBeenLastCalledWith(["Technical Mock Interviews"])
+    );
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => expect(getMentors).toHaveBeenLastCalledWith([]));
   });
 });
