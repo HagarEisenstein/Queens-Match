@@ -132,7 +132,11 @@ export default function AppLayout() {
           <Button component={Link} to="/matches" sx={navLinkSx}>
             Matches
           </Button>
-          {hasRole("mentor")}
+          {hasRole("mentor") && (
+            <Button color="inherit" component={Link} to="/mentor-profile" sx={navLinkSx}>
+              Mentor Profile
+            </Button>
+          )}
           {hasRole("admin") && (
             <Button component={Link} to="/admin" sx={navLinkSx}>Admin</Button>
           )}
@@ -147,6 +151,9 @@ export default function AppLayout() {
           />
           <Button component={Link} to="/meetings" sx={navLinkSx}>
             Meetings
+          </Button>
+          <Button component={Link} to="/calendar" sx={navLinkSx}>
+            Calendar
           </Button>
           <Button color="inherit" onClick={logout} sx={navLinkSx}>
             Log out

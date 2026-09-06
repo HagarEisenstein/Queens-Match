@@ -11,6 +11,8 @@ const {
 const profileValidation = [
   body("background").isString().trim().isLength({ min: 1, max: 5000 }),
   body("adviceTopics").isArray({ min: 1 }),
+  // Topics may be built-in choices or a mentor's own free text; both are
+  // stored as plain strings, so we only enforce a length sanity cap here.
   body("adviceTopics.*").isString().trim().isLength({ min: 1, max: 100 }),
   body("meetingsOffered").isInt({ min: 1, max: 1000 }).toInt(),
   body("meetingLengthMinutes").isInt({ min: 15, max: 480 }).toInt(),

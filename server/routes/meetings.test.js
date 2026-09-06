@@ -72,6 +72,29 @@ describe("POST /api/meetings", () => {
     expect(requestMeeting).toHaveBeenCalledWith({ menteeId: "u1", mentorId: MENTOR });
     expect(response.body.id).toBe(MEETING_ID);
   });
+
+  it("rejects a request from a mentor-only account", async () => {
+    const response = await request(app)
+      .post("/api/meetings")
+      .set("Authorization", `Bearer ${tokenFor("u1", ["mentor"])}`)
+      .send({ mentorId: MENTOR });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("FORBIDDEN");
+    expect(requestMeeting).not.toHaveBeenCalled();
+  });
+
+  it("allows a request from a user who is both mentor and mentee", async () => {
+    requestMeeting.mockResolvedValue({ id: MEETING_ID, status: "pending_mentor_times" });
+
+    const response = await request(app)
+      .post("/api/meetings")
+      .set("Authorization", `Bearer ${tokenFor("u1", ["mentor", "mentee"])}`)
+      .send({ mentorId: MENTOR });
+
+    expect(response.status).toBe(201);
+    expect(requestMeeting).toHaveBeenCalledWith({ menteeId: "u1", mentorId: MENTOR });
+  });
 });
 
 describe("GET /api/meetings", () => {

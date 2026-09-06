@@ -9,7 +9,7 @@ jest.mock("../auth/AuthContext", () => ({ useAuth: jest.fn() }));
 
 const existingProfile = {
   background: "Ten years building backend systems.",
-  adviceTopics: ["career planning", "mock interviews"],
+  adviceTopics: ["CV / Resume Review", "Technical Mock Interviews"],
   meetingsOffered: 2,
   meetingLengthMinutes: 45,
 };
@@ -18,6 +18,21 @@ const existingProfile = {
 // exact label match ("Background") never hits — every field here is required.
 const field = (text) => screen.getByLabelText(text, { exact: false });
 const findField = (text) => screen.findByLabelText(text, { exact: false });
+const topicInput = () => screen.getByRole("combobox", { name: /advice topics/i });
+
+// Pick a built-in advice topic from the Autocomplete dropdown by name.
+const pickTopic = (topic) => {
+  const input = topicInput();
+  fireEvent.change(input, { target: { value: topic } });
+  fireEvent.click(screen.getByRole("option", { name: topic }));
+};
+
+// Type a custom free-text advice topic and commit it with Enter.
+const addCustomTopic = (topic) => {
+  const input = topicInput();
+  fireEvent.change(input, { target: { value: topic } });
+  fireEvent.keyDown(input, { key: "Enter" });
+};
 
 describe("MentorProfile", () => {
   const refreshUser = jest.fn().mockResolvedValue({});
@@ -40,13 +55,15 @@ describe("MentorProfile", () => {
     expect(await screen.findByText("Your profile could not be loaded.")).toBeInTheDocument();
   });
 
-  it("prefills the form with an existing profile, joining topics with commas", async () => {
+  it("prefills the form with an existing profile, showing selected topics as chips", async () => {
     apiClient.get.mockResolvedValue({ data: existingProfile });
 
     render(<MentorProfile />);
 
     expect(await findField("Background")).toHaveValue(existingProfile.background);
-    expect(field("Advice topics")).toHaveValue("career planning, mock interviews");
+    existingProfile.adviceTopics.forEach((topic) => {
+      expect(screen.getByText(topic)).toBeInTheDocument();
+    });
     expect(field("Meetings offered")).toHaveValue(2);
     expect(field("Length of each meeting (minutes)")).toHaveValue(45);
   });
@@ -61,7 +78,7 @@ describe("MentorProfile", () => {
     expect(apiClient.get).toHaveBeenCalledWith("/mentors/me");
   });
 
-  it("submits comma-separated topics as a trimmed array and shows a success message", async () => {
+  it("submits the selected topics as an array and shows a success message", async () => {
     apiClient.get.mockResolvedValue({ data: null });
     apiClient.put.mockResolvedValue({ data: { ...existingProfile } });
 
@@ -69,9 +86,8 @@ describe("MentorProfile", () => {
     await findField("Background");
 
     fireEvent.change(field("Background"), { target: { value: "New background text." } });
-    fireEvent.change(field("Advice topics"), {
-      target: { value: " career planning ,  mock interviews," },
-    });
+    pickTopic("CV / Resume Review");
+    pickTopic("Technical Mock Interviews");
     fireEvent.change(field("Meetings offered"), { target: { value: "3" } });
     fireEvent.change(field("Length of each meeting (minutes)"), { target: { value: "60" } });
     fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
@@ -79,13 +95,51 @@ describe("MentorProfile", () => {
     await waitFor(() =>
       expect(apiClient.put).toHaveBeenCalledWith("/mentors/me", {
         background: "New background text.",
-        adviceTopics: ["career planning", "mock interviews"],
+        adviceTopics: ["CV / Resume Review", "Technical Mock Interviews"],
         meetingsOffered: 3,
         meetingLengthMinutes: 60,
       })
     );
     await waitFor(() => expect(refreshUser).toHaveBeenCalled());
     expect(await screen.findByText("Mentor profile saved.")).toBeInTheDocument();
+  });
+
+  it("lets a mentor add a custom free-text topic alongside a built-in one", async () => {
+    apiClient.get.mockResolvedValue({ data: null });
+    apiClient.put.mockResolvedValue({ data: { ...existingProfile } });
+
+    render(<MentorProfile />);
+    await findField("Background");
+
+    fireEvent.change(field("Background"), { target: { value: "New background text." } });
+    pickTopic("CV / Resume Review");
+    addCustomTopic("Kubernetes deep dives");
+    fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
+
+    await waitFor(() =>
+      expect(apiClient.put).toHaveBeenCalledWith(
+        "/mentors/me",
+        expect.objectContaining({
+          adviceTopics: ["CV / Resume Review", "Kubernetes deep dives"],
+        })
+      )
+    );
+    expect(await screen.findByText("Mentor profile saved.")).toBeInTheDocument();
+  });
+
+  it("blocks saving and warns when no topic is selected", async () => {
+    apiClient.get.mockResolvedValue({ data: null });
+
+    render(<MentorProfile />);
+    await findField("Background");
+
+    fireEvent.change(field("Background"), { target: { value: "New background text." } });
+    fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
+
+    expect(
+      await screen.findByText("Please select at least one advice topic.")
+    ).toBeInTheDocument();
+    expect(apiClient.put).not.toHaveBeenCalled();
   });
 
   it("shows the server's error message when saving fails", async () => {

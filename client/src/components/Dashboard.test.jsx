@@ -52,4 +52,32 @@ describe("Dashboard", () => {
       expect(screen.getByRole("link", { name: "Edit mentor profile" })).toBeInTheDocument()
     );
   });
+
+  it("hides the Browse mentors CTA for mentor-only accounts", async () => {
+    mockAuth({ username: "mentor1", roles: ["mentor"] });
+    apiClient.get.mockResolvedValue({ data: { id: "p1" } });
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Edit mentor profile" })).toBeInTheDocument()
+    );
+    expect(screen.queryByRole("link", { name: /Browse mentors/ })).not.toBeInTheDocument();
+  });
+
+  it("shows the Browse mentors CTA for mentees", () => {
+    mockAuth({ username: "mentee1", roles: ["mentee"] });
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: /Browse mentors/ })).toHaveAttribute("href", "/mentors");
+  });
 });
