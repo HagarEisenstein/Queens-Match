@@ -38,6 +38,44 @@ function timestamp(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function createTopicSet(adviceTopics) {
+  if (!Array.isArray(adviceTopics)) return new Set();
+  return new Set(adviceTopics.filter((topic) => typeof topic === "string"));
+}
+
+function countMatchingTopics(mentor, selectedTopics) {
+  if (!Array.isArray(mentor.adviceTopics) || selectedTopics.size === 0) {
+    return 0;
+  }
+
+  const mentorTopics = new Set(mentor.adviceTopics);
+  let matchCount = 0;
+  for (const topic of selectedTopics) {
+    if (mentorTopics.has(topic)) matchCount += 1;
+  }
+  return matchCount;
+}
+
+function rankMentorsByTopicRelevance(mentors, adviceTopics) {
+  if (!Array.isArray(mentors) || mentors.length < 2) return mentors;
+
+  const selectedTopics = createTopicSet(adviceTopics);
+  if (selectedTopics.size === 0) return mentors;
+
+  return mentors
+    .map((mentor, originalIndex) => ({
+      mentor,
+      originalIndex,
+      topicRelevance: countMatchingTopics(mentor, selectedTopics),
+    }))
+    .sort(
+      (left, right) =>
+        right.topicRelevance - left.topicRelevance ||
+        left.originalIndex - right.originalIndex
+    )
+    .map(({ mentor }) => mentor);
+}
+
 function scoreMetrics(metrics) {
   // Smoothing keeps one early success or five-star review from overwhelming
   // mentors with a longer track record, while still giving new mentors a fair
@@ -63,6 +101,7 @@ function scoreMetrics(metrics) {
 
 function compareRanked(left, right) {
   return (
+    right.topicRelevance - left.topicRelevance ||
     right.score - left.score ||
     right.metrics.completed - left.metrics.completed ||
     right.metrics.ratingCount - left.metrics.ratingCount ||
@@ -179,23 +218,29 @@ async function loadEngagementHistory(prismaClient, mentorUserIds) {
 
 async function rankMentorsByEngagement(
   mentors,
-  { prismaClient, now = () => new Date() } = {}
+  { prismaClient, adviceTopics = [], now = () => new Date() } = {}
 ) {
   if (!Array.isArray(mentors) || mentors.length < 2) return mentors;
   if (!prismaClient) {
     throw new TypeError("prismaClient is required to rank mentors");
   }
 
+  const selectedTopics = createTopicSet(adviceTopics);
+  const topicRankedMentors = rankMentorsByTopicRelevance(
+    mentors,
+    adviceTopics
+  );
+
   const mentorUserIds = Array.from(
     new Set(mentors.map((mentor) => mentor.userId).filter(Boolean))
   );
-  if (mentorUserIds.length === 0) return mentors;
+  if (mentorUserIds.length === 0) return topicRankedMentors;
 
   const { meetings, outcomes, feedbacks } = await loadEngagementHistory(
     prismaClient,
     mentorUserIds
   );
-  if (meetings.length === 0) return mentors;
+  if (meetings.length === 0) return topicRankedMentors;
 
   const outcomesByMeeting = groupByMeeting(outcomes);
   const feedbacksByMeeting = groupByMeeting(feedbacks);
@@ -211,7 +256,12 @@ async function rankMentorsByEngagement(
     .map((mentor) => {
       const metrics =
         metricsByMentor.get(mentor.userId) || createMetrics(mentor);
-      return { mentor, metrics, score: scoreMetrics(metrics) };
+      return {
+        mentor,
+        metrics,
+        score: scoreMetrics(metrics),
+        topicRelevance: countMatchingTopics(mentor, selectedTopics),
+      };
     })
     .sort(compareRanked)
     .map(({ mentor }) => mentor);
@@ -219,4 +269,5 @@ async function rankMentorsByEngagement(
 
 module.exports = {
   rankMentorsByEngagement,
+  rankMentorsByTopicRelevance,
 };

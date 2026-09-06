@@ -1,6 +1,9 @@
 const prisma = require("../commons/db");
 const logger = require("../commons/logger");
-const { rankMentorsByEngagement } = require("./mentorMatchingService");
+const {
+  rankMentorsByEngagement,
+  rankMentorsByTopicRelevance,
+} = require("./mentorMatchingService");
 
 const userSelect = {
   id: true,
@@ -46,13 +49,16 @@ async function getMentors({ adviceTopics = [] } = {}) {
   if (normalizedTopics.length === 0 || mentors.length < 2) return mentors;
 
   try {
-    return await rankMentorsByEngagement(mentors, { prismaClient: prisma });
+    return await rankMentorsByEngagement(mentors, {
+      prismaClient: prisma,
+      adviceTopics: normalizedTopics,
+    });
   } catch (error) {
     logger.warn(
-      "Mentor engagement ranking unavailable; returning hard-filtered mentors.",
+      "Mentor engagement ranking unavailable; returning topic-ranked hard-filtered mentors.",
       { error: error.message }
     );
-    return mentors;
+    return rankMentorsByTopicRelevance(mentors, normalizedTopics);
   }
 }
 

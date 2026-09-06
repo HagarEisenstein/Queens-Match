@@ -93,6 +93,50 @@ describe("mentorProfilesService", () => {
       expect(prisma.meeting.findMany).not.toHaveBeenCalled();
     });
 
+    it("orders hard-filtered mentors by topic relevance without engagement history", async () => {
+      const selectedTopics = [
+        "CV / Resume Review",
+        "System Design Interviews",
+        "Technical Mock Interviews",
+      ];
+      const oneTopicMentor = {
+        id: "m1",
+        userId: "u1",
+        adviceTopics: selectedTopics.slice(0, 1),
+      };
+      const threeTopicMentor = {
+        id: "m3",
+        userId: "u3",
+        adviceTopics: selectedTopics,
+      };
+      const twoTopicMentor = {
+        id: "m2",
+        userId: "u2",
+        adviceTopics: selectedTopics.slice(0, 2),
+      };
+      prisma.mentorProfile.findMany.mockResolvedValue([
+        oneTopicMentor,
+        threeTopicMentor,
+        twoTopicMentor,
+      ]);
+      prisma.meeting.findMany.mockResolvedValue([]);
+
+      const result = await getMentors({ adviceTopics: selectedTopics });
+
+      expect(result).toEqual([
+        threeTopicMentor,
+        twoTopicMentor,
+        oneTopicMentor,
+      ]);
+      expect(prisma.mentorProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            adviceTopics: { hasSome: selectedTopics },
+          }),
+        })
+      );
+    });
+
     it("keeps the legacy query when the normalized topic list is empty", async () => {
       prisma.mentorProfile.findMany.mockResolvedValue([]);
 
@@ -105,21 +149,29 @@ describe("mentorProfilesService", () => {
       });
     });
 
-    it("falls back only to hard-filtered mentors if ranking history is unavailable", async () => {
+    it("preserves topic ranking if engagement history is unavailable", async () => {
+      const selectedTopics = [
+        "CV / Resume Review",
+        "System Design Interviews",
+      ];
       const mentors = [
-        { id: "m1", userId: "u1" },
-        { id: "m2", userId: "u2" },
+        {
+          id: "m1",
+          userId: "u1",
+          adviceTopics: ["CV / Resume Review"],
+        },
+        { id: "m2", userId: "u2", adviceTopics: selectedTopics },
       ];
       prisma.mentorProfile.findMany.mockResolvedValue(mentors);
       prisma.meeting.findMany.mockRejectedValue(new Error("history unavailable"));
 
-      const result = await getMentors({ adviceTopics: ["CV / Resume Review"] });
+      const result = await getMentors({ adviceTopics: selectedTopics });
 
-      expect(result).toEqual(mentors);
+      expect(result).toEqual([mentors[1], mentors[0]]);
       expect(prisma.mentorProfile.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            adviceTopics: { hasSome: ["CV / Resume Review"] },
+            adviceTopics: { hasSome: selectedTopics },
           }),
         })
       );
