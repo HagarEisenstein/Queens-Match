@@ -46,9 +46,6 @@ function bootstrapNotifications({
     env.NOTIFICATION_FEEDBACK_INTERVAL_MS,
     2 * 24 * 60 * 60 * 1000
   );
-  const notificationWorkerConcurrency = parsePositiveInt(env.NOTIFICATION_WORKER_CONCURRENCY, 5) || 1;
-  const notificationWorkerMaxAttempts = parsePositiveInt(env.NOTIFICATION_WORKER_MAX_ATTEMPTS, 5) || 1;
-  const notificationWorkerRateLimitMs = parsePositiveInt(env.NOTIFICATION_WORKER_RATE_LIMIT_MS, 0);
 
   const notificationRepository = createPrismaNotificationRepository(prisma);
   const deliveryRepository = createPrismaDeliveryRepository(prisma);
@@ -67,14 +64,7 @@ function bootstrapNotifications({
         emailProvider: createTwilioEmailProvider(env),
       })
       : createConsoleProvider({ logger });
-  const emailFallbackJob = createEmailFallbackJob({
-    deliveryRepository,
-    emailProvider: provider,
-    logger,
-    concurrency: notificationWorkerConcurrency,
-    maxAttempts: notificationWorkerMaxAttempts,
-    minimumIntervalMilliseconds: notificationWorkerRateLimitMs,
-  });
+  const emailFallbackJob = createEmailFallbackJob({ deliveryRepository, emailProvider: provider });
   const unregisterHandlers = registerNotificationEventHandlers({ eventBus, notificationService, logger });
   const scheduledTask = env.NODE_ENV === "test" ? null : scheduler.schedule("* * * * *", () =>
     emailFallbackJob.run().catch((error) => logger.error("Email fallback job failed", { error: error.message }))
@@ -128,9 +118,6 @@ function bootstrapNotifications({
       reminderLeadTimeMilliseconds,
       scanWindowMilliseconds,
       feedbackIntervalMilliseconds,
-      notificationWorkerConcurrency,
-      notificationWorkerMaxAttempts,
-      notificationWorkerRateLimitMs,
     },
   };
 }

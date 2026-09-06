@@ -115,7 +115,6 @@ model NotificationDelivery {
   status            String
   attemptCount      Int          @default(0) @map("attempt_count")
   nextAttemptAt     DateTime?    @map("next_attempt_at")
-  lockedAt          DateTime?    @map("locked_at")
   sentAt            DateTime?    @map("sent_at")
   providerMessageId String?      @map("provider_message_id")
   errorMessage      String?      @map("error_message")
