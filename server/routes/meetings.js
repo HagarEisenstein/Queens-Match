@@ -9,6 +9,7 @@ const {
   getMeetingById,
   listMeetingsForUser,
 } = require("../modules/scheduling/schedulingService");
+const { requireAnyRole } = require("../middleware/auth");
 
 const requestValidation = [
   body("mentorId").isUUID().withMessage("mentorId must be a valid id"),
@@ -33,8 +34,8 @@ function createMeetingsRouter({ authenticate }) {
   // Everything under /api/meetings requires a logged-in user.
   router.use(authenticate);
 
-  // Mentee expresses interest [R4.2].
-  router.post("/", requestValidation, async (req, res, next) => {
+  // Mentee expresses interest [R4.2]. Mentor-only accounts cannot request meetings.
+  router.post("/", requireAnyRole("mentee"), requestValidation, async (req, res, next) => {
     try {
       const meeting = await requestMeeting({
         menteeId: req.user.id,

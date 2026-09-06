@@ -45,7 +45,9 @@ function Dashboard() {
         severity="info"
         sx={{ mb: 3, bgcolor: "#FFD9E7", color: "text.primary", "& .MuiAlert-icon": { color: "primary.main" } }}
       >
-        Find a mentor who can help you take your next step.
+        {hasRole("mentee")
+          ? "Find a mentor who can help you take your next step."
+          : "Keep your mentor profile up to date so mentees can discover you."}
       </Alert>
 
       <Stack direction="row" spacing={1} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
@@ -66,9 +68,11 @@ function Dashboard() {
       </Stack>
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 3 }}>
-        <Button component={Link} to="/mentors" variant="contained" size="large">
-          Browse mentors →
-        </Button>
+        {hasRole("mentee") && (
+          <Button component={Link} to="/mentors" variant="contained" size="large">
+            Browse mentors →
+          </Button>
+        )}
         {hasRole("mentor") && (
           <Button
             component={Link}

@@ -89,6 +89,39 @@ describe("AppLayout", () => {
     expect(screen.queryByRole("link", { name: "Mentor Profile" })).not.toBeInTheDocument();
   });
 
+  it("hides Discover and Matches nav for mentor-only accounts", async () => {
+    mockAuth({ username: "m", roles: ["mentor"] });
+    apiClient.get.mockResolvedValue({ data: { id: "p1" } });
+
+    render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith("/mentors/me"));
+    expect(screen.queryAllByRole("link", { name: "Discover" })).toHaveLength(0);
+    expect(screen.queryAllByRole("link", { name: "Matches" })).toHaveLength(0);
+  });
+
+  it("shows Discover and Matches nav for mentees", () => {
+    mockAuth({ username: "e", roles: ["mentee"] });
+
+    render(
+      <MemoryRouter>
+        <AppLayout />
+      </MemoryRouter>
+    );
+
+    const discoverLinks = screen.getAllByRole("link", { name: "Discover" });
+    expect(discoverLinks.length).toBeGreaterThan(0);
+    discoverLinks.forEach((link) => expect(link).toHaveAttribute("href", "/mentors"));
+
+    const matchesLinks = screen.getAllByRole("link", { name: "Matches" });
+    expect(matchesLinks.length).toBeGreaterThan(0);
+    matchesLinks.forEach((link) => expect(link).toHaveAttribute("href", "/matches"));
+  });
+
   it("allows switching to Hebrew and back to English", () => {
     mockAuth({ id: "u1", username: "e", roles: ["mentee"] });
 

@@ -114,12 +114,16 @@ export default function AppLayout() {
             ))}
           </Stack>
 
-          <Button component={Link} to="/mentors" sx={navLinkSx}>
-            Discover
-          </Button>
-          <Button component={Link} to="/matches" sx={navLinkSx}>
-            Matches
-          </Button>
+          {hasRole("mentee") && (
+            <>
+              <Button component={Link} to="/mentors" sx={navLinkSx}>
+                Discover
+              </Button>
+              <Button component={Link} to="/matches" sx={navLinkSx}>
+                Matches
+              </Button>
+            </>
+          )}
           <Button component={Link} to="/profile" sx={navLinkSx}>
             Profile
           </Button>
@@ -139,6 +143,9 @@ export default function AppLayout() {
           />
           <Button component={Link} to="/meetings" sx={navLinkSx}>
             Meetings
+          </Button>
+          <Button component={Link} to="/calendar" sx={navLinkSx}>
+            Calendar
           </Button>
           <Button color="inherit" onClick={logout} sx={navLinkSx}>
             Log out
@@ -208,12 +215,16 @@ export default function AppLayout() {
               Queens Match
             </Typography>
             <Stack direction="row" spacing={2} flexWrap="wrap">
-              <Button component={Link} to="/mentors" size="small" sx={{ color: "secondary.main" }}>
-                Discover
-              </Button>
-              <Button component={Link} to="/matches" size="small" sx={{ color: "secondary.main" }}>
-                Matches
-              </Button>
+              {hasRole("mentee") && (
+                <>
+                  <Button component={Link} to="/mentors" size="small" sx={{ color: "secondary.main" }}>
+                    Discover
+                  </Button>
+                  <Button component={Link} to="/matches" size="small" sx={{ color: "secondary.main" }}>
+                    Matches
+                  </Button>
+                </>
+              )}
               <Button component={Link} to="/profile" size="small" sx={{ color: "secondary.main" }}>
                 Profile
               </Button>
