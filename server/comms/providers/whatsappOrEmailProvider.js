@@ -1,5 +1,3 @@
-const { createBrevoProvider } = require("./brevoProvider");
-
 function createWhatsAppOrEmailProvider(env = process.env, dependencies = {}) {
   const whatsappProvider = dependencies.whatsappProvider;
   let emailProvider = dependencies.emailProvider;
@@ -10,7 +8,7 @@ function createWhatsAppOrEmailProvider(env = process.env, dependencies = {}) {
       if (input.recipient?.phone) {
         return whatsappProvider.send(input);
       }
-      emailProvider ||= createBrevoProvider(env);
+      if (!emailProvider) throw new Error("Email provider is not configured");
       return emailProvider.send(input);
     },
   };

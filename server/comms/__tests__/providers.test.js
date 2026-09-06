@@ -5,6 +5,7 @@ const { createEmailProvider } = require("../providers/emailProvider");
 const { createNotificationProvider } = require("../providers/providerFactory");
 const { createWhatsAppProvider } = require("../providers/whatsappProvider");
 const { createWhatsAppOrEmailProvider } = require("../providers/whatsappOrEmailProvider");
+const { createTwilioEmailProvider } = require("../providers/twilioEmailProvider");
 
 test("console provider writes a structured notification", async () => {
   const entries = [];
@@ -130,4 +131,32 @@ test("WhatsApp-or-email provider uses email when phone is optional and absent", 
   assert.equal(provider.channel, "whatsapp-or-email");
   assert.equal(result.providerMessageId, "email-123");
   assert.equal(sent[0].recipient.email, "user@example.com");
+});
+
+test("Twilio Email provider sends the welcome email through the Comms API", async () => {
+  const requests = [];
+  const provider = createTwilioEmailProvider(
+    {
+      TWILIO_ACCOUNT_SID: "AC123",
+      TWILIO_AUTH_TOKEN: "secret",
+      TWILIO_EMAIL_FROM: "AC123@twilio.email",
+    },
+    {
+      fetchImpl: async (url, options) => {
+        requests.push({ url, options });
+        return { ok: true, status: 202, async json() { return { operationId: "comms_operation_123" }; } };
+      },
+    },
+  );
+
+  const result = await provider.send({
+    recipient: { id: "user-1", email: "user@example.com" },
+    title: "Welcome to Queens Match!",
+    message: "Welcome!",
+  });
+
+  assert.equal(result.providerMessageId, "comms_operation_123");
+  assert.equal(requests[0].url, "https://comms.twilio.com/v1/Emails");
+  assert.equal(requests[0].options.body.includes("user@example.com"), true);
+  assert.match(requests[0].options.headers.Authorization, /^Basic /);
 });

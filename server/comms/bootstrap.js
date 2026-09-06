@@ -11,6 +11,7 @@ const { createBrevoProvider } = require("./providers/brevoProvider");
 const { createConsoleProvider } = require("./providers/consoleProvider");
 const { createWhatsAppProvider } = require("./providers/whatsappProvider");
 const { createWhatsAppOrEmailProvider } = require("./providers/whatsappOrEmailProvider");
+const { createTwilioEmailProvider } = require("./providers/twilioEmailProvider");
 const { registerNotificationEventHandlers } = require("./registerEventHandlers");
 const { createMeetingReminderJob } = require("./jobs/meetingReminderJob");
 const { createPostMeetingCheckJob } = require("./jobs/postMeetingCheckJob");
@@ -60,6 +61,7 @@ function bootstrapNotifications({
     : env.NOTIFICATION_PROVIDER === "whatsapp"
       ? createWhatsAppOrEmailProvider(env, {
         whatsappProvider: createWhatsAppProvider(env, { logger }),
+        emailProvider: createTwilioEmailProvider(env),
       })
       : createConsoleProvider({ logger });
   const emailFallbackJob = createEmailFallbackJob({ deliveryRepository, emailProvider: provider });
