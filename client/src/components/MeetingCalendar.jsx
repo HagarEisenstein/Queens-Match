@@ -124,7 +124,7 @@ export default function MeetingCalendar() {
         My calendar
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Your confirmed meetings. Add any of them to Google or Apple Calendar.
+        Your confirmed meetings. Add any of them to your calendar.
       </Typography>
 
       {scheduled.length === 0 && (
