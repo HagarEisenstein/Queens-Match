@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -9,8 +9,10 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Link, useNavigate } from "react-router-dom";
+import LinkedInIcon from "@mui/icons-material/LinkedIn";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import api from "../api";
 import LocaleToggle from "./LocaleToggle";
 
 const initialForm = {
@@ -76,10 +78,75 @@ export default function Register() {
   const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const setField = (field) => (event) => {
     setForm((current) => ({ ...current, [field]: event.target.value }));
+  };
+
+  // Prefill the form from a LinkedIn connect started on this page (see linkedin.js).
+  const linkedinHandledRef = useRef(false);
+  useEffect(() => {
+    const status = searchParams.get("linkedin");
+    if (!status) return;
+    // The /pending/:ref fetch is single-use server-side; guard against
+    // StrictMode's dev-only double-invoke firing this effect twice.
+    if (linkedinHandledRef.current) return;
+    linkedinHandledRef.current = true;
+    const clearParams = () => {
+      const next = new URLSearchParams(searchParams);
+      next.delete("linkedin");
+      next.delete("ref");
+      setSearchParams(next, { replace: true });
+    };
+    if (status !== "connected") {
+      setError("LinkedIn connection failed. You can still fill the form manually.");
+      clearParams();
+      return;
+    }
+    const ref = searchParams.get("ref");
+    if (!ref) {
+      clearParams();
+      return;
+    }
+    api
+      .get(`/auth/linkedin/pending/${ref}`)
+      .then(({ data }) => {
+        setForm((current) => ({
+          ...current,
+          photo_url: data.photo_url || current.photo_url,
+          full_name: current.full_name || data.full_name || "",
+          email: current.email || data.email || "",
+        }));
+        setNotice(
+          "Pulled your photo from LinkedIn. Finish the form to create your account."
+        );
+      })
+      .catch(() =>
+        setError("Your LinkedIn prefill expired. Please connect again.")
+      )
+      .finally(clearParams);
+    // Run once on mount for the redirect params.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const connectLinkedin = async () => {
+    setError("");
+    setNotice("");
+    setConnecting(true);
+    try {
+      const { data } = await api.get("/auth/linkedin/start?mode=register");
+      window.location.href = data.url;
+    } catch (requestError) {
+      setConnecting(false);
+      setError(
+        requestError.response?.data?.error?.message ||
+          "Unable to start LinkedIn sign-in."
+      );
+    }
   };
 
   const pickRole = (choiceId) => {
@@ -187,6 +254,18 @@ export default function Register() {
             How do you want to show up?
           </Typography>
           {error && <Alert severity="error">{error}</Alert>}
+          {notice && <Alert severity="success">{notice}</Alert>}
+          <Button
+            type="button"
+            variant="outlined"
+            color="secondary"
+            startIcon={<LinkedInIcon />}
+            onClick={connectLinkedin}
+            disabled={connecting}
+            sx={{ alignSelf: "flex-start" }}
+          >
+            {connecting ? "Connecting…" : "Prefill from LinkedIn"}
+          </Button>
 
           <Stack
             direction={{ xs: "column", sm: "row" }}
@@ -286,7 +365,6 @@ export default function Register() {
           />
           <TextField label="GitHub URL (optional)" type="url" value={form.github_url} onChange={setField("github_url")} />
           <TextField label="LinkedIn URL (optional)" type="url" value={form.linkedin_url} onChange={setField("linkedin_url")} />
-          <TextField label="Photo URL (optional)" type="url" value={form.photo_url} onChange={setField("photo_url")} />
           <Button
             type="submit"
             variant="contained"

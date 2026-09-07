@@ -5,6 +5,7 @@ import Profile from "./Profile";
 import { useAuth } from "../auth/AuthContext";
 
 jest.mock("../auth/AuthContext", () => ({ useAuth: jest.fn() }));
+jest.mock("../api", () => ({ get: jest.fn() }));
 
 function mockAuth(overrides = {}) {
   const updateProfile = jest.fn().mockResolvedValue({
@@ -29,6 +30,7 @@ function mockAuth(overrides = {}) {
     },
     updateProfile: overrides.updateProfile || updateProfile,
     hasRole: overrides.hasRole || ((role) => (overrides.user?.roles || ["mentee", "mentor"]).includes(role)),
+    refreshUser: overrides.refreshUser || jest.fn().mockResolvedValue({}),
   });
 
   return { updateProfile };

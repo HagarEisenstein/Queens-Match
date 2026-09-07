@@ -9,6 +9,7 @@ const { getPool, pingDatabase } = require("./db");
 const { createAuthMiddleware, requireCurrentRole } = require("./middleware/auth");
 const { AppError, errorHandler, notFound } = require("./middleware/errors");
 const { createIdentityRouters } = require("./modules/identity/routes");
+const { createLinkedinRouter } = require("./modules/identity/linkedin");
 const {
   PostgresUserRepository,
 } = require("./modules/identity/userRepository");
@@ -86,6 +87,10 @@ function createApp(options = {}) {
     jwtExpiresIn: options.jwtExpiresIn || process.env.JWT_EXPIRES_IN || "15m",
     notificationService: notifications.notificationService,
   });
+
+  const linkedinRouter =
+    options.linkedinRouter ||
+    createLinkedinRouter({ userRepository, authenticate, jwtSecret });
 
   const app = express();
   if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
@@ -186,6 +191,9 @@ function createApp(options = {}) {
       });
     },
   });
+  // Mounted before the rate-limited /api/auth so the OAuth callback (hit by
+  // LinkedIn's browser redirect) isn't counted against the login/register limit.
+  app.use("/api/auth/linkedin", linkedinRouter);
   app.use("/api/auth", authLimiter, authRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/mentors", createMentorsRouter({ authenticate }));

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Avatar,
@@ -11,11 +11,13 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Link } from "react-router-dom";
+import LinkedInIcon from "@mui/icons-material/LinkedIn";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import api from "../api";
 
 export default function Profile() {
-  const { user, updateProfile, hasRole } = useAuth();
+  const { user, updateProfile, hasRole, refreshUser } = useAuth();
   const displayName = user.full_name || user.username || "User";
   const initials = displayName
     .split(/\s+/)
@@ -39,6 +41,53 @@ export default function Profile() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Handle the return from the LinkedIn OAuth round-trip (see linkedin.js).
+  const linkedinHandledRef = useRef(false);
+  useEffect(() => {
+    const status = searchParams.get("linkedin");
+    if (!status) return;
+    // Guard against StrictMode's dev-only double-invoke re-running this.
+    if (linkedinHandledRef.current) return;
+    linkedinHandledRef.current = true;
+    if (status === "connected") {
+      refreshUser()
+        .then(() => setMessage("LinkedIn photo added to your profile."))
+        .catch(() =>
+          setError(
+            "Connected to LinkedIn, but reloading your profile failed. Refresh to see the photo."
+          )
+        );
+    } else if (status === "nophoto") {
+      setError("Your LinkedIn account didn't return a profile photo.");
+    } else {
+      setError("LinkedIn connection failed. Please try again.");
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("linkedin");
+    next.delete("ref");
+    setSearchParams(next, { replace: true });
+    // Run once on mount for the redirect params.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const connectLinkedin = async () => {
+    setError("");
+    setMessage("");
+    setConnecting(true);
+    try {
+      const { data } = await api.get("/auth/linkedin/start");
+      window.location.href = data.url;
+    } catch (requestError) {
+      setConnecting(false);
+      setError(
+        requestError.response?.data?.error?.message ||
+          "Unable to start LinkedIn sign-in."
+      );
+    }
+  };
 
   const resetFormFromUser = () => {
     setForm({
@@ -113,7 +162,6 @@ export default function Profile() {
     },
     { label: "GitHub URL", value: user.github_url || "Not added yet" },
     { label: "LinkedIn URL", value: user.linkedin_url || "Not added yet" },
-    { label: "Photo URL", value: user.photo_url || "Not added yet" },
   ];
 
   return (
@@ -190,6 +238,16 @@ export default function Profile() {
           )}
           {message && <Alert severity="success">{message}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<LinkedInIcon />}
+            onClick={connectLinkedin}
+            disabled={connecting}
+            sx={{ alignSelf: "flex-start" }}
+          >
+            {connecting ? "Connecting…" : "Use my LinkedIn photo"}
+          </Button>
           <Divider />
           {isEditing ? (
             <Stack component="form" spacing={2} onSubmit={submit}>
@@ -208,7 +266,6 @@ export default function Profile() {
               <TextField label="Tech stack" value={form.tech_stack} onChange={setField("tech_stack")} />
               <TextField label="GitHub URL" type="url" value={form.github_url} onChange={setField("github_url")} />
               <TextField label="LinkedIn URL" type="url" value={form.linkedin_url} onChange={setField("linkedin_url")} />
-              <TextField label="Photo URL" type="url" value={form.photo_url} onChange={setField("photo_url")} />
               <Button type="submit" variant="contained" disabled={submitting}>
                 {submitting ? "Saving…" : "Save profile"}
               </Button>
