@@ -10,7 +10,7 @@ function escapeHtml(value) {
 function createTwilioEmailProvider(env = process.env, { fetchImpl = global.fetch } = {}) {
   const { TWILIO_ACCOUNT_SID: sid, TWILIO_AUTH_TOKEN: token } = env;
   const fromAddress = env.TWILIO_EMAIL_FROM || (sid ? `${sid}@twilio.email` : "");
-  const fromName = env.TWILIO_EMAIL_FROM_NAME || "Queens Match";
+  const fromName = env.TWILIO_EMAIL_FROM_NAME || "Queen's Match";
 
   if (!sid || !token || !fromAddress) {
     throw new Error("TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_EMAIL_FROM are required for Twilio Email");

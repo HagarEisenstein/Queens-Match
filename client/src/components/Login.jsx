@@ -54,7 +54,7 @@ export default function Login() {
       sx={{
         minHeight: "100vh",
         background:
-          "radial-gradient(circle at top, #FFD9E7 0%, #FFF0F6 40%, #FFFFFF 100%)",
+          "radial-gradient(circle at 80% 8%, #FFD6E2 0%, #F8F8F6 42%, #F8F8F6 100%)",
       }}
     >
       <Box className="qm-bee" aria-hidden="true">
@@ -71,15 +71,15 @@ export default function Login() {
         component="form"
         onSubmit={submit}
         elevation={0}
-        sx={{ p: 4, border: "1px solid", borderColor: "divider" }}
+        sx={{ p: 4, border: "1px solid", borderColor: "divider", boxShadow: "6px 6px 0 rgba(32, 33, 36, .12)" }}
       >
         <Stack spacing={3}>
           <Typography
             variant="h3"
             color="primary"
-            sx={{ fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif' }}
+            sx={{ fontFamily: '"Space Mono", "Courier New", monospace', letterSpacing: "-.08em" }}
           >
-            Queens Match
+            Queen's Match
           </Typography>
           <Typography variant="h4">Log in</Typography>
           {successMessage && <Alert severity="success">{successMessage}</Alert>}

@@ -1,4 +1,4 @@
-# Queens Match — Intent
+# Queen's Match — Intent
 
 ## Problem
 
@@ -6,7 +6,7 @@ Matching mentors and mentees in the QueenB community today is manual and ad hoc:
 
 ## What we're building
 
-A single web app — **Queens Match** — that runs one workflow end to end:
+A single web app — **Queen's Match** — that runs one workflow end to end:
 
 **mentee requests a meeting with a mentor → the mentor is notified and marks the times she's free (or rejects) → mentee picks one of the offered times → meeting is confirmed → it happens → both sides give feedback (nudged every 2 days until they do)**
 

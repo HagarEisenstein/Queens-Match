@@ -17,7 +17,7 @@ function createAdminAlertService({ prisma, notificationService = null, now = () 
       recipientId: user.id,
       type: "account_inactivity_warning",
       title: "Please log in to keep your account",
-      message: "Your Queens Match account has been inactive for one year. Log in within one week to keep it active.",
+      message: "Your Queen's Match account has been inactive for one year. Log in within one week to keep it active.",
       actionUrl: "/profile",
       emailEligible: false,
       deduplicationKey: `account_inactivity_warning:${user.id}:${warningAt.toISOString().slice(0, 10)}`,

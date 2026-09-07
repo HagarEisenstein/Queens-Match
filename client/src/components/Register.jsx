@@ -160,7 +160,7 @@ export default function Register() {
       sx={{
         minHeight: "100vh",
         background:
-          "radial-gradient(circle at top left, #FFD9E7 0%, #FFF0F6 45%, #FFFFFF 100%)",
+          "radial-gradient(circle at 12% 8%, #FFE4EC 0%, #F8F8F6 45%, #F8F8F6 100%)",
       }}
     >
       <Box className="qm-bee" aria-hidden="true">
@@ -173,14 +173,14 @@ export default function Register() {
       <Box sx={{ display: "flex", justifyContent: "flex-end", py: 2 }}>
         <LocaleToggle />
       </Box>
-      <Paper component="form" onSubmit={submit} elevation={0} sx={{ p: { xs: 3, md: 4 }, border: "1px solid", borderColor: "divider" }}>
+      <Paper component="form" onSubmit={submit} elevation={0} sx={{ p: { xs: 3, md: 4 }, border: "1px solid", borderColor: "divider", boxShadow: "6px 6px 0 rgba(32, 33, 36, .12)" }}>
         <Stack spacing={3}>
           <Typography
             variant="h3"
             color="primary"
-            sx={{ fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif' }}
+            sx={{ fontFamily: '"Space Mono", "Courier New", monospace', letterSpacing: "-.08em" }}
           >
-            Queens Match
+            Queen's Match
           </Typography>
           <Typography variant="h4">Create your account</Typography>
           <Typography color="text.secondary">

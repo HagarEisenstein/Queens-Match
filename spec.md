@@ -1,4 +1,4 @@
-# Queens Match — Spec
+# Queen's Match — Spec
 
 *Modular monolith. Confirmed decisions: single Express app / single PostgreSQL database / roles as a set (`text[]`), not an enum / **request-first coordination flow** (matches the PDF) / **per-situation re-coordination limits** (not one global counter). See [intent.md](intent.md) for the why.*
 

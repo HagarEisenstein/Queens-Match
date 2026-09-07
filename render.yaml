@@ -38,4 +38,4 @@ services:
       - key: TWILIO_EMAIL_FROM
         sync: false
       - key: TWILIO_EMAIL_FROM_NAME
-        value: Queens Match
+        value: Queen's Match

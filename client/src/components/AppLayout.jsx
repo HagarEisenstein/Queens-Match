@@ -63,10 +63,11 @@ export default function AppLayout() {
 
   const navLinkSx = {
     color: "text.primary",
-    fontWeight: 600,
+    fontWeight: 500,
     borderRadius: 2,
-    px: 1.5,
-    "&:hover": { bgcolor: "primary.light", color: "common.white" },
+    px: 1.25,
+    minHeight: 36,
+    "&:hover": { bgcolor: "secondary.light", color: "common.black" },
   };
   const profileActive = location.pathname === "/profile";
 
@@ -87,7 +88,7 @@ export default function AppLayout() {
         <span className="qm-bee__eye" />
       </Box>
       <AppBar position="sticky" elevation={0}>
-        <Toolbar sx={{ gap: 1, flexWrap: "wrap", py: 1, px: { xs: 2, md: 4 }, maxWidth: 1440, width: "100%", mx: "auto" }}>
+        <Toolbar sx={{ gap: 1, flexWrap: "wrap", py: 1.5, px: { xs: 2, md: 5 }, maxWidth: 1440, width: "100%", mx: "auto" }}>
           <Typography
             component={Link}
             to="/"
@@ -95,13 +96,13 @@ export default function AppLayout() {
             sx={{
               flexGrow: 1,
               textDecoration: "none",
-              color: "primary.main",
-              fontFamily: '"Nunito", "Assistant", sans-serif',
+              color: "text.primary",
+              fontFamily: '"Space Mono", "Courier New", monospace',
               fontWeight: 700,
-              letterSpacing: 0.2,
+              letterSpacing: "-.06em",
             }}
           >
-            Queens Match
+            Queen's Match
           </Typography>
 
           <Stack direction="row" spacing={0.5} aria-label="Account capabilities">
@@ -117,8 +118,8 @@ export default function AppLayout() {
                 color="primary"
                 variant="outlined"
                 sx={{
-                  borderColor: "primary.main",
-                  bgcolor: "rgba(255, 125, 156, 0.08)",
+                  borderColor: "text.primary",
+                  bgcolor: "secondary.light",
                 }}
               />
             ))}
@@ -209,14 +210,7 @@ export default function AppLayout() {
 
       <Box
         component="footer"
-        sx={{
-          mt: "auto",
-          bgcolor: "#FFFFFF",
-          borderTop: "1px solid",
-          borderColor: "divider",
-          pt: 3,
-          pb: 0,
-        }}
+        sx={{ mt: "auto", bgcolor: "transparent", borderTop: "1px solid", borderColor: "divider", pt: 3, pb: 0 }}
       >
         <Container maxWidth="lg">
           <Stack
@@ -228,13 +222,13 @@ export default function AppLayout() {
           >
             <Typography
               sx={{
-                color: "primary.main",
-                fontFamily: '"Sunday", "Fredoka", "Nunito", sans-serif',
+                color: "text.primary",
+                fontFamily: '"Space Mono", "Courier New", monospace',
                 fontWeight: 700,
                 fontSize: 22,
               }}
             >
-              Queens Match
+              Queen's Match
             </Typography>
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               For help contact: 055-9384923
@@ -244,9 +238,8 @@ export default function AppLayout() {
         <Box
           aria-hidden
           sx={{
-            height: 8,
-            background:
-              "linear-gradient(90deg, #FF7D9C 0%, #FFB4C6 25%, #FFE08A 50%, #715CF3 75%, #FF7D9C 100%)",
+            height: 5,
+            background: "#202124",
           }}
         />
       </Box>

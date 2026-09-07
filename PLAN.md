@@ -1,4 +1,4 @@
-# Queens Match — Project Plan (High-Level Breakdown)
+# Queen's Match — Project Plan (High-Level Breakdown)
 
 > A community app that matchmakes **mentors** and **mentees**: a mentee finds a mentor, the mentor
 > offers times, the mentee picks one, the meeting is confirmed and happens, both give feedback —

@@ -43,7 +43,7 @@ function toUtcStamp(date) {
 function meetingDescription(meeting, currentUserId) {
   const other = otherParty(meeting, currentUserId);
   const name = other?.fullName || other?.username || "your match";
-  return `QueenB mentoring meeting with ${name}. Manage it in Queens Match.`;
+  return `QueenB mentoring meeting with ${name}. Manage it in Queen's Match.`;
 }
 
 /**
@@ -80,7 +80,7 @@ export function buildIcs(meeting, currentUserId) {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Queens Match//Meetings//EN",
+    "PRODID:-//Queen's Match//Meetings//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",

@@ -1,7 +1,7 @@
 {
   "name": "queenb-app",
   "version": "1.0.0",
-  "description": "Queens Match — mentor/mentee matching (Express + React)",
+  "description": "Queen's Match — mentor/mentee matching (Express + React)",
   "main": "server/index.js",
   "engines": {
     "node": ">=18"

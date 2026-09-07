@@ -151,7 +151,7 @@ test("Twilio Email provider sends the welcome email through the Comms API", asyn
 
   const result = await provider.send({
     recipient: { id: "user-1", email: "user@example.com" },
-    title: "Welcome to Queens Match!",
+    title: "Welcome to Queen's Match!",
     message: "Welcome!",
   });
 

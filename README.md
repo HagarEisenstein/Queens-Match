@@ -1,4 +1,4 @@
-# Queens Match
+# Queen's Match
 
 Mentor / mentee matching app — Express + PostgreSQL backend, React (CRA) frontend.
 

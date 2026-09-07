@@ -40,8 +40,8 @@ function createIdentityRouters({
         await notificationService.send({
           recipientId: user.id,
           type: "welcome",
-          title: "Welcome to Queens Match!",
-          message: "We’re so happy you’re here. Complete your profile to find meaningful mentorship connections and make the most of your Queens Match experience.",
+          title: "Welcome to Queen's Match!",
+          message: "We’re so happy you’re here. Complete your profile to find meaningful mentorship connections and make the most of your Queen's Match experience.",
           actionUrl: "/profile",
           emailEligible: true,
           emailDelayMilliseconds: 0,
