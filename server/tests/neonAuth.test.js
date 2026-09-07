@@ -105,17 +105,17 @@ describe("createNeonTokenVerifier", () => {
     });
   });
 
-  test("verifies a Neon-shaped JWT with full auth base iss/aud", async () => {
+  test("rejects the auth base path as issuer because Neon uses the origin", async () => {
     const token = await mintNeonLikeToken({
       privateKey,
       kid: publicJwk.kid,
       issuer: authBase,
-      audience: authBase,
+      audience: origin,
     });
 
-    const identity = await verify(token);
-    expect(identity.email).toBe("google.user@example.com");
-    expect(identity.neonUserId).toBe("neon-user-123");
+    await expect(verify(token)).rejects.toMatchObject({
+      code: "NEON_TOKEN_INVALID_ISSUER",
+    });
   });
 
   test("rejects expired tokens with NEON_TOKEN_EXPIRED", async () => {
@@ -158,7 +158,7 @@ describe("createNeonTokenVerifier", () => {
     });
   });
 
-  test("accepts tokens without aud when issuer/signature are valid", async () => {
+  test("rejects tokens without the required Neon audience", async () => {
     const now = Math.floor(Date.now() / 1000);
     const { SignJWT } = require("jose");
     const token = await new SignJWT({
@@ -173,8 +173,9 @@ describe("createNeonTokenVerifier", () => {
       .setIssuer(origin)
       .sign(privateKey);
 
-    const identity = await verify(token);
-    expect(identity.email).toBe("google.user@example.com");
+    await expect(verify(token)).rejects.toMatchObject({
+      code: "NEON_TOKEN_INVALID_AUDIENCE",
+    });
   });
 
   test("rejects missing email with NEON_TOKEN_MISSING_CLAIMS", async () => {
@@ -188,6 +189,20 @@ describe("createNeonTokenVerifier", () => {
 
     await expect(verify(token)).rejects.toMatchObject({
       code: "NEON_TOKEN_MISSING_CLAIMS",
+    });
+  });
+
+  test("rejects an identity whose email is not verified", async () => {
+    const token = await mintNeonLikeToken({
+      privateKey,
+      kid: publicJwk.kid,
+      issuer: origin,
+      audience: origin,
+      claims: { emailVerified: false },
+    });
+
+    await expect(verify(token)).rejects.toMatchObject({
+      code: "NEON_TOKEN_UNVERIFIED_EMAIL",
     });
   });
 

@@ -9,6 +9,7 @@ const JWT_SECRET = "identity-test-secret";
 class MemoryUserRepository {
   constructor() {
     this.users = [];
+    this.createCalls = 0;
   }
 
   publicUser(user) {
@@ -17,6 +18,7 @@ class MemoryUserRepository {
   }
 
   async create(input) {
+    this.createCalls += 1;
     if (
       this.users.some(
         (user) =>
@@ -63,6 +65,12 @@ class MemoryUserRepository {
   async linkNeonAuthUserId(userId, neonAuthUserId) {
     const user = this.users.find((candidate) => candidate.id === userId);
     if (!user) return null;
+    if (
+      user.neon_auth_user_id &&
+      user.neon_auth_user_id !== neonAuthUserId
+    ) {
+      return null;
+    }
     user.neon_auth_user_id = neonAuthUserId;
     return this.publicUser(user);
   }
@@ -96,6 +104,7 @@ class MemoryUserRepository {
 describe("Epic 1 identity API", () => {
   let repository;
   let app;
+  let notificationService;
 
   beforeAll(() => {
     process.env.BCRYPT_ROUNDS = "4";
@@ -103,9 +112,19 @@ describe("Epic 1 identity API", () => {
 
   beforeEach(() => {
     repository = new MemoryUserRepository();
+    notificationService = { send: jest.fn().mockResolvedValue(undefined) };
     app = createApp({
       userRepository: repository,
       jwtSecret: JWT_SECRET,
+      notifications: {
+        notificationService,
+        notificationRepository: {
+          listForRecipient: jest.fn(),
+          markRead: jest.fn(),
+          markActionCompleted: jest.fn(),
+        },
+        realtimeHub: { subscribe: jest.fn(() => jest.fn()) },
+      },
       verifyNeonToken: async (token) => {
         if (token === "valid-neon-token") {
           return {
@@ -123,6 +142,15 @@ describe("Epic 1 identity API", () => {
             name: "Existing User",
             image: null,
             emailVerified: true,
+          };
+        }
+        if (token === "unverified-email-token") {
+          return {
+            neonUserId: "neon-user-unverified",
+            email: "unverified@example.com",
+            name: "Unverified User",
+            image: null,
+            emailVerified: false,
           };
         }
         const error = new Error("invalid");
@@ -277,6 +305,7 @@ describe("Epic 1 identity API", () => {
     const response = await request(app).post("/api/auth/neon").send({
       neonToken: "valid-neon-token",
       roles: ["mentee", "mentor"],
+      email: "attacker-controlled@example.com",
     });
 
     expect(response.status).toBe(201);
@@ -295,15 +324,21 @@ describe("Epic 1 identity API", () => {
     });
     expect(repository.users[0].password_hash).toBeNull();
     expect(repository.users[0].neon_auth_user_id).toBe("neon-user-123");
+    expect(repository.users).toHaveLength(1);
+    expect(repository.createCalls).toBe(1);
+    expect(notificationService.send).toHaveBeenCalledTimes(1);
   });
 
-  test("links Neon Auth to an existing email/password account", async () => {
+  test("links Neon Auth without replacing an existing account's password, roles, or profile", async () => {
+    const passwordHash = await bcrypt.hash("Strong!Pass9", 4);
     await repository.create({
       email: "existing@example.com",
       username: "existing-user",
-      password_hash: await bcrypt.hash("Strong!Pass9", 4),
-      roles: ["mentee"],
-      tech_stack: [],
+      password_hash: passwordHash,
+      roles: ["mentee", "mentor"],
+      full_name: "Existing Profile Name",
+      job: "Staff Engineer",
+      tech_stack: ["Node.js"],
     });
 
     const response = await request(app).post("/api/auth/neon").send({
@@ -314,7 +349,53 @@ describe("Epic 1 identity API", () => {
     expect(response.body.created).toBe(false);
     expect(response.body.user.email).toBe("existing@example.com");
     expect(repository.users[0].neon_auth_user_id).toBe("neon-user-link");
-    expect(repository.users[0].password_hash).toBeTruthy();
+    expect(repository.users[0]).toMatchObject({
+      password_hash: passwordHash,
+      roles: ["mentee", "mentor"],
+      full_name: "Existing Profile Name",
+      job: "Staff Engineer",
+      tech_stack: ["Node.js"],
+    });
+    expect(repository.users).toHaveLength(1);
+    expect(notificationService.send).not.toHaveBeenCalled();
+
+    const passwordLogin = await request(app).post("/api/auth/login").send({
+      email: "existing@example.com",
+      password: "Strong!Pass9",
+    });
+    expect(passwordLogin.status).toBe(200);
+    expect(passwordLogin.body.user.id).toBe(response.body.user.id);
+  });
+
+  test("repeated Google login reuses the linked QueenB user and JWT flow", async () => {
+    const first = await request(app).post("/api/auth/neon").send({
+      neonToken: "valid-neon-token",
+    });
+    const second = await request(app).post("/api/auth/neon").send({
+      neonToken: "valid-neon-token",
+    });
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(200);
+    expect(second.body.created).toBe(false);
+    expect(second.body.user.id).toBe(first.body.user.id);
+    expect(repository.users).toHaveLength(1);
+    expect(repository.createCalls).toBe(1);
+    expect(notificationService.send).toHaveBeenCalledTimes(1);
+    expect(jwt.verify(second.body.token, JWT_SECRET)).toMatchObject({
+      id: first.body.user.id,
+      roles: ["mentee"],
+    });
+  });
+
+  test("rejects a Neon identity without a verified email before user lookup", async () => {
+    const response = await request(app).post("/api/auth/neon").send({
+      neonToken: "unverified-email-token",
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("NEON_TOKEN_UNVERIFIED_EMAIL");
+    expect(repository.users).toHaveLength(0);
   });
 
   test("rejects password login for Google-only accounts", async () => {

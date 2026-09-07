@@ -76,6 +76,7 @@ class PostgresUserRepository {
       `UPDATE users
        SET neon_auth_user_id = $2
        WHERE id = $1
+         AND (neon_auth_user_id IS NULL OR neon_auth_user_id = $2)
        RETURNING ${PUBLIC_COLUMNS}`,
       [userId, neonAuthUserId]
     );

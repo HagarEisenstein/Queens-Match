@@ -43,16 +43,6 @@ function sanitizeClaimValue(value) {
   }
 }
 
-function audienceMatches(audClaim, expectedAudiences) {
-  if (typeof audClaim === "string") {
-    return expectedAudiences.includes(audClaim);
-  }
-  if (Array.isArray(audClaim)) {
-    return audClaim.some((value) => expectedAudiences.includes(value));
-  }
-  return false;
-}
-
 function inspectTokenShape(token) {
   try {
     const header = decodeProtectedHeader(token);
@@ -236,8 +226,7 @@ function mapJoseVerifyError(error, details) {
  *
  * Official Neon guidance verifies EdDSA signatures against
  * `${NEON_AUTH_BASE_URL}/.well-known/jwks.json` and checks issuer against the
- * Auth URL origin. Live tokens may use either the origin or the full auth base
- * URL for iss/aud; only those configured values are accepted.
+ * Auth URL origin. Managed Better Auth uses that origin for both iss and aud.
  *
  * @see https://neon.com/docs/auth/guides/plugins/jwt
  * @see https://neon.com/docs/compute/functions/authentication
@@ -257,10 +246,10 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
   const jwksUrl = new URL(`${authBase}/.well-known/jwks.json`);
   const JWKS = createRemoteJWKSet(jwksUrl);
 
-  // Only accept issuer/audience values that belong to this configured Neon Auth
-  // instance — never trust values from the client or token alone.
-  const expectedIssuers = [origin, authBase];
-  const expectedAudiences = [origin, authBase];
+  // These values come only from server configuration. Neon JWTs use the Auth
+  // URL origin (without /neondb/auth) for both issuer and audience.
+  const expectedIssuers = [origin];
+  const expectedAudiences = [origin];
 
   return async function verifyNeonToken(token) {
     if (typeof token !== "string" || !token.trim()) {
@@ -282,12 +271,12 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
     };
 
     try {
-      // Match Neon Functions / Node docs: require issuer + EdDSA via JWKS.
-      // Validate audience when present (Neon docs include aud; some tokens omit it).
+      // Pin every security-relevant part of the Managed Better Auth contract.
       const { payload, protectedHeader } = await jwtVerify(compact, JWKS, {
-        issuer: expectedIssuers,
+        issuer: origin,
+        audience: origin,
         algorithms: ["EdDSA"],
-        requiredClaims: ["exp", "sub", "iss"],
+        requiredClaims: ["exp", "sub", "iss", "aud", "email", "emailVerified"],
         clockTolerance: 5,
       });
 
@@ -300,19 +289,7 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
         );
       }
 
-      if (
-        Object.prototype.hasOwnProperty.call(payload, "aud") &&
-        !audienceMatches(payload.aud, expectedAudiences)
-      ) {
-        throw createNeonError(
-          "NEON_TOKEN_INVALID_AUDIENCE",
-          "Neon Auth token audience is invalid.",
-          null,
-          debugDetails
-        );
-      }
-
-      const neonUserId = payload.sub || payload.id;
+      const neonUserId = payload.sub;
       const email =
         typeof payload.email === "string"
           ? payload.email.trim().toLowerCase()
@@ -341,10 +318,19 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
         payload,
         "emailVerified"
       )
-        ? Boolean(payload.emailVerified)
+        ? payload.emailVerified === true
         : Object.prototype.hasOwnProperty.call(payload, "email_verified")
-          ? Boolean(payload.email_verified)
+          ? payload.email_verified === true
           : false;
+
+      if (!emailVerified) {
+        throw createNeonError(
+          "NEON_TOKEN_UNVERIFIED_EMAIL",
+          "Neon Auth identity must contain a verified email.",
+          null,
+          debugDetails
+        );
+      }
 
       return {
         neonUserId: String(neonUserId),
@@ -381,5 +367,4 @@ module.exports = {
   sanitizeClaimValue,
   inspectTokenShape,
   mapJoseVerifyError,
-  audienceMatches,
 };

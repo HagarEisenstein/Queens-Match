@@ -19,8 +19,7 @@ import { neonAuthClient } from "./neonClient";
 const { looksLikeJwt } = __testables;
 
 describe("looksLikeJwt", () => {
-  test("accepts compact JWTs", () => {
-    expect(looksLikeJwt("aaa.bbb.ccc")).toBe(true);
+  test("accepts compact EdDSA JWTs", () => {
     expect(
       looksLikeJwt("eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiIxMjMifQ.signature-part")
     ).toBe(true);
@@ -30,6 +29,7 @@ describe("looksLikeJwt", () => {
     expect(looksLikeJwt("")).toBe(false);
     expect(looksLikeJwt(null)).toBe(false);
     expect(looksLikeJwt("opaque-session-token")).toBe(false);
+    expect(looksLikeJwt("aaa.bbb.ccc")).toBe(false);
     expect(looksLikeJwt("only.two")).toBe(false);
     expect(looksLikeJwt("a.b.")).toBe(false);
   });
