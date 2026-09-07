@@ -18,6 +18,7 @@ import apiClient from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { MEETING_STATUS, statusMeta, statusPrompt } from "../meetings/meetingStatus";
 import OfferTimesCalendar from "./OfferTimesCalendar";
+import AddToCalendarButtons from "./AddToCalendarButtons";
 
 export default function MeetingDetail() {
   const { id } = useParams();
@@ -98,9 +99,17 @@ export default function MeetingDetail() {
 
       {/* Confirmed meeting */}
       {meeting.status === MEETING_STATUS.SCHEDULED && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Confirmed for {new Date(meeting.scheduledTime).toLocaleString()}.
-        </Alert>
+        <>
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Confirmed for {new Date(meeting.scheduledTime).toLocaleString()}.
+          </Alert>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Add this meeting to your calendar
+            </Typography>
+            <AddToCalendarButtons meeting={meeting} />
+          </Paper>
+        </>
       )}
 
       {/* Rejected */}

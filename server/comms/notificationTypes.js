@@ -1,4 +1,5 @@
 const NOTIFICATION_TYPES = Object.freeze({
+  WELCOME: "welcome",
   REQUEST_RECEIVED: "request_received",
   TIMES_OFFERED: "times_offered",
   MEETING_REJECTED: "meeting_rejected",

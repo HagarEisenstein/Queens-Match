@@ -13,6 +13,8 @@ function createIdentityRouters({
   authenticate,
   jwtSecret,
   jwtExpiresIn = "1d",
+  notificationService,
+  logger = console,
 }) {
   const authRouter = express.Router();
   const usersRouter = express.Router();
@@ -34,6 +36,18 @@ function createIdentityRouters({
         roles,
         ...profile,
       });
+      if (notificationService) {
+        await notificationService.send({
+          recipientId: user.id,
+          type: "welcome",
+          title: "Welcome to Queens Match!",
+          message: "We’re so happy you’re here. Complete your profile to find meaningful mentorship connections and make the most of your Queens Match experience.",
+          actionUrl: "/profile",
+          emailEligible: true,
+          emailDelayMilliseconds: 0,
+          deduplicationKey: `welcome:${user.id}`,
+        }).catch((error) => logger.error?.("Welcome notification failed", { error: error.message, userId: user.id }));
+      }
       return res.status(201).json({ token: createAccessToken(user), user });
     } catch (error) {
       if (error.code === "23505") {

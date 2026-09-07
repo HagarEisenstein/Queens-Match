@@ -8,47 +8,61 @@ datasource db {
 }
 
 model User {
-  id              String   @id @default(uuid()) @db.Uuid
-  email           String   @unique
-  passwordHash    String   @map("password_hash")
-  username        String   @unique
-  roles           String[]
-  fullName        String?  @map("full_name")
-  photoUrl        String?  @map("photo_url")
-  githubUrl       String?  @map("github_url")
-  linkedinUrl     String?  @map("linkedin_url")
-  job             String?
-  workplace       String?
-  yearsExperience Int?     @map("years_experience")
-  techStack       String[] @map("tech_stack")
-  createdAt       DateTime @default(now()) @map("created_at")
-  mentorProfile   MentorProfile?
-  notifications   Notification[]
-  outcomeResponses MeetingOutcomeResponse[]
-  feedbacks       Feedback[]
-  feedbackRequests FeedbackRequest[]
-  menteeBlocks    MentorMenteeBlock[] @relation("MenteeBlocks")
-  mentorBlocks    MentorMenteeBlock[] @relation("MentorBlocks")
-  meetingsAsMentee Meeting[] @relation("MenteeMeetings")
-  meetingsAsMentor Meeting[] @relation("MentorMeetings")
+  id                 String              @id @default(uuid()) @db.Uuid
+  email              String              @unique
+  phone              String?
+  passwordHash       String              @map("password_hash")
+  username           String              @unique
+  roles              String[]
+  fullName           String?             @map("full_name")
+  photoUrl           String?             @map("photo_url")
+  githubUrl          String?             @map("github_url")
+  linkedinUrl        String?             @map("linkedin_url")
+  job                String?
+  workplace          String?
+  yearsExperience    Int?                @map("years_experience")
+  techStack          String[]            @map("tech_stack")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  lastActivityAt     DateTime            @default(now()) @map("last_activity_at")
+  deletionWarningSentAt DateTime?         @map("deletion_warning_sent_at")
+  deletionScheduledAt DateTime?           @map("deletion_scheduled_at")
+  availabilityBlocks AvailabilityBlock[]
+  feedbacks          Feedback[]
+  outcomeResponses   MeetingOutcomeResponse[]
+  feedbackRequests   FeedbackRequest[]
+  menteeBlocks       MentorMenteeBlock[] @relation("MenteeBlocks")
+  mentorBlocks       MentorMenteeBlock[] @relation("MentorBlocks")
+  meetingsAsMentee   Meeting[]           @relation("MenteeMeetings")
+  meetingsAsMentor   Meeting[]           @relation("MentorMeetings")
+  mentorProfile      MentorProfile?
+  notifications      Notification[]
 
   @@map("users")
 }
 
 model Meeting {
-  id            String            @id @default(uuid()) @db.Uuid
-  menteeId      String            @map("mentee_id") @db.Uuid
-  mentorId      String            @map("mentor_id") @db.Uuid
-  status        String            @default("pending_mentor_times")
-  scheduledTime DateTime?         @map("scheduled_time")
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
-  mentee        User              @relation("MenteeMeetings", fields: [menteeId], references: [id], onDelete: Cascade)
-  mentor        User              @relation("MentorMeetings", fields: [mentorId], references: [id], onDelete: Cascade)
-  timeSlots     MeetingTimeSlot[]
+  id                      String              @id @default(uuid()) @db.Uuid
+  menteeId                String              @map("mentee_id") @db.Uuid
+  mentorId                String              @map("mentor_id") @db.Uuid
+  status                  String              @default("pending_mentor_times")
+  scheduledTime           DateTime?           @map("scheduled_time")
+  moreTimesUsed           Boolean             @default(false) @map("more_times_used")
+  rescheduleUsed          Boolean             @default(false) @map("reschedule_used")
+  retryAfterNoshowUsed    Boolean             @default(false) @map("retry_after_noshow_used")
+  menteeArrivalConfirmed Boolean             @default(false) @map("mentee_arrival_confirmed")
+  mentorArrivalConfirmed Boolean             @default(false) @map("mentor_arrival_confirmed")
+  createdAt               DateTime            @default(now()) @map("created_at")
+  updatedAt               DateTime            @updatedAt @map("updated_at")
+  timeSlots               MeetingTimeSlot[]
+  availabilityBlocks      AvailabilityBlock[]
+  feedbacks               Feedback[]
+  mentee                  User                @relation("MenteeMeetings", fields: [menteeId], references: [id], onDelete: Cascade)
+  mentor                  User                @relation("MentorMeetings", fields: [mentorId], references: [id], onDelete: Cascade)
 
-  @@index([mentorId, status])
-  @@index([menteeId, status])
+  @@index([menteeId])
+  @@index([mentorId])
+  @@index([scheduledTime])
+  @@index([status])
   @@map("meetings")
 }
 
@@ -57,6 +71,7 @@ model MeetingTimeSlot {
   meetingId String   @map("meeting_id") @db.Uuid
   startTime DateTime @map("start_time")
   endTime   DateTime @map("end_time")
+  isBooked  Boolean  @default(false) @map("is_booked")
   createdAt DateTime @default(now()) @map("created_at")
   meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 
@@ -108,7 +123,9 @@ model MentorProfile {
   background            String
   adviceTopics          String[] @map("advice_topics")
   meetingsOffered       Int      @map("meetings_offered")
+  maxMeetings           Int?     @map("max_meetings")
   meetingLengthMinutes  Int      @map("meeting_length_minutes")
+  isActive              Boolean  @default(true) @map("is_active")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -131,7 +148,6 @@ model MentorSearchEmbedding {
   @@map("mentor_search_embeddings")
 }
 
-// meetingId is a UUID without FK — Dev 2 owns the meetings table.
 model MeetingOutcomeResponse {
   id              String   @id @default(uuid()) @db.Uuid
   meetingId       String   @map("meeting_id") @db.Uuid
@@ -156,11 +172,27 @@ model Feedback {
   rating      Int
   openText    String?  @map("open_text")
   createdAt   DateTime @default(now()) @map("created_at")
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   submitter   User     @relation(fields: [submittedBy], references: [id], onDelete: Cascade)
 
   @@unique([meetingId, submittedBy])
   @@index([meetingId])
   @@map("feedbacks")
+}
+
+model AvailabilityBlock {
+  id        String   @id @default(uuid()) @db.Uuid
+  mentorId  String   @map("mentor_id") @db.Uuid
+  meetingId String   @map("meeting_id") @db.Uuid
+  startTime DateTime @map("start_time")
+  endTime   DateTime @map("end_time")
+  isBooked  Boolean  @default(false) @map("is_booked")
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  mentor    User     @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@index([mentorId])
+  @@map("availability_blocks")
 }
 
 model FeedbackRequest {
@@ -190,4 +222,24 @@ model MentorMenteeBlock {
   @@index([menteeId, mentorId])
   @@index([clearedAt])
   @@map("mentor_mentee_blocks")
+}
+
+model AdminAlert {
+  idempotencyKey String    @id @map("idempotency_key")
+  alertType      String    @map("alert_type")
+  status         String    @default("open")
+  meetingId      String?   @map("meeting_id") @db.Uuid
+  subjectUserId  String?   @map("subject_user_id") @db.Uuid
+  payload        Json
+  reviewedBy     String?   @map("reviewed_by") @db.Uuid
+  reviewNote     String?   @map("review_note")
+  reviewedAt     DateTime? @map("reviewed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@index([alertType, createdAt])
+  @@index([meetingId])
+  @@index([subjectUserId])
+  @@map("admin_alerts")
 }

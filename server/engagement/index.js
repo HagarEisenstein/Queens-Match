@@ -19,6 +19,10 @@ const {
 const {
   createPrismaBlocklistRepository,
 } = require("./repositories/prismaBlocklistRepository");
+const {
+  createPrismaMeetingQueryRepository,
+} = require("./repositories/prismaMeetingQueryRepository");
+const { createPrismaMeetingLifecycleRepository } = require("./repositories/prismaMeetingLifecycleRepository");
 
 module.exports = {
   bootstrapEngagement,
@@ -34,4 +38,6 @@ module.exports = {
   createPrismaOutcomeRepository,
   createPrismaFeedbackRepository,
   createPrismaBlocklistRepository,
+  createPrismaMeetingQueryRepository,
+  createPrismaMeetingLifecycleRepository,
 };

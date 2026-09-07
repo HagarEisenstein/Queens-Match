@@ -4,6 +4,7 @@ const ALLOWED_ROLES = new Set(["mentee", "mentor", "admin"]);
 const SELF_ASSIGNABLE_ROLES = new Set(["mentee", "mentor"]);
 const PROFILE_FIELDS = [
   "username",
+  "phone",
   "full_name",
   "job",
   "workplace",
@@ -83,6 +84,7 @@ function validateProfileFields(input, { requireUsername = false } = {}) {
 
   const stringFields = [
     "full_name",
+    "phone",
     "job",
     "workplace",
     "github_url",
@@ -97,6 +99,10 @@ function validateProfileFields(input, { requireUsername = false } = {}) {
         profile[field] = profile[field].trim() || null;
       }
     }
+  }
+
+  if (profile.phone && !/^\+[1-9]\d{7,14}$/.test(profile.phone)) {
+    details.phone = ["Phone must use international format, for example +14155552671."];
   }
 
   for (const field of ["github_url", "linkedin_url", "photo_url"]) {

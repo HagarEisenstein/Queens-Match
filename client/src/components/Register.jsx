@@ -16,6 +16,7 @@ import LocaleToggle from "./LocaleToggle";
 const initialForm = {
   email: "",
   username: "",
+  phone: "",
   password: "",
   confirmPassword: "",
   full_name: "",
@@ -62,6 +63,14 @@ function selectedChoice(roles) {
   return "mentee";
 }
 
+function normalizeIsraeliPhone(value) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("972")) return `+${digits}`;
+  if (digits.startsWith("0")) return `+972${digits.slice(1)}`;
+  return `+972${digits}`;
+}
+
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -87,9 +96,15 @@ export default function Register() {
       setError("Passwords do not match.");
       return;
     }
+    const normalizedPhone = normalizeIsraeliPhone(form.phone);
+    if (normalizedPhone && !/^\+9725\d{8}$/.test(normalizedPhone)) {
+      setError("WhatsApp phone must be an Israeli mobile number with 9 digits after +972.");
+      return;
+    }
     setSubmitting(true);
     const optionalText = [
       "full_name",
+      "phone",
       "job",
       "workplace",
       "github_url",
@@ -109,6 +124,7 @@ export default function Register() {
     optionalText.forEach((field) => {
       if (form[field].trim()) payload[field] = form[field].trim();
     });
+    if (normalizedPhone) payload.phone = normalizedPhone;
     if (form.years_experience !== "") {
       payload.years_experience = Number(form.years_experience);
     }
@@ -147,6 +163,13 @@ export default function Register() {
           "radial-gradient(circle at top left, #FFD9E7 0%, #FFF0F6 45%, #FFFFFF 100%)",
       }}
     >
+      <Box className="qm-bee" aria-hidden="true">
+        <span className="qm-bee__trail" />
+        <span className="qm-bee__wing qm-bee__wing--one" />
+        <span className="qm-bee__wing qm-bee__wing--two" />
+        <span className="qm-bee__body" />
+        <span className="qm-bee__eye" />
+      </Box>
       <Box sx={{ display: "flex", justifyContent: "flex-end", py: 2 }}>
         <LocaleToggle />
       </Box>
@@ -217,6 +240,12 @@ export default function Register() {
 
           <TextField label="Email" type="email" required value={form.email} onChange={setField("email")} />
           <TextField label="Username" required value={form.username} onChange={setField("username")} />
+          <TextField
+            label="WhatsApp phone (optional)"
+            placeholder="+14155552671"
+            value={form.phone}
+            onChange={setField("phone")}
+          />
           <TextField
             label="Password"
             type="password"

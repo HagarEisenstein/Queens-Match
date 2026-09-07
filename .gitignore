@@ -109,6 +109,11 @@ public
 
 # macOS
 .DS_Store
+# Accidental Finder/iCloud duplicate folders (e.g. "jobs 2")
+**/*[[:space:]]2/
+
+# Legacy in-memory mock data (not used by Prisma/Neon flows)
+server/data/
 
 # Windows
 Thumbs.db
@@ -129,3 +134,9 @@ Desktop.ini
 
 # Local GSD planning artifacts
 /.gsd/phases/
+
+# Internal agent metadata
+.codex/
+
+# Local design/reference attachments
+*.docx

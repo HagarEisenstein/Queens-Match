@@ -1,8 +1,8 @@
-# Queens Match RAG Roadmap
+# Queens Match Three-Branch Integration Roadmap
 
-1. Existing category, topic-relevance, and engagement mentor ranking — complete.
-2. Gemini embedding smoke-test integration — complete.
-3. Persistent mentor embedding storage foundation — complete and deployed.
-4. Semantic mentor retrieval and Help Me panel integration — complete.
-5. Temporary admin mentor-embedding backfill endpoint — complete.
-6. Domain query understanding and hybrid mentor ranking — complete.
+1. Audit `ori-rag`, `photo`, and `mentor-side-fix` histories, files, schema, dependencies, routes, and UX deltas — complete.
+2. Merge `mentor-side-fix` into the RAG foundation and manually reconcile shared backend/config files — in progress.
+3. Merge `photo`, retain its unique invite/avatar/notification behavior, and reconcile frontend navigation/routes — pending.
+4. Reconcile Prisma schema/migrations and dependency lockfiles as complete unions — pending.
+5. Add the clickable-avatar regression test; run targeted/full tests, Prisma checks, build, syntax and marker checks — pending.
+6. Perform structured code review, fix findings, and commit the completed integration — pending.

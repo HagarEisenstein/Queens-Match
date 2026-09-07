@@ -1,5 +1,5 @@
 const PUBLIC_COLUMNS = `
-  id, email, username, roles, full_name, photo_url, github_url, linkedin_url,
+  id, email, username, phone, roles, full_name, photo_url, github_url, linkedin_url,
   job, workplace, years_experience, tech_stack, created_at
 `;
 
@@ -11,15 +11,16 @@ class PostgresUserRepository {
   async create(user) {
     const result = await this.pool.query(
       `INSERT INTO users (
-        id, email, password_hash, username, roles, full_name, photo_url,
+        id, email, password_hash, username, phone, roles, full_name, photo_url,
         github_url, linkedin_url, job, workplace, years_experience, tech_stack
       ) VALUES (
-        gen_random_uuid(), $1, $2, $3, $4::text[], $5, $6, $7, $8, $9, $10, $11, $12::text[]
+        gen_random_uuid(), $1, $2, $3, $4, $5::text[], $6, $7, $8, $9, $10, $11, $12, $13::text[]
       ) RETURNING ${PUBLIC_COLUMNS}`,
       [
         user.email,
         user.password_hash,
         user.username,
+        user.phone || null,
         user.roles,
         user.full_name || null,
         user.photo_url || null,
