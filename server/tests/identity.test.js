@@ -470,4 +470,24 @@ describe("Epic 1 identity API", () => {
       expect(response.body.error).toEqual({ code, message });
     }
   });
+
+  test("reports an unreachable JWKS as a 503 server fault, not a bad token", async () => {
+    const scopedApp = createApp({
+      userRepository: repository,
+      jwtSecret: JWT_SECRET,
+      verifyNeonToken: async () => {
+        const error = new Error("Expected 200 OK from the JSON Web Key Set");
+        error.code = "NEON_JWKS_UNAVAILABLE";
+        throw error;
+      },
+    });
+
+    const response = await request(scopedApp).post("/api/auth/neon").send({
+      neonToken: "any-token",
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.body.error.code).toBe("NEON_JWKS_UNAVAILABLE");
+    expect(repository.users).toHaveLength(0);
+  });
 });

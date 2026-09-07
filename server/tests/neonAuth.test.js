@@ -7,6 +7,7 @@ const {
 const {
   createNeonTokenVerifier,
   neonAuthOrigin,
+  resolveNeonAuthBaseUrl,
 } = require("../modules/identity/neonAuth");
 
 async function mintNeonLikeToken({
@@ -206,6 +207,21 @@ describe("createNeonTokenVerifier", () => {
     });
   });
 
+  test("reports NEON_JWKS_UNAVAILABLE when the JWKS path returns 404", async () => {
+    // Mirrors an auth URL configured without its /<database>/auth path.
+    const misconfigured = createNeonTokenVerifier(`${origin}/wrong-path`);
+    const token = await mintNeonLikeToken({
+      privateKey,
+      kid: publicJwk.kid,
+      issuer: origin,
+      audience: origin,
+    });
+
+    await expect(misconfigured(token)).rejects.toMatchObject({
+      code: "NEON_JWKS_UNAVAILABLE",
+    });
+  });
+
   test("rejects bad signatures with NEON_TOKEN_INVALID_SIGNATURE", async () => {
     const other = await generateKeyPair("EdDSA");
     const token = await mintNeonLikeToken({
@@ -218,5 +234,38 @@ describe("createNeonTokenVerifier", () => {
     await expect(verify(token)).rejects.toMatchObject({
       code: "NEON_TOKEN_INVALID_SIGNATURE",
     });
+  });
+});
+
+describe("resolveNeonAuthBaseUrl", () => {
+  const authUrl = "https://ep-example.neonauth.aws.neon.tech/neondb/auth";
+  const originOnly = "https://ep-example.neonauth.aws.neon.tech";
+  const logger = { warn: jest.fn() };
+
+  beforeEach(() => {
+    logger.warn.mockClear();
+  });
+
+  test("prefers a URL carrying the /<database>/auth path", () => {
+    expect(
+      resolveNeonAuthBaseUrl([originOnly, authUrl], { logger })
+    ).toBe(authUrl);
+    expect(logger.warn).toHaveBeenCalled();
+  });
+
+  test("keeps the first candidate and warns when none carry an auth path", () => {
+    expect(resolveNeonAuthBaseUrl([originOnly], { logger })).toBe(originOnly);
+    expect(logger.warn).toHaveBeenCalled();
+  });
+
+  test("strips trailing slashes and ignores blank candidates", () => {
+    expect(
+      resolveNeonAuthBaseUrl(["", "   ", `${authUrl}/`], { logger })
+    ).toBe(authUrl);
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
+  test("returns an empty string when nothing is configured", () => {
+    expect(resolveNeonAuthBaseUrl([], { logger })).toBe("");
   });
 });

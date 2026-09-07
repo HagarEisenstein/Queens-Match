@@ -11,6 +11,51 @@ const {
   validateRegistration,
 } = require("./validation");
 
+// Verification failures are reported with their own code so a misconfigured
+// server (503) is never mistaken for a rejected user token (401).
+const NEON_ERROR_RESPONSES = {
+  NEON_AUTH_UNCONFIGURED: [503, "Neon Auth is not configured on this server."],
+  NEON_JWKS_UNAVAILABLE: [
+    503,
+    "Unable to load the Neon Auth JWKS for verification.",
+  ],
+  NEON_TOKEN_MISSING: [401, "Neon Auth token is required."],
+  NEON_TOKEN_EXPIRED: [401, "Neon Auth token has expired."],
+  NEON_TOKEN_INVALID_ISSUER: [401, "Neon Auth token issuer is invalid."],
+  NEON_TOKEN_INVALID_AUDIENCE: [401, "Neon Auth token audience is invalid."],
+  NEON_TOKEN_INVALID_SIGNATURE: [401, "Neon Auth token signature is invalid."],
+  NEON_TOKEN_MISSING_CLAIMS: [
+    401,
+    "Neon Auth token is missing required identity claims.",
+  ],
+  NEON_TOKEN_UNVERIFIED_EMAIL: [
+    401,
+    "Neon Auth identity must contain a verified email.",
+  ],
+};
+
+function toNeonAppError(error) {
+  const details =
+    error.details && typeof error.details === "object"
+      ? error.details
+      : undefined;
+  const mapped = NEON_ERROR_RESPONSES[error.code];
+
+  if (mapped) {
+    const [status, message] = mapped;
+    return new AppError(status, error.code, message, details);
+  }
+
+  return new AppError(
+    401,
+    error.code && String(error.code).startsWith("NEON_")
+      ? error.code
+      : "INVALID_NEON_TOKEN",
+    error.message || "Neon Auth token is invalid.",
+    details
+  );
+}
+
 function createIdentityRouters({
   userRepository,
   authenticate,
@@ -100,82 +145,7 @@ function createIdentityRouters({
       try {
         identity = await verifyNeonToken(neonToken);
       } catch (error) {
-        const safeDetails =
-          error.details && typeof error.details === "object"
-            ? error.details
-            : undefined;
-
-        if (error.code === "NEON_AUTH_UNCONFIGURED") {
-          throw new AppError(
-            503,
-            "NEON_AUTH_UNCONFIGURED",
-            "Neon Auth is not configured on this server."
-          );
-        }
-        if (error.code === "NEON_TOKEN_MISSING") {
-          throw new AppError(
-            401,
-            "NEON_TOKEN_MISSING",
-            "Neon Auth token is required.",
-            safeDetails
-          );
-        }
-        if (error.code === "NEON_TOKEN_EXPIRED") {
-          throw new AppError(
-            401,
-            "NEON_TOKEN_EXPIRED",
-            "Neon Auth token has expired.",
-            safeDetails
-          );
-        }
-        if (error.code === "NEON_TOKEN_INVALID_ISSUER") {
-          throw new AppError(
-            401,
-            "NEON_TOKEN_INVALID_ISSUER",
-            "Neon Auth token issuer is invalid.",
-            safeDetails
-          );
-        }
-        if (error.code === "NEON_TOKEN_INVALID_AUDIENCE") {
-          throw new AppError(
-            401,
-            "NEON_TOKEN_INVALID_AUDIENCE",
-            "Neon Auth token audience is invalid.",
-            safeDetails
-          );
-        }
-        if (error.code === "NEON_TOKEN_INVALID_SIGNATURE") {
-          throw new AppError(
-            401,
-            "NEON_TOKEN_INVALID_SIGNATURE",
-            "Neon Auth token signature is invalid.",
-            safeDetails
-          );
-        }
-        if (error.code === "NEON_TOKEN_MISSING_CLAIMS") {
-          throw new AppError(
-            401,
-            "NEON_TOKEN_MISSING_CLAIMS",
-            "Neon Auth token is missing required identity claims.",
-            safeDetails
-          );
-        }
-        if (error.code === "NEON_TOKEN_UNVERIFIED_EMAIL") {
-          throw new AppError(
-            401,
-            "NEON_TOKEN_UNVERIFIED_EMAIL",
-            "Neon Auth identity must contain a verified email.",
-            safeDetails
-          );
-        }
-        throw new AppError(
-          401,
-          error.code && String(error.code).startsWith("NEON_")
-            ? error.code
-            : "INVALID_NEON_TOKEN",
-          error.message || "Neon Auth token is invalid.",
-          safeDetails
-        );
+        throw toNeonAppError(error);
       }
 
       const roles = normalizeOptionalRoles(req.body?.roles);

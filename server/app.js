@@ -12,7 +12,11 @@ const { createIdentityRouters } = require("./modules/identity/routes");
 const {
   PostgresUserRepository,
 } = require("./modules/identity/userRepository");
-const { createNeonTokenVerifier, neonAuthOrigin } = require("./modules/identity/neonAuth");
+const {
+  createNeonTokenVerifier,
+  neonAuthOrigin,
+  resolveNeonAuthBaseUrl,
+} = require("./modules/identity/neonAuth");
 const createMentorsRouter = require("./routes/mentors");
 const createMentorSearchRouter = require("./routes/mentorSearch");
 const createMeetingsRouter = require("./routes/meetings");
@@ -83,9 +87,10 @@ function createApp(options = {}) {
 
   const neonAuthBaseUrl =
     options.neonAuthBaseUrl ||
-    process.env.NEON_AUTH_BASE_URL ||
-    process.env.REACT_APP_NEON_AUTH_URL ||
-    "";
+    resolveNeonAuthBaseUrl([
+      process.env.NEON_AUTH_BASE_URL,
+      process.env.REACT_APP_NEON_AUTH_URL,
+    ]);
   const verifyNeonToken =
     options.verifyNeonToken || createNeonTokenVerifier(neonAuthBaseUrl);
 

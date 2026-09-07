@@ -10,6 +10,54 @@ function neonAuthOrigin(baseUrl) {
   return new URL(baseUrl).origin;
 }
 
+function neonAuthPath(baseUrl) {
+  try {
+    return new URL(baseUrl).pathname.replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Pick the configured Neon Auth base URL.
+ *
+ * A Neon Auth URL always carries a `/<database>/auth` path, and the JWKS lives
+ * under that full path. An origin-only value silently yields a 404 JWKS, so
+ * prefer a candidate that includes the path over one that does not.
+ */
+function resolveNeonAuthBaseUrl(candidates = [], { logger = console } = {}) {
+  const configured = candidates
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean)
+    .map((value) => value.replace(/\/$/, ""));
+
+  if (!configured.length) return "";
+
+  const withAuthPath = configured.find((value) => neonAuthPath(value));
+  if (!withAuthPath) {
+    logger.warn?.(
+      "[neon-auth] Configured Neon Auth URL has no /<database>/auth path; JWKS lookups will fail.",
+      { host: (() => {
+          try {
+            return new URL(configured[0]).host;
+          } catch {
+            return null;
+          }
+        })() }
+    );
+    return configured[0];
+  }
+
+  if (withAuthPath !== configured[0]) {
+    logger.warn?.(
+      "[neon-auth] Ignoring a Neon Auth URL without a /<database>/auth path in favour of one that has it.",
+      { usingPath: neonAuthPath(withAuthPath) }
+    );
+  }
+
+  return withAuthPath;
+}
+
 function sanitizeClaimValue(value) {
   if (value == null) return { present: false };
   if (typeof value === "number") return { present: true, type: "number" };
@@ -194,15 +242,21 @@ function mapJoseVerifyError(error, details) {
     );
   }
 
+  // JWKS retrieval problems are a server/configuration fault, not a bad token:
+  // without the public key every signature check fails for every user.
   if (
+    error instanceof joseErrors.JWKSInvalid ||
+    error instanceof joseErrors.JWKSTimeout ||
     joseCode === "ERR_JWKS_TIMEOUT" ||
+    joseCode === "ERR_JWKS_INVALID" ||
+    /JSON Web Key Set/i.test(String(error?.message || "")) ||
     /fetch|network|ENOTFOUND|ECONNREFUSED|ETIMEDOUT/i.test(
       String(error?.message || "")
     )
   ) {
     return createNeonError(
-      "NEON_TOKEN_INVALID",
-      "Unable to reach Neon Auth JWKS for verification.",
+      "NEON_JWKS_UNAVAILABLE",
+      "Unable to load the Neon Auth JWKS for verification. Check NEON_AUTH_BASE_URL.",
       error,
       details
     );
@@ -263,6 +317,7 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
     const shape = inspectTokenShape(compact);
     const debugDetails = {
       jwksHost: jwksUrl.host,
+      jwksPath: jwksUrl.pathname,
       expectedIssuers: expectedIssuers.map((value) => sanitizeClaimValue(value)),
       expectedAudiences: expectedAudiences.map((value) =>
         sanitizeClaimValue(value)
@@ -364,6 +419,8 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
 module.exports = {
   createNeonTokenVerifier,
   neonAuthOrigin,
+  neonAuthPath,
+  resolveNeonAuthBaseUrl,
   sanitizeClaimValue,
   inspectTokenShape,
   mapJoseVerifyError,
