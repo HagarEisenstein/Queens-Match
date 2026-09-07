@@ -162,8 +162,18 @@ async function offerTimes({ meetingId, actorId, slots }) {
  */
 async function rejectMeeting({ meetingId, actorId }) {
   const meeting = await loadMeetingOr404(meetingId);
-  if (meeting.mentorId !== actorId) {
-    throw httpError(403, "FORBIDDEN", "Only the mentor can reject this meeting.");
+  const mentorRejecting = meeting.mentorId === actorId && meeting.status === MEETING_STATUS.PENDING_MENTOR_TIMES;
+  const menteeRejecting =
+    meeting.menteeId === actorId &&
+    meeting.status === MEETING_STATUS.PENDING_MENTEE_SELECTION &&
+    meeting.moreTimesUsed;
+
+  if (!mentorRejecting && !menteeRejecting) {
+    throw httpError(
+      403,
+      "FORBIDDEN",
+      "Only the mentor can decline before offering times, and the mentee can decline after using the additional-times retry."
+    );
   }
 
   const nextStatus = transition(meeting.status, MEETING_ACTION.REJECT);
@@ -174,10 +184,19 @@ async function rejectMeeting({ meetingId, actorId }) {
     include: meetingInclude,
   });
 
-  eventBus.emit("MeetingRejected", {
-    meetingId,
-    menteeId: meeting.menteeId,
-  });
+  if (mentorRejecting) {
+    eventBus.emit("MeetingRejected", {
+      meetingId,
+      menteeId: meeting.menteeId,
+    });
+  }
+  if (menteeRejecting) {
+    eventBus.emit("MeetingDeclined", {
+      meetingId,
+      mentorId: meeting.mentorId,
+      menteeId: meeting.menteeId,
+    });
+  }
 
   return updated;
 }
@@ -222,7 +241,13 @@ async function requestMoreTimes({ meetingId, actorId }) {
   if (meeting.menteeId !== actorId) throw httpError(403, "FORBIDDEN", "Only the mentee can request more times.");
   if (meeting.moreTimesUsed) throw httpError(409, "RETRY_EXHAUSTED", "Additional times were already requested for this meeting.");
   const nextStatus = transition(meeting.status, MEETING_ACTION.REQUEST_MORE_TIMES);
-  return prisma.meeting.update({ where: { id: meetingId }, data: { status: nextStatus, moreTimesUsed: true }, include: meetingInclude });
+  const updated = await prisma.meeting.update({
+    where: { id: meetingId },
+    data: { status: nextStatus, moreTimesUsed: true },
+    include: meetingInclude,
+  });
+  eventBus.emit("MoreTimesRequested", { meetingId, mentorId: meeting.mentorId, menteeId: meeting.menteeId });
+  return updated;
 }
 
 async function reportCannotAttend({ meetingId, actorId }) {

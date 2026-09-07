@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import LocaleToggle from "./LocaleToggle";
+import QueenBLogo from "./QueenBLogo";
 
 const initialForm = {
   email: "",
@@ -170,18 +170,11 @@ export default function Register() {
         <span className="qm-bee__body" />
         <span className="qm-bee__eye" />
       </Box>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", py: 2 }}>
-        <LocaleToggle />
-      </Box>
       <Paper component="form" onSubmit={submit} elevation={0} sx={{ p: { xs: 3, md: 4 }, border: "1px solid", borderColor: "divider", boxShadow: "6px 6px 0 rgba(32, 33, 36, .12)" }}>
         <Stack spacing={3}>
-          <Typography
-            variant="h3"
-            color="primary"
-            sx={{ fontFamily: '"Space Mono", "Courier New", monospace', letterSpacing: "-.08em" }}
-          >
-            Queen's Match
-          </Typography>
+          <Box sx={{ alignSelf: "flex-start", pt: 1 }}>
+            <QueenBLogo variant="wordmark" width={170} />
+          </Box>
           <Typography variant="h4">Create your account</Typography>
           <Typography color="text.secondary">
             How do you want to show up?

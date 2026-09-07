@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Button,
@@ -23,6 +23,9 @@ import AddToCalendarButtons from "./AddToCalendarButtons";
 export default function MeetingDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const offerTimesRef = useRef(null);
 
   const [meeting, setMeeting] = useState(null);
   const [state, setState] = useState("loading");
@@ -58,6 +61,16 @@ export default function MeetingDetail() {
     }
   }, [iAmMentor, meeting?.status]);
 
+  useEffect(() => {
+    if (
+      searchParams.get("action") === "offer-times" &&
+      iAmMentor &&
+      meeting?.status === MEETING_STATUS.PENDING_MENTOR_TIMES
+    ) {
+      offerTimesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [searchParams, iAmMentor, meeting?.status]);
+
   const runAction = async (fn) => {
     setBusy(true);
     setError("");
@@ -74,6 +87,7 @@ export default function MeetingDetail() {
   const offerTimes = (slots) => runAction(() => apiClient.post(`/meetings/${id}/offer-times`, { slots }));
   const reject = () => runAction(() => apiClient.post(`/meetings/${id}/reject`));
   const selectTime = () => runAction(() => apiClient.post(`/meetings/${id}/select-time`, { slotId: chosenSlot }));
+  const requestAdditionalTimes = () => runAction(() => apiClient.put(`/meetings/${id}/request-more-times`));
 
   if (state === "loading") return <Container sx={{ py: 6, textAlign: "center" }}><CircularProgress /></Container>;
   if (state === "missing") return <Container sx={{ py: 4 }}><Alert severity="warning">Meeting not found.</Alert></Container>;
@@ -114,19 +128,30 @@ export default function MeetingDetail() {
 
       {/* Rejected */}
       {meeting.status === MEETING_STATUS.REJECTED && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          {iAmMentee
-            ? "This request was declined. You're welcome to request another mentor."
-            : "You declined this request."}
-        </Alert>
+        <Stack spacing={2} sx={{ mb: 2 }}>
+          <Alert severity="info">
+            {iAmMentee
+              ? "This request was declined. You're welcome to request another mentor."
+              : "You declined this request."}
+          </Alert>
+          {iAmMentee && (
+            <Button variant="contained" size="large" onClick={() => navigate("/mentors")} sx={{ alignSelf: "flex-start" }}>
+              Explore Other Mentors
+            </Button>
+          )}
+        </Stack>
       )}
 
       {/* Mentor: offer times or reject */}
       {iAmMentor && meeting.status === MEETING_STATUS.PENDING_MENTOR_TIMES && (
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>Offer available times</Typography>
+        <Paper ref={offerTimesRef} sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            {meeting.moreTimesUsed ? "Offer another round of times" : "Offer available times"}
+          </Typography>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
-            Each proposed slot is {meetingLength} minutes long. Pick as many as you like, then send them over.
+            {meeting.moreTimesUsed
+              ? "Your mentee asked for another round of availability. Add fresh options for this session."
+              : `Each proposed slot is ${meetingLength} minutes long. Pick as many as you like, then send them over.`}
           </Typography>
           <OfferTimesCalendar meetingLengthMinutes={meetingLength} onSubmit={offerTimes} submitting={busy} />
           <Divider sx={{ my: 3 }} />
@@ -154,6 +179,26 @@ export default function MeetingDetail() {
           <Button variant="contained" sx={{ mt: 2 }} disabled={!chosenSlot || busy} onClick={selectTime}>
             Confirm this time
           </Button>
+          <Divider sx={{ my: 3 }} />
+          {meeting.moreTimesUsed ? (
+            <Stack spacing={2}>
+              <Alert severity="warning">
+                Additional times were already requested for this meeting. If none of these options work, the only next step is to decline this meeting.
+              </Alert>
+              <Button color="error" variant="outlined" disabled={busy} onClick={reject} sx={{ alignSelf: "flex-start" }}>
+                Decline Meeting
+              </Button>
+            </Stack>
+          ) : (
+            <Stack spacing={2}>
+              <Alert severity="info">
+                None of these times work? You can request one more round of availability from your mentor.
+              </Alert>
+              <Button variant="outlined" disabled={busy} onClick={requestAdditionalTimes} sx={{ alignSelf: "flex-start" }}>
+                Request Additional Times
+              </Button>
+            </Stack>
+          )}
         </Paper>
       )}
 

@@ -1,0 +1,62 @@
+import React from "react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import MeetingDetail from "./MeetingDetail";
+import apiClient from "../api/client";
+import { useAuth } from "../auth/AuthContext";
+
+jest.mock("../api/client", () => ({ get: jest.fn(), post: jest.fn(), put: jest.fn() }));
+jest.mock("../auth/AuthContext", () => ({ useAuth: jest.fn() }));
+jest.mock("./OfferTimesCalendar", () => () => <div>Offer times calendar</div>);
+jest.mock("./AddToCalendarButtons", () => () => <div>Add to calendar</div>);
+
+const MEETING_ID = "11111111-1111-1111-1111-111111111111";
+const MENTOR_ID = "22222222-2222-2222-2222-222222222222";
+const MENTEE_ID = "33333333-3333-3333-3333-333333333333";
+
+function renderPage(entry = `/meetings/${MEETING_ID}`) {
+  return render(
+    <MemoryRouter initialEntries={[entry]}>
+      <Routes>
+        <Route path="/meetings/:id" element={<MeetingDetail />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+describe("MeetingDetail", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+    useAuth.mockReturnValue({
+      user: { id: MENTOR_ID, roles: ["mentor"], username: "mentor" },
+    });
+  });
+
+  it("opens the mentor retry flow from the notification deep link", async () => {
+    apiClient.get
+      .mockResolvedValueOnce({
+        data: {
+          id: MEETING_ID,
+          mentorId: MENTOR_ID,
+          menteeId: MENTEE_ID,
+          status: "pending_mentor_times",
+          moreTimesUsed: true,
+          timeSlots: [],
+          mentee: { id: MENTEE_ID, username: "mentee", fullName: "Mentee User" },
+          mentor: { id: MENTOR_ID, username: "mentor", fullName: "Mentor User" },
+        },
+      })
+      .mockResolvedValueOnce({
+        data: { meetingLengthMinutes: 45 },
+      });
+
+    renderPage(`/meetings/${MEETING_ID}?action=offer-times`);
+
+    expect(await screen.findByRole("heading", { name: "Offer another round of times" })).toBeInTheDocument();
+    expect(screen.getByText("Offer times calendar")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled()
+    );
+  });
+});

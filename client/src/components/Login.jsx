@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import LocaleToggle from "./LocaleToggle";
+import QueenBLogo from "./QueenBLogo";
 
 export default function Login() {
   const { isAuthenticated, login } = useAuth();
@@ -64,9 +64,6 @@ export default function Login() {
         <span className="qm-bee__body" />
         <span className="qm-bee__eye" />
       </Box>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", py: 2 }}>
-        <LocaleToggle />
-      </Box>
       <Paper
         component="form"
         onSubmit={submit}
@@ -74,13 +71,9 @@ export default function Login() {
         sx={{ p: 4, border: "1px solid", borderColor: "divider", boxShadow: "6px 6px 0 rgba(32, 33, 36, .12)" }}
       >
         <Stack spacing={3}>
-          <Typography
-            variant="h3"
-            color="primary"
-            sx={{ fontFamily: '"Space Mono", "Courier New", monospace', letterSpacing: "-.08em" }}
-          >
-            Queen's Match
-          </Typography>
+          <Box sx={{ alignSelf: "flex-start", pt: 1 }}>
+            <QueenBLogo variant="wordmark" width={170} />
+          </Box>
           <Typography variant="h4">Log in</Typography>
           {successMessage && <Alert severity="success">{successMessage}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}

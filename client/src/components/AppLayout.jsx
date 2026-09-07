@@ -16,7 +16,7 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import apiClient from "../api/client";
 import NotificationBell from "../notifications/NotificationBell";
-import LocaleToggle from "./LocaleToggle";
+import QueenBLogo from "./QueenBLogo";
 
 export default function AppLayout() {
   const { user, logout, hasRole } = useAuth();
@@ -89,21 +89,34 @@ export default function AppLayout() {
       </Box>
       <AppBar position="sticky" elevation={0}>
         <Toolbar sx={{ gap: 1, flexWrap: "wrap", py: 1.5, px: { xs: 2, md: 5 }, maxWidth: 1440, width: "100%", mx: "auto" }}>
-          <Typography
+          <Stack
             component={Link}
             to="/"
-            variant="h6"
             sx={{
               flexGrow: 1,
+              minWidth: 0,
               textDecoration: "none",
               color: "text.primary",
-              fontFamily: '"Space Mono", "Courier New", monospace',
-              fontWeight: 700,
-              letterSpacing: "-.06em",
             }}
+            direction="row"
+            spacing={1.25}
+            alignItems="center"
           >
-            Queen's Match
-          </Typography>
+            <QueenBLogo />
+            <Typography
+              variant="h6"
+              sx={{
+                textDecoration: "none",
+                color: "text.primary",
+                fontFamily: '"Space Mono", "Courier New", monospace',
+                fontWeight: 700,
+                letterSpacing: "-.06em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Queen's Match
+            </Typography>
+          </Stack>
 
           <Stack direction="row" spacing={0.5} aria-label="Account capabilities">
             {user.roles.map((role) => (
@@ -141,15 +154,6 @@ export default function AppLayout() {
           {hasRole("admin") && (
             <Button component={Link} to="/admin" sx={navLinkSx}>Admin</Button>
           )}
-          <LocaleToggle
-            sx={{
-              ...navLinkSx,
-              minWidth: 48,
-              flexShrink: 0,
-              border: "1px solid",
-              borderColor: "divider",
-            }}
-          />
           <Button component={Link} to="/meetings" sx={navLinkSx}>
             Meetings
           </Button>

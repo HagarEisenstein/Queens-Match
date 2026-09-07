@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ThemeProvider, CssBaseline } from "@mui/material";
 import theme from "./theme";
@@ -30,10 +30,21 @@ import AdminUsersList from "./admin/UsersList";
 import AdminUserDetail from "./admin/UserDetail";
 import AdminAlerts from "./admin/Alerts";
 
+function EnforceLtr() {
+  useEffect(() => {
+    document.documentElement.lang = "en";
+    document.documentElement.dir = "ltr";
+    localStorage.removeItem("queens_match_locale");
+  }, []);
+
+  return null;
+}
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <EnforceLtr />
       <Router>
         <AuthProvider>
           <NotificationProvider>
