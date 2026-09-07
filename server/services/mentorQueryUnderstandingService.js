@@ -5,7 +5,7 @@ const {
   MENTOR_SEARCH_INTENTS,
 } = require("../constants/mentorSearchTaxonomy");
 
-const DEFAULT_QUERY_UNDERSTANDING_MODEL = "gemini-2.5-flash";
+const DEFAULT_QUERY_UNDERSTANDING_MODEL = "gemini-3.6-flash";
 const MAX_QUERY_LENGTH = 2_000;
 const MAX_TECH_TERMS = 10;
 const MAX_TECH_TERM_LENGTH = 50;
