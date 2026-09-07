@@ -51,6 +51,7 @@ function createMentorSemanticSearchRepository(prismaClient) {
           ON u."id" = mp."user_id"
         CROSS JOIN "query_embedding"
         WHERE 'mentor' = ANY(u."roles")
+          AND mp."is_active" = true
         ORDER BY mse."embedding" <=> "query_embedding"."embedding" ASC
         LIMIT ${limit}
       `;

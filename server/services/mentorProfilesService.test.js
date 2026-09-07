@@ -82,6 +82,7 @@ describe("mentorProfilesService", () => {
       expect(result).toEqual([{ id: "m1", userId: "u1" }]);
       expect(prisma.mentorProfile.findMany).toHaveBeenCalledWith({
         where: {
+          isActive: true,
           user: { roles: { has: "mentor" } },
           adviceTopics: {
             hasSome: ["CV / Resume Review", "System Design Interviews"],
@@ -143,7 +144,7 @@ describe("mentorProfilesService", () => {
       await getMentors({ adviceTopics: ["  "] });
 
       expect(prisma.mentorProfile.findMany).toHaveBeenCalledWith({
-        where: { user: { roles: { has: "mentor" } } },
+        where: { isActive: true, user: { roles: { has: "mentor" } } },
         include: { user: expect.any(Object) },
         orderBy: { updatedAt: "desc" },
       });

@@ -77,6 +77,27 @@ describe("AppLayout", () => {
     expect(screen.queryByText("Dashboard content")).not.toBeInTheDocument();
   });
 
+  it("still lets a mentor with incomplete setup open their user profile", async () => {
+    mockAuth({ username: "m", roles: ["mentor"] });
+    apiClient.get.mockResolvedValue({ data: null });
+
+    render(
+      <MemoryRouter initialEntries={["/mentor-profile"]}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/mentor-profile" element={<div>Mentor setup</div>} />
+            <Route path="/profile" element={<div>User profile</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith("/mentors/me"));
+    fireEvent.click(screen.getByRole("link", { name: "Open profile" }));
+
+    expect(await screen.findByText("User profile")).toBeInTheDocument();
+  });
+
   it("hides mentor nav for mentees", () => {
     mockAuth({ username: "e", roles: ["mentee"] });
 

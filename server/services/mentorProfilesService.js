@@ -37,6 +37,7 @@ async function getMentors({ adviceTopics = [] } = {}) {
   const normalizedTopics = normalizeAdviceTopics(adviceTopics);
   const mentors = await prisma.mentorProfile.findMany({
     where: {
+      isActive: true,
       user: { roles: { has: "mentor" } },
       ...(normalizedTopics.length > 0
         ? { adviceTopics: { hasSome: normalizedTopics } }
@@ -64,7 +65,7 @@ async function getMentors({ adviceTopics = [] } = {}) {
 
 async function getMentorById(id) {
   return prisma.mentorProfile.findFirst({
-    where: { id, user: { roles: { has: "mentor" } } },
+    where: { id, isActive: true, user: { roles: { has: "mentor" } } },
     include: profileInclude,
   });
 }

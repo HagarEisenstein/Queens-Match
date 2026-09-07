@@ -48,6 +48,7 @@ export default function AppLayout() {
     hasRole("mentor") &&
     mentorProfileMissing &&
     location.pathname !== "/mentor-profile" &&
+    location.pathname !== "/profile" &&
     !location.pathname.startsWith("/admin")
   ) {
     return <Navigate to="/mentor-profile" replace />;
