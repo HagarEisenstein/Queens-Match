@@ -6,9 +6,6 @@ const {
   jwtVerify,
 } = require("jose");
 
-const NEON_AUTH_DEBUG =
-  process.env.NEON_AUTH_DEBUG === "1" || process.env.NODE_ENV !== "production";
-
 function neonAuthOrigin(baseUrl) {
   return new URL(baseUrl).origin;
 }
@@ -46,6 +43,16 @@ function sanitizeClaimValue(value) {
   }
 }
 
+function audienceMatches(audClaim, expectedAudiences) {
+  if (typeof audClaim === "string") {
+    return expectedAudiences.includes(audClaim);
+  }
+  if (Array.isArray(audClaim)) {
+    return audClaim.some((value) => expectedAudiences.includes(value));
+  }
+  return false;
+}
+
 function inspectTokenShape(token) {
   try {
     const header = decodeProtectedHeader(token);
@@ -77,105 +84,163 @@ function inspectTokenShape(token) {
   } catch (error) {
     return {
       inspectError: error?.name || "inspect_failed",
+      inspectCode: error?.code || null,
     };
   }
 }
 
 function logNeonVerifyDebug(event, details = {}) {
-  if (!NEON_AUTH_DEBUG) return;
-  // Never log raw JWTs, cookies, secrets, or Authorization headers.
+  // Safe diagnostics only — never raw JWTs, cookies, secrets, or auth headers.
   console.info("[neon-auth-verify]", event, details);
 }
 
-function createNeonError(code, message, cause) {
+function createNeonError(code, message, cause, details) {
   const error = new Error(message);
   error.code = code;
   if (cause) error.cause = cause;
+  if (details) error.details = details;
   return error;
 }
 
-function mapJoseVerifyError(error) {
-  if (error instanceof joseErrors.JWTExpired) {
+function mapJoseVerifyError(error, details) {
+  const joseCode = typeof error?.code === "string" ? error.code : null;
+  const claim = error?.claim || null;
+
+  if (
+    error instanceof joseErrors.JWTExpired ||
+    joseCode === "ERR_JWT_EXPIRED"
+  ) {
     return createNeonError(
       "NEON_TOKEN_EXPIRED",
       "Neon Auth token has expired.",
-      error
+      error,
+      details
     );
   }
 
-  if (error instanceof joseErrors.JWSSignatureVerificationFailed) {
+  if (
+    error instanceof joseErrors.JWSSignatureVerificationFailed ||
+    joseCode === "ERR_JWS_SIGNATURE_VERIFICATION_FAILED"
+  ) {
     return createNeonError(
       "NEON_TOKEN_INVALID_SIGNATURE",
       "Neon Auth token signature is invalid.",
-      error
+      error,
+      details
     );
   }
 
-  if (error instanceof joseErrors.JWKSNoMatchingKey) {
+  if (
+    error instanceof joseErrors.JWKSNoMatchingKey ||
+    joseCode === "ERR_JWKS_NO_MATCHING_KEY"
+  ) {
     return createNeonError(
       "NEON_TOKEN_INVALID_SIGNATURE",
       "Neon Auth token signing key was not found in JWKS.",
-      error
+      error,
+      details
     );
   }
 
-  if (error instanceof joseErrors.JWTClaimValidationFailed) {
-    const claim = error.claim || "";
+  if (
+    error instanceof joseErrors.JOSEAlgNotAllowed ||
+    joseCode === "ERR_JOSE_ALG_NOT_ALLOWED"
+  ) {
+    return createNeonError(
+      "NEON_TOKEN_INVALID",
+      "Neon Auth token algorithm is not allowed.",
+      error,
+      details
+    );
+  }
+
+  if (
+    error instanceof joseErrors.JWTClaimValidationFailed ||
+    joseCode === "ERR_JWT_CLAIM_VALIDATION_FAILED"
+  ) {
     if (claim === "iss") {
       return createNeonError(
         "NEON_TOKEN_INVALID_ISSUER",
         "Neon Auth token issuer is invalid.",
-        error
+        error,
+        details
       );
     }
     if (claim === "aud") {
       return createNeonError(
         "NEON_TOKEN_INVALID_AUDIENCE",
         "Neon Auth token audience is invalid.",
-        error
+        error,
+        details
       );
     }
     if (claim === "exp") {
       return createNeonError(
         "NEON_TOKEN_EXPIRED",
         "Neon Auth token has expired.",
-        error
+        error,
+        details
       );
     }
     return createNeonError(
       "NEON_TOKEN_INVALID",
       `Neon Auth token claim validation failed (${claim || "unknown"}).`,
-      error
+      error,
+      details
     );
   }
 
   if (
     error instanceof joseErrors.JWTInvalid ||
-    error instanceof joseErrors.JWSInvalid
+    error instanceof joseErrors.JWSInvalid ||
+    joseCode === "ERR_JWT_INVALID" ||
+    joseCode === "ERR_JWS_INVALID"
   ) {
     return createNeonError(
       "NEON_TOKEN_INVALID",
       "Neon Auth token is malformed.",
-      error
+      error,
+      details
+    );
+  }
+
+  if (
+    joseCode === "ERR_JWKS_TIMEOUT" ||
+    /fetch|network|ENOTFOUND|ECONNREFUSED|ETIMEDOUT/i.test(
+      String(error?.message || "")
+    )
+  ) {
+    return createNeonError(
+      "NEON_TOKEN_INVALID",
+      "Unable to reach Neon Auth JWKS for verification.",
+      error,
+      details
     );
   }
 
   return createNeonError(
     "NEON_TOKEN_INVALID",
     "Neon Auth token verification failed.",
-    error
+    error,
+    {
+      ...details,
+      joseCode,
+      joseName: error?.name || null,
+      joseMessage: typeof error?.message === "string" ? error.message : null,
+    }
   );
 }
 
 /**
  * Create a Neon Auth JWT verifier.
  *
- * Managed Better Auth signs with EdDSA (Ed25519). Live Neon tokens use the
- * Auth URL *origin* as `iss`/`aud` (not the `/neondb/auth` path). Better Auth's
- * library default is the full baseURL string; accept both values derived from
- * the configured NEON_AUTH_BASE_URL only.
+ * Official Neon guidance verifies EdDSA signatures against
+ * `${NEON_AUTH_BASE_URL}/.well-known/jwks.json` and checks issuer against the
+ * Auth URL origin. Live tokens may use either the origin or the full auth base
+ * URL for iss/aud; only those configured values are accepted.
  *
  * @see https://neon.com/docs/auth/guides/plugins/jwt
+ * @see https://neon.com/docs/compute/functions/authentication
  */
 function createNeonTokenVerifier(neonAuthBaseUrl) {
   if (!neonAuthBaseUrl) {
@@ -207,20 +272,43 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
 
     const compact = token.trim();
     const shape = inspectTokenShape(compact);
+    const debugDetails = {
+      jwksHost: jwksUrl.host,
+      expectedIssuers: expectedIssuers.map((value) => sanitizeClaimValue(value)),
+      expectedAudiences: expectedAudiences.map((value) =>
+        sanitizeClaimValue(value)
+      ),
+      tokenShape: shape,
+    };
 
     try {
+      // Match Neon Functions / Node docs: require issuer + EdDSA via JWKS.
+      // Validate audience when present (Neon docs include aud; some tokens omit it).
       const { payload, protectedHeader } = await jwtVerify(compact, JWKS, {
         issuer: expectedIssuers,
-        audience: expectedAudiences,
         algorithms: ["EdDSA"],
-        requiredClaims: ["exp", "sub", "iss", "aud"],
+        requiredClaims: ["exp", "sub", "iss"],
         clockTolerance: 5,
       });
 
       if (protectedHeader.alg !== "EdDSA") {
         throw createNeonError(
           "NEON_TOKEN_INVALID",
-          "Neon Auth token algorithm is not allowed."
+          "Neon Auth token algorithm is not allowed.",
+          null,
+          debugDetails
+        );
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(payload, "aud") &&
+        !audienceMatches(payload.aud, expectedAudiences)
+      ) {
+        throw createNeonError(
+          "NEON_TOKEN_INVALID_AUDIENCE",
+          "Neon Auth token audience is invalid.",
+          null,
+          debugDetails
         );
       }
 
@@ -231,23 +319,21 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
           : "";
 
       if (!neonUserId || typeof neonUserId !== "string" || !email) {
-        logNeonVerifyDebug("missing_identity_claims", {
-          claimNames: shape.claimNames || null,
-          hasSub: shape.hasSub,
-          hasId: shape.hasId,
-          hasEmail: shape.hasEmail,
-          emailVerifiedKey: shape.emailVerifiedKey,
-        });
+        logNeonVerifyDebug("missing_identity_claims", debugDetails);
         throw createNeonError(
           "NEON_TOKEN_MISSING_CLAIMS",
-          "Neon Auth token is missing required identity claims."
+          "Neon Auth token is missing required identity claims.",
+          null,
+          debugDetails
         );
       }
 
       if (neonUserId === "anonymous") {
         throw createNeonError(
           "NEON_TOKEN_INVALID",
-          "Anonymous Neon Auth tokens are not accepted."
+          "Anonymous Neon Auth tokens are not accepted.",
+          null,
+          debugDetails
         );
       }
 
@@ -273,20 +359,16 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
         throw error;
       }
 
-      const mapped = mapJoseVerifyError(error);
+      const mapped = mapJoseVerifyError(error, debugDetails);
       logNeonVerifyDebug("verify_failed", {
         errorCode: mapped.code,
-        errorName: error?.name || null,
+        joseCode: error?.code || null,
+        joseName: error?.name || null,
         joseClaim: error?.claim || null,
         joseReason: error?.reason || null,
-        jwksHost: jwksUrl.host,
-        expectedIssuers: expectedIssuers.map((value) =>
-          sanitizeClaimValue(value)
-        ),
-        expectedAudiences: expectedAudiences.map((value) =>
-          sanitizeClaimValue(value)
-        ),
-        tokenShape: shape,
+        joseMessage:
+          typeof error?.message === "string" ? error.message : null,
+        ...debugDetails,
       });
       throw mapped;
     }
@@ -296,8 +378,8 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
 module.exports = {
   createNeonTokenVerifier,
   neonAuthOrigin,
-  // test helpers
   sanitizeClaimValue,
   inspectTokenShape,
   mapJoseVerifyError,
+  audienceMatches,
 };

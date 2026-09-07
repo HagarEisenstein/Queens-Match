@@ -6,10 +6,35 @@ import {
   neonAuthClient,
 } from "./neonClient";
 
+function decodeJwtPart(part) {
+  const padded = part.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = "=".repeat((4 - (padded.length % 4)) % 4);
+  const json = atob(padded + pad);
+  return JSON.parse(json);
+}
+
+/**
+ * Accept only compact Neon Auth JWTs (EdDSA), never opaque session cookies/tokens.
+ */
 function looksLikeJwt(value) {
   if (typeof value !== "string" || !value.trim()) return false;
-  const parts = value.trim().split(".");
-  return parts.length === 3 && parts.every((part) => part.length > 0);
+  const compact = value.trim();
+  if (!compact.startsWith("eyJ")) return false;
+  const parts = compact.split(".");
+  if (parts.length !== 3 || !parts.every((part) => part.length > 0)) {
+    return false;
+  }
+  try {
+    const header = decodeJwtPart(parts[0]);
+    return header?.alg === "EdDSA";
+  } catch {
+    return false;
+  }
+}
+
+function logNeonClientDebug(event, details = {}) {
+  // Temporary safe diagnostics — never tokens/cookies/secrets.
+  console.info("[neon-auth-client]", event, details);
 }
 
 /**
@@ -39,7 +64,20 @@ export async function readNeonAuthJwt() {
     },
   });
 
-  if (sessionResult.error || !sessionResult.data?.session) {
+  const sessionOk = Boolean(
+    !sessionResult.error && sessionResult.data?.session
+  );
+
+  logNeonClientDebug("getSession", {
+    succeeded: sessionOk,
+    hasError: Boolean(sessionResult.error),
+    errorCode: sessionResult.error?.code || null,
+    errorStatus: sessionResult.error?.status || null,
+    hasSetAuthJwtHeader: Boolean(jwtFromHeader),
+    sessionTokenLooksLikeJwt: looksLikeJwt(sessionResult.data?.session?.token),
+  });
+
+  if (!sessionOk) {
     throw new Error(
       sessionResult.error?.message ||
         "No Neon Auth session found after Google sign-in."
@@ -74,6 +112,18 @@ export async function readNeonAuthJwt() {
 
   const tokenFromEndpoint =
     tokenBody && typeof tokenBody === "object" ? tokenBody.token : null;
+
+  logNeonClientDebug("tokenEndpoint", {
+    httpStatus: tokenResponse.status,
+    ok: tokenResponse.ok,
+    bodyKeys:
+      tokenBody && typeof tokenBody === "object"
+        ? Object.keys(tokenBody).sort()
+        : [],
+    errorCode:
+      tokenBody && typeof tokenBody === "object" ? tokenBody.code || null : null,
+    tokenLooksLikeJwt: looksLikeJwt(tokenFromEndpoint),
+  });
 
   if (!tokenResponse.ok || !looksLikeJwt(tokenFromEndpoint)) {
     throw new Error(

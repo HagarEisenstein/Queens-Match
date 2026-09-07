@@ -342,7 +342,7 @@ describe("Epic 1 identity API", () => {
     });
 
     expect(response.status).toBe(401);
-    expect(response.body.error.code).toBe("INVALID_NEON_TOKEN");
+    expect(response.body.error.code).toBe("NEON_TOKEN_INVALID");
   });
 
   test("maps distinct Neon verification failures to specific API codes", async () => {

@@ -158,6 +158,25 @@ describe("createNeonTokenVerifier", () => {
     });
   });
 
+  test("accepts tokens without aud when issuer/signature are valid", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const { SignJWT } = require("jose");
+    const token = await new SignJWT({
+      email: "google.user@example.com",
+      emailVerified: true,
+      id: "neon-user-123",
+    })
+      .setProtectedHeader({ alg: "EdDSA", kid: publicJwk.kid })
+      .setSubject("neon-user-123")
+      .setIssuedAt(now)
+      .setExpirationTime(now + 900)
+      .setIssuer(origin)
+      .sign(privateKey);
+
+    const identity = await verify(token);
+    expect(identity.email).toBe("google.user@example.com");
+  });
+
   test("rejects missing email with NEON_TOKEN_MISSING_CLAIMS", async () => {
     const token = await mintNeonLikeToken({
       privateKey,

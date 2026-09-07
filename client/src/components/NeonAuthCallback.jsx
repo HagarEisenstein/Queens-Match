@@ -39,11 +39,28 @@ export default function NeonAuthCallback() {
       } catch (requestError) {
         if (!active) return;
         const apiError = requestError.response?.data?.error;
+        const detailHint = apiError?.details?.tokenShape
+          ? ` [${apiError.code || "error"}; alg=${
+              apiError.details.tokenShape.header?.alg || "?"
+            }; claims=${(apiError.details.tokenShape.claimNames || []).join(
+              ","
+            )}]`
+          : apiError?.code
+            ? ` [${apiError.code}]`
+            : "";
         setError(
-          apiError?.message ||
+          `${
+            apiError?.message ||
             requestError.message ||
             "Unable to finish Google sign-in."
+          }${detailHint}`
         );
+        if (apiError?.details) {
+          console.info("[neon-auth-callback]", {
+            code: apiError.code,
+            details: apiError.details,
+          });
+        }
       }
     }
 
