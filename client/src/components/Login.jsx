@@ -12,6 +12,7 @@ import {
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import LocaleToggle from "./LocaleToggle";
+import GoogleContinueButton from "./GoogleContinueButton";
 
 export default function Login() {
   const { isAuthenticated, login } = useAuth();
@@ -21,6 +22,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const successMessage = location.state?.message;
+  const googleError = new URLSearchParams(location.search).get("google") === "error";
 
   if (isAuthenticated) return <Navigate to="/" replace />;
 
@@ -83,7 +85,11 @@ export default function Login() {
           </Typography>
           <Typography variant="h4">Log in</Typography>
           {successMessage && <Alert severity="success">{successMessage}</Alert>}
-          {error && <Alert severity="error">{error}</Alert>}
+          {(error || googleError) && (
+            <Alert severity="error">
+              {error || "Google sign-in was cancelled or failed. Try again."}
+            </Alert>
+          )}
           <TextField
             label="Email"
             type="email"
@@ -110,6 +116,10 @@ export default function Login() {
           <Button type="submit" variant="contained" size="large" disabled={submitting}>
             {submitting ? "Logging in…" : "Log in"}
           </Button>
+          <Typography align="center" color="text.secondary">
+            or
+          </Typography>
+          <GoogleContinueButton disabled={submitting} />
           <Typography>
             Need an account?{" "}
             <MuiLink component={Link} to="/register" color="secondary">

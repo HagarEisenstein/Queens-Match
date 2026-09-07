@@ -31,6 +31,7 @@
     "express-rate-limit": "^8.7.0",
     "express-validator": "^7.2.1",
     "helmet": "^7.1.0",
+    "jose": "^5.10.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "node-cron": "^4.6.0",

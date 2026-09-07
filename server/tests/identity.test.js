@@ -12,14 +12,18 @@ class MemoryUserRepository {
   }
 
   publicUser(user) {
-    const { password_hash, ...publicFields } = user;
+    const { password_hash, neon_auth_user_id, ...publicFields } = user;
     return { ...publicFields, roles: [...user.roles], tech_stack: [...user.tech_stack] };
   }
 
   async create(input) {
     if (
       this.users.some(
-        (user) => user.email === input.email || user.username === input.username
+        (user) =>
+          user.email === input.email ||
+          user.username === input.username ||
+          (input.neon_auth_user_id &&
+            user.neon_auth_user_id === input.neon_auth_user_id)
       )
     ) {
       const error = new Error("duplicate");
@@ -36,6 +40,7 @@ class MemoryUserRepository {
       workplace: null,
       years_experience: null,
       tech_stack: [],
+      neon_auth_user_id: null,
       created_at: new Date().toISOString(),
       ...input,
     };
@@ -46,6 +51,33 @@ class MemoryUserRepository {
   async findAuthByEmail(email) {
     const user = this.users.find((candidate) => candidate.email === email);
     return user ? { ...user } : null;
+  }
+
+  async findByNeonAuthUserId(neonAuthUserId) {
+    const user = this.users.find(
+      (candidate) => candidate.neon_auth_user_id === neonAuthUserId
+    );
+    return user ? this.publicUser(user) : null;
+  }
+
+  async linkNeonAuthUserId(userId, neonAuthUserId) {
+    const user = this.users.find((candidate) => candidate.id === userId);
+    if (!user) return null;
+    user.neon_auth_user_id = neonAuthUserId;
+    return this.publicUser(user);
+  }
+
+  async createFromNeonIdentity(identity, { roles }) {
+    return this.create({
+      email: identity.email,
+      password_hash: null,
+      username: `google-${identity.neonUserId.slice(0, 8)}`,
+      roles,
+      full_name: identity.name || null,
+      photo_url: identity.image || null,
+      neon_auth_user_id: identity.neonUserId,
+      tech_stack: [],
+    });
   }
 
   async findPublicById(id) {
@@ -71,7 +103,33 @@ describe("Epic 1 identity API", () => {
 
   beforeEach(() => {
     repository = new MemoryUserRepository();
-    app = createApp({ userRepository: repository, jwtSecret: JWT_SECRET });
+    app = createApp({
+      userRepository: repository,
+      jwtSecret: JWT_SECRET,
+      verifyNeonToken: async (token) => {
+        if (token === "valid-neon-token") {
+          return {
+            neonUserId: "neon-user-123",
+            email: "google.user@example.com",
+            name: "Google User",
+            image: "https://example.com/avatar.png",
+            emailVerified: true,
+          };
+        }
+        if (token === "link-existing-token") {
+          return {
+            neonUserId: "neon-user-link",
+            email: "existing@example.com",
+            name: "Existing User",
+            image: null,
+            emailVerified: true,
+          };
+        }
+        const error = new Error("invalid");
+        error.code = "NEON_TOKEN_INVALID";
+        throw error;
+      },
+    });
   });
 
   test("rejects a weak password with the standard JSON error", async () => {
@@ -213,5 +271,77 @@ describe("Epic 1 identity API", () => {
     const response = await request(app).get("/api/users/profile");
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("AUTH_REQUIRED");
+  });
+
+  test("bridges a verified Neon Auth identity into a QueenB JWT user", async () => {
+    const response = await request(app).post("/api/auth/neon").send({
+      neonToken: "valid-neon-token",
+      roles: ["mentee", "mentor"],
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.created).toBe(true);
+    expect(response.body.user).toMatchObject({
+      email: "google.user@example.com",
+      roles: ["mentee", "mentor"],
+      full_name: "Google User",
+      photo_url: "https://example.com/avatar.png",
+    });
+    expect(response.body.user).not.toHaveProperty("password_hash");
+    expect(response.body.user).not.toHaveProperty("neon_auth_user_id");
+    expect(jwt.verify(response.body.token, JWT_SECRET)).toMatchObject({
+      id: response.body.user.id,
+      roles: ["mentee", "mentor"],
+    });
+    expect(repository.users[0].password_hash).toBeNull();
+    expect(repository.users[0].neon_auth_user_id).toBe("neon-user-123");
+  });
+
+  test("links Neon Auth to an existing email/password account", async () => {
+    await repository.create({
+      email: "existing@example.com",
+      username: "existing-user",
+      password_hash: await bcrypt.hash("Strong!Pass9", 4),
+      roles: ["mentee"],
+      tech_stack: [],
+    });
+
+    const response = await request(app).post("/api/auth/neon").send({
+      neonToken: "link-existing-token",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.created).toBe(false);
+    expect(response.body.user.email).toBe("existing@example.com");
+    expect(repository.users[0].neon_auth_user_id).toBe("neon-user-link");
+    expect(repository.users[0].password_hash).toBeTruthy();
+  });
+
+  test("rejects password login for Google-only accounts", async () => {
+    await repository.create({
+      email: "oauth-only@example.com",
+      username: "oauth-only",
+      password_hash: null,
+      roles: ["mentee"],
+      tech_stack: [],
+      neon_auth_user_id: "neon-oauth-only",
+    });
+
+    const response = await request(app).post("/api/auth/login").send({
+      email: "oauth-only@example.com",
+      password: "Whatever!1",
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("OAUTH_ONLY_ACCOUNT");
+  });
+
+  test("rejects an invalid Neon Auth token", async () => {
+    const response = await request(app).post("/api/auth/neon").send({
+      neonToken: "bad-token",
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("INVALID_NEON_TOKEN");
   });
 });

@@ -158,10 +158,16 @@ function validateRegistration(input) {
   };
 }
 
+function normalizeOptionalRoles(roles) {
+  if (roles === undefined || roles === null) return ["mentee"];
+  return normalizeRoles(roles);
+}
+
 module.exports = {
   ALLOWED_ROLES,
   PROFILE_FIELDS,
   normalizeEmail,
+  normalizeOptionalRoles,
   validateRegistration,
   validateProfileFields,
 };

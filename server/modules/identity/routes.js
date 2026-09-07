@@ -4,9 +4,16 @@ const jwt = require("jsonwebtoken");
 const { AppError } = require("../../middleware/errors");
 const {
   normalizeEmail,
+  normalizeOptionalRoles,
   validateProfileFields,
   validateRegistration,
 } = require("./validation");
+
+function toPublicUser(user) {
+  if (!user) return null;
+  const { password_hash, neon_auth_user_id, ...publicUser } = user;
+  return publicUser;
+}
 
 function createIdentityRouters({
   userRepository,
@@ -14,6 +21,7 @@ function createIdentityRouters({
   jwtSecret,
   jwtExpiresIn = "1d",
   notificationService,
+  verifyNeonToken,
   logger = console,
 }) {
   const authRouter = express.Router();
@@ -22,6 +30,28 @@ function createIdentityRouters({
     jwt.sign({ id: user.id, roles: user.roles }, jwtSecret, {
       expiresIn: jwtExpiresIn,
     });
+
+  async function sendWelcome(user) {
+    if (!notificationService) return;
+    await notificationService
+      .send({
+        recipientId: user.id,
+        type: "welcome",
+        title: "Welcome to Queen's Match!",
+        message:
+          "We’re so happy you’re here. Complete your profile to find meaningful mentorship connections and make the most of your Queen's Match experience.",
+        actionUrl: "/profile",
+        emailEligible: true,
+        emailDelayMilliseconds: 0,
+        deduplicationKey: `welcome:${user.id}`,
+      })
+      .catch((error) =>
+        logger.error?.("Welcome notification failed", {
+          error: error.message,
+          userId: user.id,
+        })
+      );
+  }
 
   authRouter.post("/register", async (req, res, next) => {
     try {
@@ -36,19 +66,8 @@ function createIdentityRouters({
         roles,
         ...profile,
       });
-      if (notificationService) {
-        await notificationService.send({
-          recipientId: user.id,
-          type: "welcome",
-          title: "Welcome to Queen's Match!",
-          message: "We’re so happy you’re here. Complete your profile to find meaningful mentorship connections and make the most of your Queen's Match experience.",
-          actionUrl: "/profile",
-          emailEligible: true,
-          emailDelayMilliseconds: 0,
-          deduplicationKey: `welcome:${user.id}`,
-        }).catch((error) => logger.error?.("Welcome notification failed", { error: error.message, userId: user.id }));
-      }
-      return res.status(201).json({ token: createAccessToken(user), user });
+      await sendWelcome(user);
+      return res.status(201).json({ token: createAccessToken(user), user: toPublicUser(user) });
     } catch (error) {
       if (error.code === "23505") {
         return next(
@@ -75,6 +94,14 @@ function createIdentityRouters({
       }
 
       const user = await userRepository.findAuthByEmail(email);
+      if (user && !user.password_hash) {
+        throw new AppError(
+          401,
+          "OAUTH_ONLY_ACCOUNT",
+          "This account uses Google sign-in. Continue with Google."
+        );
+      }
+
       const validPassword =
         user && (await bcrypt.compare(req.body.password, user.password_hash));
       if (!validPassword) {
@@ -86,9 +113,99 @@ function createIdentityRouters({
       }
 
       const token = createAccessToken(user);
-      const { password_hash, ...publicUser } = user;
-      return res.json({ token, user: publicUser });
+      return res.json({ token, user: toPublicUser(user) });
     } catch (error) {
+      return next(error);
+    }
+  });
+
+  authRouter.post("/neon", async (req, res, next) => {
+    try {
+      if (typeof verifyNeonToken !== "function") {
+        throw new AppError(
+          503,
+          "NEON_AUTH_UNCONFIGURED",
+          "Neon Auth is not configured on this server."
+        );
+      }
+
+      const neonToken =
+        typeof req.body?.neonToken === "string"
+          ? req.body.neonToken
+          : typeof req.headers.authorization === "string" &&
+              req.headers.authorization.startsWith("Bearer ")
+            ? req.headers.authorization.slice(7)
+            : null;
+
+      let identity;
+      try {
+        identity = await verifyNeonToken(neonToken);
+      } catch (error) {
+        if (error.code === "NEON_AUTH_UNCONFIGURED") {
+          throw new AppError(
+            503,
+            "NEON_AUTH_UNCONFIGURED",
+            "Neon Auth is not configured on this server."
+          );
+        }
+        throw new AppError(
+          401,
+          "INVALID_NEON_TOKEN",
+          "Neon Auth session is invalid or expired."
+        );
+      }
+
+      let user =
+        (await userRepository.findByNeonAuthUserId?.(identity.neonUserId)) ||
+        null;
+
+      if (!user) {
+        const existing = await userRepository.findAuthByEmail(identity.email);
+        if (existing) {
+          if (
+            existing.neon_auth_user_id &&
+            existing.neon_auth_user_id !== identity.neonUserId
+          ) {
+            throw new AppError(
+              409,
+              "NEON_IDENTITY_CONFLICT",
+              "This email is already linked to a different Google identity."
+            );
+          }
+          user = userRepository.linkNeonAuthUserId
+            ? await userRepository.linkNeonAuthUserId(
+                existing.id,
+                identity.neonUserId
+              )
+            : existing;
+          if (!user) user = toPublicUser(existing);
+        }
+      }
+
+      let created = false;
+      if (!user) {
+        const roles = normalizeOptionalRoles(req.body?.roles);
+        user = await userRepository.createFromNeonIdentity(identity, { roles });
+        created = true;
+        await sendWelcome(user);
+      }
+
+      const publicUser = toPublicUser(user);
+      return res.status(created ? 201 : 200).json({
+        token: createAccessToken(publicUser),
+        user: publicUser,
+        created,
+      });
+    } catch (error) {
+      if (error.code === "23505") {
+        return next(
+          new AppError(
+            409,
+            "ACCOUNT_EXISTS",
+            "An account with that email or username already exists."
+          )
+        );
+      }
       return next(error);
     }
   });
@@ -97,7 +214,7 @@ function createIdentityRouters({
     try {
       const user = await userRepository.findPublicById(req.user.id);
       if (!user) throw new AppError(404, "USER_NOT_FOUND", "User not found.");
-      return res.json({ user });
+      return res.json({ user: toPublicUser(user) });
     } catch (error) {
       return next(error);
     }
@@ -115,7 +232,7 @@ function createIdentityRouters({
       }
       const user = await userRepository.updateProfile(req.user.id, profile);
       if (!user) throw new AppError(404, "USER_NOT_FOUND", "User not found.");
-      return res.json({ user });
+      return res.json({ user: toPublicUser(user) });
     } catch (error) {
       if (error.code === "23505") {
         return next(

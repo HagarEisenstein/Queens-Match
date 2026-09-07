@@ -12,6 +12,7 @@ const { createIdentityRouters } = require("./modules/identity/routes");
 const {
   PostgresUserRepository,
 } = require("./modules/identity/userRepository");
+const { createNeonTokenVerifier, neonAuthOrigin } = require("./modules/identity/neonAuth");
 const createMentorsRouter = require("./routes/mentors");
 const createMentorSearchRouter = require("./routes/mentorSearch");
 const createMeetingsRouter = require("./routes/meetings");
@@ -80,12 +81,21 @@ function createApp(options = {}) {
       feedbackRepository,
     });
 
+  const neonAuthBaseUrl =
+    options.neonAuthBaseUrl ||
+    process.env.NEON_AUTH_BASE_URL ||
+    process.env.REACT_APP_NEON_AUTH_URL ||
+    "";
+  const verifyNeonToken =
+    options.verifyNeonToken || createNeonTokenVerifier(neonAuthBaseUrl);
+
   const { authRouter, usersRouter } = createIdentityRouters({
     userRepository,
     authenticate,
     jwtSecret,
     jwtExpiresIn: options.jwtExpiresIn || process.env.JWT_EXPIRES_IN || "15m",
     notificationService: notifications.notificationService,
+    verifyNeonToken,
   });
 
   const app = express();
@@ -107,14 +117,17 @@ function createApp(options = {}) {
     process.env.RENDER_EXTERNAL_URL,
     ...localDevOrigins,
   ].map((origin) => origin?.trim()).filter(Boolean);
+  const neonAuthConnectOrigins = neonAuthBaseUrl
+    ? [neonAuthOrigin(neonAuthBaseUrl)]
+    : [];
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         baseUri: ["'self'"],
-        connectSrc: ["'self'", ...configuredOrigins],
+        connectSrc: ["'self'", ...configuredOrigins, ...neonAuthConnectOrigins],
         fontSrc: ["'self'", "https:", "data:"],
-        formAction: ["'self'"],
+        formAction: ["'self'", ...neonAuthConnectOrigins],
         frameAncestors: ["'none'"],
         imgSrc: ["'self'", "data:", "https:"],
         objectSrc: ["'none'"],
