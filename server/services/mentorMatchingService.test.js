@@ -1,4 +1,5 @@
 const {
+  getMentorEngagementScores,
   rankMentorsByEngagement,
 } = require("./mentorMatchingService");
 
@@ -326,5 +327,42 @@ describe("mentorMatchingService", () => {
       rankMentorsByEngagement([mentorA], { prismaClient })
     ).resolves.toEqual([mentorA]);
     expect(prismaClient.meeting.findMany).not.toHaveBeenCalled();
+  });
+
+  it("returns the unchanged raw engagement calculation for semantic mentor shapes", async () => {
+    const semanticMentorA = { ...mentorA, userId: undefined, user: { id: "mentor-a" } };
+    const semanticMentorB = { ...mentorB, userId: undefined, user: { id: "mentor-b" } };
+    const prismaClient = createPrismaMock({
+      meetings: [
+        {
+          id: "meeting-a",
+          mentorId: "mentor-a",
+          menteeId: "mentee-a",
+          status: "scheduled",
+          scheduledTime: new Date("2026-07-01T00:00:00.000Z"),
+        },
+      ],
+      outcomes: [
+        { meetingId: "meeting-a", role: "mentee", happened: true },
+        { meetingId: "meeting-a", role: "mentor", happened: true },
+      ],
+      feedbacks: [
+        { meetingId: "meeting-a", submittedBy: "mentee-a", rating: 5 },
+      ],
+    });
+
+    const scores = await getMentorEngagementScores(
+      [semanticMentorA, semanticMentorB],
+      {
+        prismaClient,
+        now: () => new Date("2026-09-01T00:00:00.000Z"),
+      }
+    );
+
+    expect(scores.get("profile-a")).toBeGreaterThan(scores.get("profile-b"));
+    expect(Number.isInteger(scores.get("profile-a"))).toBe(true);
+    expect(prismaClient.meeting.findMany).toHaveBeenCalledTimes(1);
+    expect(prismaClient.meetingOutcomeResponse.findMany).toHaveBeenCalledTimes(1);
+    expect(prismaClient.feedback.findMany).toHaveBeenCalledTimes(1);
   });
 });

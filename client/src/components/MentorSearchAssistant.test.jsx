@@ -3,10 +3,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import MentorSearchAssistant from "./MentorSearchAssistant";
-import { searchMentorsBySemanticQuery } from "../api/client";
+import { searchMentors } from "../api/client";
 
 jest.mock("../api/client", () => ({
-  searchMentorsBySemanticQuery: jest.fn(),
+  searchMentors: jest.fn(),
 }));
 
 const semanticMentor = {
@@ -37,7 +37,7 @@ function renderAssistant() {
 
 describe("MentorSearchAssistant", () => {
   beforeEach(() => {
-    searchMentorsBySemanticQuery.mockReset();
+    searchMentors.mockReset();
   });
 
   it("opens and closes the mentor search panel", async () => {
@@ -64,10 +64,10 @@ describe("MentorSearchAssistant", () => {
     );
   });
 
-  it("posts the entered text and renders ranked semantic mentor matches", async () => {
+  it("posts the entered text and renders ranked mentor matches", async () => {
     const user = userEvent.setup();
     let resolveRequest;
-    searchMentorsBySemanticQuery.mockReturnValue(
+    searchMentors.mockReturnValue(
       new Promise((resolve) => {
         resolveRequest = resolve;
       })
@@ -95,7 +95,7 @@ describe("MentorSearchAssistant", () => {
 
     await user.click(submitButton);
 
-    expect(searchMentorsBySemanticQuery).toHaveBeenCalledWith(
+    expect(searchMentors).toHaveBeenCalledWith(
       "Help with backend interviews"
     );
     expect(submitButton).toBeDisabled();
@@ -103,11 +103,14 @@ describe("MentorSearchAssistant", () => {
       screen.getByRole("progressbar", { name: "Searching for mentors" })
     ).toBeInTheDocument();
 
-    resolveRequest({ data: { mentors: [semanticMentor] } });
+    resolveRequest({
+      data: { intent: "find_mentor", mentors: [semanticMentor] },
+    });
 
     expect(await screen.findByText("Ada Mentor")).toBeInTheDocument();
     expect(screen.getByText("Backend engineer and interview coach")).toBeInTheDocument();
-    expect(screen.getByText("88% semantic match")).toBeInTheDocument();
+    expect(screen.getByText("Best matches")).toBeInTheDocument();
+    expect(screen.queryByText(/semantic match/i)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View Ada Mentor's profile" })).toHaveAttribute(
       "href",
       "/mentors/m1"
@@ -116,9 +119,11 @@ describe("MentorSearchAssistant", () => {
     expect(screen.getByText("Find your mentor")).toBeInTheDocument();
   });
 
-  it("shows an empty result state when no stored mentor embeddings match", async () => {
+  it("shows an empty result state when no ranked mentor matches exist", async () => {
     const user = userEvent.setup();
-    searchMentorsBySemanticQuery.mockResolvedValue({ data: { mentors: [] } });
+    searchMentors.mockResolvedValue({
+      data: { intent: "find_mentor", mentors: [] },
+    });
     renderAssistant();
 
     await user.click(
@@ -131,13 +136,59 @@ describe("MentorSearchAssistant", () => {
     await user.click(screen.getByRole("button", { name: "Find mentors" }));
 
     expect(
-      await screen.findByText("No semantic mentor matches are available yet.")
+      await screen.findByText("No matching mentors are available yet.")
+    ).toBeInTheDocument();
+  });
+
+  it("shows a short clarification prompt for a vague request", async () => {
+    const user = userEvent.setup();
+    searchMentors.mockResolvedValue({
+      data: { intent: "clarification_needed", mentors: [] },
+    });
+    renderAssistant();
+
+    await user.click(
+      screen.getByRole("button", { name: "Help me find a mentor" })
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "What kind of help do you need?" }),
+      "I need help"
+    );
+    await user.click(screen.getByRole("button", { name: "Find mentors" }));
+
+    expect(
+      await screen.findByText(
+        "Tell us a little more about what you want help with — interviews, CV, career direction, or technical skills."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("shows the fixed mentor-search scope message for unrelated requests", async () => {
+    const user = userEvent.setup();
+    searchMentors.mockResolvedValue({
+      data: { intent: "out_of_scope", mentors: [] },
+    });
+    renderAssistant();
+
+    await user.click(
+      screen.getByRole("button", { name: "Help me find a mentor" })
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "What kind of help do you need?" }),
+      "What is the weather?"
+    );
+    await user.click(screen.getByRole("button", { name: "Find mentors" }));
+
+    expect(
+      await screen.findByText(
+        "I can help you find a mentor for career, interview, and technical guidance."
+      )
     ).toBeInTheDocument();
   });
 
   it("shows a friendly error and preserves the entered text", async () => {
     const user = userEvent.setup();
-    searchMentorsBySemanticQuery.mockRejectedValue(new Error("network down"));
+    searchMentors.mockRejectedValue(new Error("network down"));
     renderAssistant();
 
     await user.click(

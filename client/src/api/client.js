@@ -20,7 +20,7 @@ export function verifyMentorSearchEmbedding(query) {
   return apiClient.post("/mentor-search/embedding", { query });
 }
 
-export function searchMentorsBySemanticQuery(query) {
+export function searchMentors(query) {
   return apiClient.post("/mentor-search", { query });
 }
 

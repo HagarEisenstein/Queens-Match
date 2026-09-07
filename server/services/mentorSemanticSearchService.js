@@ -6,7 +6,7 @@ const {
 const { toPgVectorLiteral } = require("./pgVector");
 
 const DEFAULT_SEARCH_LIMIT = 5;
-const MAX_SEARCH_LIMIT = 20;
+const MAX_SEARCH_LIMIT = 50;
 
 function normalizeQuery(query) {
   if (typeof query !== "string" || !query.trim()) {
@@ -50,6 +50,7 @@ function createMentorSemanticSearchRepository(prismaClient) {
         JOIN "users" AS u
           ON u."id" = mp."user_id"
         CROSS JOIN "query_embedding"
+        WHERE 'mentor' = ANY(u."roles")
         ORDER BY mse."embedding" <=> "query_embedding"."embedding" ASC
         LIMIT ${limit}
       `;

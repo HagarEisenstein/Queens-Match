@@ -7,8 +7,8 @@ jest.mock("../services/embeddingService", () => ({
 jest.mock("../services/mentorSearchEmbeddingService", () => ({
   generateMentorSearchEmbedding: jest.fn(),
 }));
-jest.mock("../services/mentorSemanticSearchService", () => ({
-  searchMentorsBySemanticQuery: jest.fn(),
+jest.mock("../services/mentorSearchService", () => ({
+  searchMentors: jest.fn(),
 }));
 jest.mock("../services/mentorSearchBackfillService", () => ({
   backfillMentorSearchEmbeddings: jest.fn(),
@@ -21,9 +21,7 @@ const { embedSearchQuery } = require("../services/embeddingService");
 const {
   generateMentorSearchEmbedding,
 } = require("../services/mentorSearchEmbeddingService");
-const {
-  searchMentorsBySemanticQuery,
-} = require("../services/mentorSemanticSearchService");
+const { searchMentors } = require("../services/mentorSearchService");
 const {
   backfillMentorSearchEmbeddings,
 } = require("../services/mentorSearchBackfillService");
@@ -50,10 +48,10 @@ const app = createApp({
 
 describe("POST /api/mentor-search", () => {
   beforeEach(() => {
-    searchMentorsBySemanticQuery.mockReset();
+    searchMentors.mockReset();
   });
 
-  it("returns semantic mentor matches for query text only", async () => {
+  it("returns intent-aware hybrid mentor matches for query text only", async () => {
     const mentors = [
       {
         id: mentorProfileId,
@@ -70,10 +68,9 @@ describe("POST /api/mentor-search", () => {
           workplace: "QueenB",
           techStack: ["Node.js"],
         },
-        semanticScore: 0.88,
       },
     ];
-    searchMentorsBySemanticQuery.mockResolvedValue(mentors);
+    searchMentors.mockResolvedValue({ intent: "find_mentor", mentors });
 
     const response = await request(app)
       .post("/api/mentor-search")
@@ -81,18 +78,36 @@ describe("POST /api/mentor-search", () => {
       .send({ query: "  backend interview and CV review  " });
 
     expect(response.status).toBe(200);
-    expect(searchMentorsBySemanticQuery).toHaveBeenCalledWith(
+    expect(searchMentors).toHaveBeenCalledWith(
       "backend interview and CV review"
     );
-    expect(response.body).toEqual({ mentors });
+    expect(response.body).toEqual({ intent: "find_mentor", mentors });
     expect(JSON.stringify(response.body)).not.toContain("embedding");
     expect(JSON.stringify(response.body)).not.toContain("documentText");
+    expect(JSON.stringify(response.body)).not.toContain("semanticScore");
+    expect(JSON.stringify(response.body)).not.toContain("scores");
   });
+
+  it.each(["clarification_needed", "out_of_scope"])(
+    "returns the %s intent without mentor matches",
+    async (intent) => {
+      searchMentors.mockResolvedValue({ intent, mentors: [] });
+
+      const response = await request(app)
+        .post("/api/mentor-search")
+        .set("Authorization", `Bearer ${tokenFor("user-1")}`)
+        .send({ query: "help" });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ intent, mentors: [] });
+    }
+  );
 
   it.each([
     ["missing", {}],
     ["empty", { query: "" }],
     ["non-string", { query: ["backend"] }],
+    ["overlong", { query: "x".repeat(2_001) }],
     ["client vector", { query: "backend", embedding: [0.1, 0.2] }],
   ])("rejects a %s request", async (_, body) => {
     const response = await request(app)
@@ -102,7 +117,7 @@ describe("POST /api/mentor-search", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
-    expect(searchMentorsBySemanticQuery).not.toHaveBeenCalled();
+    expect(searchMentors).not.toHaveBeenCalled();
   });
 
   it("requires authentication", async () => {
@@ -111,7 +126,7 @@ describe("POST /api/mentor-search", () => {
       .send({ query: "backend interview" });
 
     expect(response.status).toBe(401);
-    expect(searchMentorsBySemanticQuery).not.toHaveBeenCalled();
+    expect(searchMentors).not.toHaveBeenCalled();
   });
 });
 

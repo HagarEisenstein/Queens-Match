@@ -5,9 +5,10 @@ const { embedSearchQuery } = require("../services/embeddingService");
 const {
   generateMentorSearchEmbedding,
 } = require("../services/mentorSearchEmbeddingService");
+const { searchMentors } = require("../services/mentorSearchService");
 const {
-  searchMentorsBySemanticQuery,
-} = require("../services/mentorSemanticSearchService");
+  MAX_QUERY_LENGTH,
+} = require("../services/mentorQueryUnderstandingService");
 const {
   backfillMentorSearchEmbeddings,
 } = require("../services/mentorSearchBackfillService");
@@ -30,7 +31,10 @@ const queryValidation = [
     .bail()
     .trim()
     .notEmpty()
-    .withMessage("query must be a non-empty string"),
+    .withMessage("query must be a non-empty string")
+    .bail()
+    .isLength({ max: MAX_QUERY_LENGTH })
+    .withMessage(`query must contain at most ${MAX_QUERY_LENGTH} characters`),
   validate,
 ];
 
@@ -42,8 +46,8 @@ function createMentorSearchRouter({ authenticate, authorizeAdmin }) {
   router.use(authenticate);
   router.post("/", queryValidation, async (req, res, next) => {
     try {
-      const mentors = await searchMentorsBySemanticQuery(req.body.query);
-      res.json({ mentors });
+      const result = await searchMentors(req.body.query);
+      res.json(result);
     } catch (error) {
       next(error);
     }

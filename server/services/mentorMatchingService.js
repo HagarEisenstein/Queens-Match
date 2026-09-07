@@ -38,6 +38,10 @@ function timestamp(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function getMentorUserId(mentor) {
+  return mentor?.userId || mentor?.user?.id || null;
+}
+
 function createTopicSet(adviceTopics) {
   if (!Array.isArray(adviceTopics)) return new Set();
   return new Set(adviceTopics.filter((topic) => typeof topic === "string"));
@@ -170,7 +174,7 @@ function collectMetrics({
   nowMs,
 }) {
   const metricsByMentor = new Map(
-    mentors.map((mentor) => [mentor.userId, createMetrics(mentor)])
+    mentors.map((mentor) => [getMentorUserId(mentor), createMetrics(mentor)])
   );
 
   for (const meeting of meetings) {
@@ -216,6 +220,66 @@ async function loadEngagementHistory(prismaClient, mentorUserIds) {
   return { meetings, outcomes, feedbacks };
 }
 
+async function buildEngagementEntries(mentors, { prismaClient, now }) {
+  const mentorUserIds = Array.from(
+    new Set(mentors.map(getMentorUserId).filter(Boolean))
+  );
+  if (mentorUserIds.length === 0) {
+    return {
+      hasHistory: false,
+      entries: mentors.map((mentor) => {
+        const metrics = createMetrics(mentor);
+        return { mentor, metrics, score: scoreMetrics(metrics) };
+      }),
+    };
+  }
+
+  const { meetings, outcomes, feedbacks } = await loadEngagementHistory(
+    prismaClient,
+    mentorUserIds
+  );
+  const outcomesByMeeting = groupByMeeting(outcomes);
+  const feedbacksByMeeting = groupByMeeting(feedbacks);
+  const metricsByMentor = collectMetrics({
+    mentors,
+    meetings,
+    outcomesByMeeting,
+    feedbacksByMeeting,
+    nowMs: timestamp(now()),
+  });
+
+  return {
+    hasHistory: meetings.length > 0,
+    entries: mentors.map((mentor) => {
+      const metrics =
+        metricsByMentor.get(getMentorUserId(mentor)) || createMetrics(mentor);
+      return { mentor, metrics, score: scoreMetrics(metrics) };
+    }),
+  };
+}
+
+async function getMentorEngagementScores(
+  mentors,
+  { prismaClient, now = () => new Date() } = {}
+) {
+  if (!Array.isArray(mentors)) {
+    throw new TypeError("mentors must be an array");
+  }
+  if (mentors.length === 0) return new Map();
+  if (mentors.length === 1) {
+    return new Map([[mentors[0].id, scoreMetrics(createMetrics(mentors[0]))]]);
+  }
+  if (!prismaClient) {
+    throw new TypeError("prismaClient is required to score mentor engagement");
+  }
+
+  const { entries } = await buildEngagementEntries(mentors, {
+    prismaClient,
+    now,
+  });
+  return new Map(entries.map(({ mentor, score }) => [mentor.id, score]));
+}
+
 async function rankMentorsByEngagement(
   mentors,
   { prismaClient, adviceTopics = [], now = () => new Date() } = {}
@@ -231,43 +295,23 @@ async function rankMentorsByEngagement(
     adviceTopics
   );
 
-  const mentorUserIds = Array.from(
-    new Set(mentors.map((mentor) => mentor.userId).filter(Boolean))
-  );
-  if (mentorUserIds.length === 0) return topicRankedMentors;
-
-  const { meetings, outcomes, feedbacks } = await loadEngagementHistory(
+  const { entries, hasHistory } = await buildEngagementEntries(mentors, {
     prismaClient,
-    mentorUserIds
-  );
-  if (meetings.length === 0) return topicRankedMentors;
-
-  const outcomesByMeeting = groupByMeeting(outcomes);
-  const feedbacksByMeeting = groupByMeeting(feedbacks);
-  const metricsByMentor = collectMetrics({
-    mentors,
-    meetings,
-    outcomesByMeeting,
-    feedbacksByMeeting,
-    nowMs: timestamp(now()),
+    now,
   });
+  if (!hasHistory) return topicRankedMentors;
 
-  return mentors
-    .map((mentor) => {
-      const metrics =
-        metricsByMentor.get(mentor.userId) || createMetrics(mentor);
-      return {
-        mentor,
-        metrics,
-        score: scoreMetrics(metrics),
-        topicRelevance: countMatchingTopics(mentor, selectedTopics),
-      };
-    })
+  return entries
+    .map((entry) => ({
+      ...entry,
+      topicRelevance: countMatchingTopics(entry.mentor, selectedTopics),
+    }))
     .sort(compareRanked)
     .map(({ mentor }) => mentor);
 }
 
 module.exports = {
+  getMentorEngagementScores,
   rankMentorsByEngagement,
   rankMentorsByTopicRelevance,
 };

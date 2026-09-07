@@ -50,6 +50,13 @@ See `server/.env.example`. Required:
 
 For hosted Postgres, append `?sslmode=require` to `DATABASE_URL`.
 
+Mentor search also uses `GEMINI_API_KEY`. Its query-understanding model defaults
+to `gemini-2.5-flash` and can be overridden with
+`GEMINI_QUERY_UNDERSTANDING_MODEL`. Set `MENTOR_SEARCH_DEBUG=true` only in a
+development environment to include structured intent and normalized ranking
+scores in mentor-search responses; embeddings and raw engagement values are
+never returned.
+
 ## Deploy (free, GitHub-integrated) — Render + Neon
 
 Vercel is a poor fit for this backend (long-lived Express, `node-cron`, in-memory SSE). Use **Render**.

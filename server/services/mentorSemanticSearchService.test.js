@@ -104,12 +104,12 @@ describe("mentor semantic search service", () => {
     ).resolves.toEqual([]);
   });
 
-  it("supports a bounded internal result limit", async () => {
+  it("supports a broad but bounded internal result limit", async () => {
     const { service, repository } = createHarness([]);
 
     await service.searchMentorsBySemanticQuery("backend help", { limit: 100 });
 
-    expect(repository.findNearest).toHaveBeenCalledWith(expect.any(String), 20);
+    expect(repository.findNearest).toHaveBeenCalledWith(expect.any(String), 50);
   });
 
   it("rejects a non-finite score instead of returning malformed data", async () => {
@@ -136,6 +136,7 @@ describe("mentor semantic search repository", () => {
     expect(sqlText).toContain("FROM \"mentor_search_embeddings\"");
     expect(sqlText).toContain("JOIN \"mentor_profiles\"");
     expect(sqlText).toContain("JOIN \"users\"");
+    expect(sqlText).toContain("WHERE 'mentor' = ANY(u.\"roles\")");
     expect(sqlText).toContain("1 -");
     expect(sqlText).toContain("<=>");
     expect(sqlText).toMatch(/ORDER BY[\s\S]*<=>[\s\S]*ASC/);

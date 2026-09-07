@@ -18,11 +18,16 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { searchMentorsBySemanticQuery } from "../api/client";
+import { searchMentors } from "../api/client";
 
-function SemanticMentorCard({ mentor }) {
+const SEARCH_INTENTS = new Set([
+  "find_mentor",
+  "clarification_needed",
+  "out_of_scope",
+]);
+
+function MentorMatchCard({ mentor }) {
   const name = mentor.user.fullName || mentor.user.username;
-  const scorePercent = Math.round(mentor.semanticScore * 100);
 
   return (
     <Card variant="outlined" sx={{ borderRadius: 3 }}>
@@ -59,13 +64,10 @@ function SemanticMentorCard({ mentor }) {
         <Stack
           direction="row"
           alignItems="center"
-          justifyContent="space-between"
+          justifyContent="flex-end"
           spacing={1}
           sx={{ mt: 1.5 }}
         >
-          <Typography variant="caption" color="text.secondary">
-            {scorePercent}% semantic match
-          </Typography>
           <Button
             component={Link}
             to={`/mentors/${mentor.id}`}
@@ -85,6 +87,7 @@ export default function MentorSearchAssistant() {
   const [searchText, setSearchText] = useState("");
   const [requestStatus, setRequestStatus] = useState("idle");
   const [mentors, setMentors] = useState([]);
+  const [intent, setIntent] = useState(null);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -92,12 +95,14 @@ export default function MentorSearchAssistant() {
 
     setRequestStatus("loading");
     setMentors([]);
+    setIntent(null);
     try {
-      const { data } = await searchMentorsBySemanticQuery(searchText.trim());
-      if (!Array.isArray(data?.mentors)) {
-        throw new Error("Semantic search returned malformed results");
+      const { data } = await searchMentors(searchText.trim());
+      if (!SEARCH_INTENTS.has(data?.intent) || !Array.isArray(data?.mentors)) {
+        throw new Error("Mentor search returned malformed results");
       }
       setMentors(data.mentors);
+      setIntent(data.intent);
       setRequestStatus("success");
     } catch {
       setRequestStatus("error");
@@ -191,6 +196,7 @@ export default function MentorSearchAssistant() {
               if (requestStatus !== "loading") {
                 setRequestStatus("idle");
                 setMentors([]);
+                setIntent(null);
               }
             }}
             disabled={isLoading}
@@ -230,22 +236,41 @@ export default function MentorSearchAssistant() {
               </Alert>
             )}
 
-            {requestStatus === "success" && mentors.length === 0 && (
+            {requestStatus === "success" &&
+              intent === "clarification_needed" && (
+                <Alert severity="info">
+                  Tell us a little more about what you want help with —
+                  interviews, CV, career direction, or technical skills.
+                </Alert>
+              )}
+
+            {requestStatus === "success" && intent === "out_of_scope" && (
               <Alert severity="info">
-                No semantic mentor matches are available yet.
+                I can help you find a mentor for career, interview, and technical
+                guidance.
               </Alert>
             )}
 
-            {requestStatus === "success" && mentors.length > 0 && (
-              <Stack spacing={1.5}>
-                <Typography variant="subtitle1" fontWeight={600}>
-                  Best semantic matches
-                </Typography>
-                {mentors.map((mentor) => (
-                  <SemanticMentorCard key={mentor.id} mentor={mentor} />
-                ))}
-              </Stack>
-            )}
+            {requestStatus === "success" &&
+              intent === "find_mentor" &&
+              mentors.length === 0 && (
+                <Alert severity="info">
+                  No matching mentors are available yet.
+                </Alert>
+              )}
+
+            {requestStatus === "success" &&
+              intent === "find_mentor" &&
+              mentors.length > 0 && (
+                <Stack spacing={1.5}>
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    Best matches
+                  </Typography>
+                  {mentors.map((mentor) => (
+                    <MentorMatchCard key={mentor.id} mentor={mentor} />
+                  ))}
+                </Stack>
+              )}
           </Box>
         </Box>
       </Drawer>
