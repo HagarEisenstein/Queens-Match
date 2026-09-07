@@ -13,6 +13,7 @@ const {
   PostgresUserRepository,
 } = require("./modules/identity/userRepository");
 const createMentorsRouter = require("./routes/mentors");
+const createMentorSearchRouter = require("./routes/mentorSearch");
 const createMeetingsRouter = require("./routes/meetings");
 const { bootstrapNotifications } = require("./comms/bootstrap");
 const { createNotificationsRouter } = require("./comms/routes");
@@ -189,6 +190,10 @@ function createApp(options = {}) {
   app.use("/api/auth", authLimiter, authRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/mentors", createMentorsRouter({ authenticate }));
+  app.use(
+    "/api/mentor-search",
+    createMentorSearchRouter({ authenticate, authorizeAdmin })
+  );
   app.use("/api/meetings", createMeetingsRouter({ authenticate }));
   app.use(
     "/api/notifications",

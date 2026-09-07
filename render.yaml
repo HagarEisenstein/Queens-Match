@@ -29,6 +29,14 @@ services:
         value: "20"
       - key: DATABASE_URL
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_EMBEDDING_MODEL
+        value: gemini-embedding-001
+      - key: GEMINI_EMBEDDING_DIMENSIONS
+        value: "768"
+      - key: GEMINI_QUERY_UNDERSTANDING_MODEL
+        value: gemini-2.5-flash
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN

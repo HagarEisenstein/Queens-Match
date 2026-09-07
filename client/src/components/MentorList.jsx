@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import apiClient from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import MentorSearchAssistant from "./MentorSearchAssistant";
 
 const LIKED_KEY = "queens_match_liked_mentors";
 
@@ -80,43 +81,55 @@ export default function MentorList() {
 
   if (state === "loading") {
     return (
-      <Box sx={{ p: 6, textAlign: "center" }}>
-        <CircularProgress />
-      </Box>
+      <>
+        <Box sx={{ p: 6, textAlign: "center" }}>
+          <CircularProgress />
+        </Box>
+        <MentorSearchAssistant />
+      </>
     );
   }
   if (state === "error") {
     return (
-      <Container sx={{ py: 4 }}>
-        <Alert severity="error">Mentors could not be loaded.</Alert>
-      </Container>
+      <>
+        <Container sx={{ py: 4 }}>
+          <Alert severity="error">Mentors could not be loaded.</Alert>
+        </Container>
+        <MentorSearchAssistant />
+      </>
     );
   }
 
   if (mentors.length === 0) {
     return (
-      <Container sx={{ py: 4 }}>
-        <Typography variant="h3" gutterBottom color="primary">
-          Find a mentor
-        </Typography>
-        <Alert severity="info">No mentor profiles are available yet.</Alert>
-      </Container>
+      <>
+        <Container sx={{ py: 4 }}>
+          <Typography variant="h3" gutterBottom color="primary">
+            Find a mentor
+          </Typography>
+          <Alert severity="info">No mentor profiles are available yet.</Alert>
+        </Container>
+        <MentorSearchAssistant />
+      </>
     );
   }
 
   if (!current) {
     return (
-      <Container maxWidth="sm" sx={{ py: 6, textAlign: "center" }}>
-        <Typography variant="h3" color="primary" gutterBottom>
-          That&apos;s everyone for now
-        </Typography>
-        <Typography color="text.secondary" sx={{ mb: 3 }}>
-          Check back soon — or browse again to revisit mentors you skipped.
-        </Typography>
-        <Button variant="contained" onClick={() => setCursor(0)}>
-          Widen my view
-        </Button>
-      </Container>
+      <>
+        <Container maxWidth="sm" sx={{ py: 6, textAlign: "center" }}>
+          <Typography variant="h3" color="primary" gutterBottom>
+            That&apos;s everyone for now
+          </Typography>
+          <Typography color="text.secondary" sx={{ mb: 3 }}>
+            Check back soon — or browse again to revisit mentors you skipped.
+          </Typography>
+          <Button variant="contained" onClick={() => setCursor(0)}>
+            Widen my view
+          </Button>
+        </Container>
+        <MentorSearchAssistant />
+      </>
     );
   }
 
@@ -267,6 +280,7 @@ export default function MentorList() {
           You&apos;re in! Say hi 👋
         </Alert>
       </Fade>
+      <MentorSearchAssistant />
     </Container>
   );
 }

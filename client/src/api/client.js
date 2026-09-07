@@ -8,4 +8,12 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+export function verifyMentorSearchEmbedding(query) {
+  return apiClient.post("/mentor-search/embedding", { query });
+}
+
+export function searchMentors(query) {
+  return apiClient.post("/mentor-search", { query });
+}
+
 export default apiClient;
