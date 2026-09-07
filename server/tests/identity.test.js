@@ -344,4 +344,49 @@ describe("Epic 1 identity API", () => {
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("INVALID_NEON_TOKEN");
   });
+
+  test("maps distinct Neon verification failures to specific API codes", async () => {
+    const cases = [
+      ["expired", "NEON_TOKEN_EXPIRED", "Neon Auth token has expired."],
+      [
+        "bad-issuer",
+        "NEON_TOKEN_INVALID_ISSUER",
+        "Neon Auth token issuer is invalid.",
+      ],
+      [
+        "bad-audience",
+        "NEON_TOKEN_INVALID_AUDIENCE",
+        "Neon Auth token audience is invalid.",
+      ],
+      [
+        "bad-signature",
+        "NEON_TOKEN_INVALID_SIGNATURE",
+        "Neon Auth token signature is invalid.",
+      ],
+      [
+        "missing-claims",
+        "NEON_TOKEN_MISSING_CLAIMS",
+        "Neon Auth token is missing required identity claims.",
+      ],
+    ];
+
+    for (const [token, code, message] of cases) {
+      const scopedApp = createApp({
+        userRepository: repository,
+        jwtSecret: JWT_SECRET,
+        verifyNeonToken: async () => {
+          const error = new Error(message);
+          error.code = code;
+          throw error;
+        },
+      });
+
+      const response = await request(scopedApp).post("/api/auth/neon").send({
+        neonToken: token,
+      });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error).toEqual({ code, message });
+    }
+  });
 });

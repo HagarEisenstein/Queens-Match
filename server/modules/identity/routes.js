@@ -148,10 +148,52 @@ function createIdentityRouters({
             "Neon Auth is not configured on this server."
           );
         }
+        if (error.code === "NEON_TOKEN_MISSING") {
+          throw new AppError(
+            401,
+            "NEON_TOKEN_MISSING",
+            "Neon Auth token is required."
+          );
+        }
+        if (error.code === "NEON_TOKEN_EXPIRED") {
+          throw new AppError(
+            401,
+            "NEON_TOKEN_EXPIRED",
+            "Neon Auth token has expired."
+          );
+        }
+        if (error.code === "NEON_TOKEN_INVALID_ISSUER") {
+          throw new AppError(
+            401,
+            "NEON_TOKEN_INVALID_ISSUER",
+            "Neon Auth token issuer is invalid."
+          );
+        }
+        if (error.code === "NEON_TOKEN_INVALID_AUDIENCE") {
+          throw new AppError(
+            401,
+            "NEON_TOKEN_INVALID_AUDIENCE",
+            "Neon Auth token audience is invalid."
+          );
+        }
+        if (error.code === "NEON_TOKEN_INVALID_SIGNATURE") {
+          throw new AppError(
+            401,
+            "NEON_TOKEN_INVALID_SIGNATURE",
+            "Neon Auth token signature is invalid."
+          );
+        }
+        if (error.code === "NEON_TOKEN_MISSING_CLAIMS") {
+          throw new AppError(
+            401,
+            "NEON_TOKEN_MISSING_CLAIMS",
+            "Neon Auth token is missing required identity claims."
+          );
+        }
         throw new AppError(
           401,
           "INVALID_NEON_TOKEN",
-          "Neon Auth session is invalid or expired."
+          error.message || "Neon Auth token is invalid."
         );
       }
 
