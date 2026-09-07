@@ -12,6 +12,7 @@ test("exposes unread count and an accessible mark-as-read action", () => {
     unreadCount: 1,
     markRead,
     openNotification: jest.fn(),
+    respondToAdminInvite: jest.fn(),
   });
 
   render(<NotificationBell />);
@@ -34,10 +35,35 @@ test("opens a notification when its menu item is clicked", () => {
     unreadCount: 1,
     markRead: jest.fn(),
     openNotification,
+    respondToAdminInvite: jest.fn(),
   });
 
   render(<NotificationBell />);
   fireEvent.click(screen.getByRole("button", { name: "1 unread notifications" }));
   fireEvent.click(screen.getByText("Leave feedback"));
   expect(openNotification).toHaveBeenCalledWith(notification);
+});
+
+test("renders accept and decline actions for pending admin invites", () => {
+  const respondToAdminInvite = jest.fn();
+  useNotifications.mockReturnValue({
+    notifications: [{
+      id: "n3",
+      title: "Admin invitation",
+      message: "You were invited to become an admin",
+      readAt: null,
+      type: "ADMIN_INVITE",
+      status: "pending",
+    }],
+    unreadCount: 1,
+    markRead: jest.fn(),
+    openNotification: jest.fn(),
+    respondToAdminInvite,
+  });
+
+  render(<NotificationBell />);
+  fireEvent.click(screen.getByRole("button", { name: "1 unread notifications" }));
+  fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+  expect(respondToAdminInvite).toHaveBeenCalledWith("n3", "accept");
+  expect(screen.getByRole("button", { name: "Decline" })).toBeInTheDocument();
 });

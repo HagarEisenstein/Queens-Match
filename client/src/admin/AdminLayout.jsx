@@ -7,6 +7,7 @@ const tabs = [
   { label: "Calendar", to: "/admin/calendar" },
   { label: "Users", to: "/admin/users" },
   { label: "Alerts", to: "/admin/alerts" },
+  { label: "Invites", to: "/admin/invites" },
 ];
 
 export default function AdminLayout() {

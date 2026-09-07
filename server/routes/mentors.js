@@ -2,6 +2,7 @@ const express = require("express");
 const { body } = require("express-validator");
 const { validate } = require("../commons/validation.middleware");
 const { AppError } = require("../middleware/errors");
+const { requireAnyRole } = require("../middleware/auth");
 const {
   getMentors,
   getMentorById,
@@ -58,8 +59,7 @@ function parseAdviceTopicsQuery(rawTopics) {
 function createMentorsRouter({ authenticate }) {
   const router = express.Router();
 
-  // Public discovery endpoints intentionally expose only profile information.
-  router.get("/", async (req, res, next) => {
+  router.get("/", authenticate, requireAnyRole("mentee"), async (req, res, next) => {
     try {
       const adviceTopics = parseAdviceTopicsQuery(
         req.query.adviceTopics ?? req.query["adviceTopics[]"]
@@ -83,7 +83,7 @@ function createMentorsRouter({ authenticate }) {
     }
   });
 
-  router.get("/:id", async (req, res, next) => {
+  router.get("/:id", authenticate, requireAnyRole("mentee"), async (req, res, next) => {
     try {
       const profile = await getMentorById(req.params.id);
       if (!profile) {

@@ -91,8 +91,30 @@ export function AuthProvider({ children }) {
     [saveSession]
   );
 
+  const acceptAdminInvite = useCallback(
+    async (payload) => {
+      const { data } = await api.post("/auth/accept-invite", payload);
+      saveSession(data);
+      return data.user;
+    },
+    [saveSession]
+  );
+
   const updateProfile = useCallback(async (profile) => {
     const { data } = await api.put("/users/profile", profile);
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    setUser(data.user);
+    return data.user;
+  }, []);
+
+  const uploadAvatar = useCallback(async (file) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    const { data } = await api.post("/users/avatar", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
     setUser(data.user);
     return data.user;
@@ -112,11 +134,13 @@ export function AuthProvider({ children }) {
       hasRole: (role) => Boolean(user?.roles?.includes(role)),
       login,
       register,
+      acceptAdminInvite,
       logout,
       updateProfile,
+      uploadAvatar,
       refreshUser,
     }),
-    [token, user, loading, login, register, logout, updateProfile, refreshUser]
+    [token, user, loading, login, register, acceptAdminInvite, logout, updateProfile, uploadAvatar, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

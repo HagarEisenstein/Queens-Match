@@ -8,56 +8,55 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(uuid()) @db.Uuid
-  email              String              @unique
-  phone              String?
-  passwordHash       String              @map("password_hash")
-  username           String              @unique
-  roles              String[]
-  fullName           String?             @map("full_name")
-  photoUrl           String?             @map("photo_url")
-  githubUrl          String?             @map("github_url")
-  linkedinUrl        String?             @map("linkedin_url")
-  job                String?
-  workplace          String?
-  yearsExperience    Int?                @map("years_experience")
-  techStack          String[]            @map("tech_stack")
-  createdAt          DateTime            @default(now()) @map("created_at")
-  lastActivityAt     DateTime            @default(now()) @map("last_activity_at")
-  deletionWarningSentAt DateTime?         @map("deletion_warning_sent_at")
-  deletionScheduledAt DateTime?           @map("deletion_scheduled_at")
-  availabilityBlocks AvailabilityBlock[]
-  feedbacks          Feedback[]
-  outcomeResponses   MeetingOutcomeResponse[]
-  feedbackRequests   FeedbackRequest[]
-  menteeBlocks       MentorMenteeBlock[] @relation("MenteeBlocks")
-  mentorBlocks       MentorMenteeBlock[] @relation("MentorBlocks")
-  meetingsAsMentee   Meeting[]           @relation("MenteeMeetings")
-  meetingsAsMentor   Meeting[]           @relation("MentorMeetings")
-  mentorProfile      MentorProfile?
-  notifications      Notification[]
+  id                    String                   @id @default(uuid()) @db.Uuid
+  email                 String                   @unique
+  phone                 String?
+  passwordHash          String                   @map("password_hash")
+  username              String                   @unique
+  roles                 String[]
+  fullName              String?                  @map("full_name")
+  photoUrl              String?                  @map("photo_url")
+  githubUrl             String?                  @map("github_url")
+  linkedinUrl           String?                  @map("linkedin_url")
+  job                   String?
+  workplace             String?
+  yearsExperience       Int?                     @map("years_experience")
+  techStack             String[]                 @map("tech_stack")
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  lastActivityAt        DateTime                 @default(now()) @map("last_activity_at")
+  deletionWarningSentAt DateTime?                @map("deletion_warning_sent_at")
+  deletionScheduledAt   DateTime?                @map("deletion_scheduled_at")
+  availabilityBlocks    AvailabilityBlock[]
+  feedbacks             Feedback[]
+  outcomeResponses      MeetingOutcomeResponse[]
+  feedbackRequests      FeedbackRequest[]
+  menteeBlocks          MentorMenteeBlock[]      @relation("MenteeBlocks")
+  mentorBlocks          MentorMenteeBlock[]      @relation("MentorBlocks")
+  meetingsAsMentee      Meeting[]                @relation("MenteeMeetings")
+  meetingsAsMentor      Meeting[]                @relation("MentorMeetings")
+  mentorProfile         MentorProfile?
+  notifications         Notification[]
 
   @@map("users")
 }
 
 model Meeting {
-  id                      String              @id @default(uuid()) @db.Uuid
-  menteeId                String              @map("mentee_id") @db.Uuid
-  mentorId                String              @map("mentor_id") @db.Uuid
-  status                  String              @default("pending_mentor_times")
-  scheduledTime           DateTime?           @map("scheduled_time")
-  moreTimesUsed           Boolean             @default(false) @map("more_times_used")
-  rescheduleUsed          Boolean             @default(false) @map("reschedule_used")
-  retryAfterNoshowUsed    Boolean             @default(false) @map("retry_after_noshow_used")
+  id                     String              @id @default(uuid()) @db.Uuid
+  menteeId               String              @map("mentee_id") @db.Uuid
+  mentorId               String              @map("mentor_id") @db.Uuid
+  status                 String              @default("pending_mentor_times")
+  scheduledTime          DateTime?           @map("scheduled_time")
+  moreTimesUsed          Boolean             @default(false) @map("more_times_used")
+  rescheduleUsed         Boolean             @default(false) @map("reschedule_used")
+  retryAfterNoshowUsed   Boolean             @default(false) @map("retry_after_noshow_used")
   menteeArrivalConfirmed Boolean             @default(false) @map("mentee_arrival_confirmed")
   mentorArrivalConfirmed Boolean             @default(false) @map("mentor_arrival_confirmed")
-  createdAt               DateTime            @default(now()) @map("created_at")
-  updatedAt               DateTime            @updatedAt @map("updated_at")
-  timeSlots               MeetingTimeSlot[]
-  availabilityBlocks      AvailabilityBlock[]
-  feedbacks               Feedback[]
-  mentee                  User                @relation("MenteeMeetings", fields: [menteeId], references: [id], onDelete: Cascade)
-  mentor                  User                @relation("MentorMeetings", fields: [mentorId], references: [id], onDelete: Cascade)
+  createdAt              DateTime            @default(now()) @map("created_at")
+  updatedAt              DateTime            @updatedAt @map("updated_at")
+  timeSlots              MeetingTimeSlot[]
+  availabilityBlocks     AvailabilityBlock[]
+  mentee                 User                @relation("MenteeMeetings", fields: [menteeId], references: [id], onDelete: Cascade)
+  mentor                 User                @relation("MentorMeetings", fields: [mentorId], references: [id], onDelete: Cascade)
 
   @@index([menteeId])
   @@index([mentorId])
@@ -84,9 +83,11 @@ model Notification {
   recipientId       String                 @map("recipient_id") @db.Uuid
   meetingId         String?                @map("meeting_id") @db.Uuid
   type              String
+  status            String?
   title             String
   message           String
   actionUrl         String?                @map("action_url")
+  metadata          Json?
   popupEligible     Boolean                @default(true) @map("popup_eligible")
   deduplicationKey  String                 @unique @map("deduplication_key")
   readAt            DateTime?              @map("read_at")
@@ -96,6 +97,7 @@ model Notification {
   deliveries        NotificationDelivery[]
 
   @@index([recipientId, createdAt])
+  @@index([type, status, createdAt])
   @@map("notifications")
 }
 
@@ -105,11 +107,11 @@ model NotificationDelivery {
   channel           String
   status            String
   attemptCount      Int          @default(0) @map("attempt_count")
-  nextAttemptAt     DateTime?     @map("next_attempt_at")
-  sentAt            DateTime?     @map("sent_at")
-  providerMessageId String?       @map("provider_message_id")
-  errorMessage      String?       @map("error_message")
-  createdAt         DateTime      @default(now()) @map("created_at")
+  nextAttemptAt     DateTime?    @map("next_attempt_at")
+  sentAt            DateTime?    @map("sent_at")
+  providerMessageId String?      @map("provider_message_id")
+  errorMessage      String?      @map("error_message")
+  createdAt         DateTime     @default(now()) @map("created_at")
   notification      Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
 
   @@unique([notificationId, channel])
@@ -118,18 +120,18 @@ model NotificationDelivery {
 }
 
 model MentorProfile {
-  id                    String   @id @default(uuid()) @db.Uuid
-  userId                String   @unique @map("user_id") @db.Uuid
-  background            String
-  adviceTopics          String[] @map("advice_topics")
-  meetingsOffered       Int      @map("meetings_offered")
-  maxMeetings           Int?     @map("max_meetings")
-  meetingLengthMinutes  Int      @map("meeting_length_minutes")
-  isActive              Boolean  @default(true) @map("is_active")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  searchEmbedding       MentorSearchEmbedding?
+  id                   String                 @id @default(uuid()) @db.Uuid
+  userId               String                 @unique @map("user_id") @db.Uuid
+  background           String
+  adviceTopics         String[]               @map("advice_topics")
+  meetingsOffered      Int                    @map("meetings_offered")
+  maxMeetings          Int?                   @map("max_meetings")
+  meetingLengthMinutes Int                    @map("meeting_length_minutes")
+  isActive             Boolean                @default(true) @map("is_active")
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  searchEmbedding      MentorSearchEmbedding?
 
   @@map("mentor_profiles")
 }
@@ -172,7 +174,6 @@ model Feedback {
   rating      Int
   openText    String?  @map("open_text")
   createdAt   DateTime @default(now()) @map("created_at")
-  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   submitter   User     @relation(fields: [submittedBy], references: [id], onDelete: Cascade)
 
   @@unique([meetingId, submittedBy])
@@ -181,7 +182,7 @@ model Feedback {
 }
 
 model AvailabilityBlock {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String   @id @db.Uuid
   mentorId  String   @map("mentor_id") @db.Uuid
   meetingId String   @map("meeting_id") @db.Uuid
   startTime DateTime @map("start_time")
@@ -242,4 +243,19 @@ model AdminAlert {
   @@index([meetingId])
   @@index([subjectUserId])
   @@map("admin_alerts")
+}
+
+model AdminInvite {
+  id         String    @id @default(uuid()) @db.Uuid
+  email      String
+  tokenHash  String    @unique @map("token_hash")
+  invitedBy  String    @map("invited_by") @db.Uuid
+  acceptedBy String?   @map("accepted_by") @db.Uuid
+  expiresAt  DateTime  @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([email, acceptedAt])
+  @@index([expiresAt])
+  @@map("admin_invites")
 }

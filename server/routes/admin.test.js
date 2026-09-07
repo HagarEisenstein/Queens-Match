@@ -22,14 +22,39 @@ const MENTEE = "11111111-1111-4111-8111-111111111111";
 const MENTOR = "22222222-2222-4222-8222-222222222222";
 const MEETING_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
-function appWithRoles(roles) {
+class MemoryAdminInviteRepository {
+  constructor() {
+    this.invites = [];
+  }
+
+  async create({ email, invited_by, expires_at }) {
+    const invite = {
+      id: `invite-${this.invites.length + 1}`,
+      email,
+      invited_by,
+      expires_at,
+      token: `token-${this.invites.length + 1}`,
+    };
+    this.invites.push(invite);
+    return invite;
+  }
+}
+
+function appWithRoles(roles, overrides = {}) {
+  const adminInviteRepository = new MemoryAdminInviteRepository();
   return createApp({
     jwtSecret: process.env.JWT_SECRET,
     notifications: {
-      notificationRepository: { listForUser: async () => [] },
+      notificationRepository: { listForRecipient: async () => [], listAdminInvitesByInviter: async () => [] },
       realtimeHub: { subscribe: () => () => {}, publish() {} },
+      notificationService: { send: jest.fn() },
     },
-    userRepository: { findPublicById: async () => ({ roles }) },
+    userRepository: {
+      findPublicById: async () => ({ roles }),
+      findPublicByEmail: async () => null,
+    },
+    adminInviteRepository,
+    ...overrides,
   });
 }
 
@@ -158,6 +183,55 @@ describe("GET /api/admin/users", () => {
     expect(response.status).toBe(200);
     expect(response.body.users[0]).toMatchObject({ mentorMeetingCount: 0, menteeMeetingCount: 0 });
     expect(response.body.users[0]._count).toBeUndefined();
+  });
+});
+
+describe("POST /api/admin/invites", () => {
+  it("creates an in-app admin invite for an existing non-admin user", async () => {
+    const notificationService = { send: jest.fn().mockResolvedValue({ id: "n1", status: "pending", createdAt: "2026-09-06T20:00:00.000Z" }) };
+    const app = appWithRoles(["admin"], {
+      userRepository: {
+        findPublicById: async () => ({ roles: ["admin"] }),
+        findPublicByEmail: async () => ({
+          id: "target-user",
+          email: "new-admin@example.com",
+          username: "new-admin",
+          roles: ["mentor"],
+        }),
+      },
+      notifications: {
+        notificationRepository: { listForUser: async () => [] },
+        realtimeHub: { subscribe: () => () => {}, publish() {} },
+        notificationService,
+      },
+    });
+    const response = await request(app)
+      .post("/api/admin/invites")
+      .set("Authorization", `Bearer ${tokenFor(MENTOR, ["admin"])}`)
+      .send({ email: "new-admin@example.com" });
+
+    expect(response.status).toBe(201);
+    expect(response.body.invite.email).toBe("new-admin@example.com");
+    expect(response.body.invite.status).toBe("pending");
+    expect(notificationService.send).toHaveBeenCalledWith(expect.objectContaining({
+      recipientId: "target-user",
+      type: "ADMIN_INVITE",
+      status: "pending",
+    }));
+  });
+
+  it("rejects unknown emails with a clear client-facing message", async () => {
+    const app = appWithRoles(["admin"]);
+    const response = await request(app)
+      .post("/api/admin/invites")
+      .set("Authorization", `Bearer ${tokenFor(MENTOR, ["admin"])}`)
+      .send({ email: "new-admin@example.com" });
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toEqual({
+      code: "USER_NOT_FOUND",
+      message: "No user found with this email. The user must register first.",
+    });
   });
 });
 

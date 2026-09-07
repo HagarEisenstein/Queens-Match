@@ -9,9 +9,12 @@ const { getPool, pingDatabase } = require("./db");
 const { createAuthMiddleware, requireCurrentRole } = require("./middleware/auth");
 const { AppError, errorHandler, notFound } = require("./middleware/errors");
 const { createIdentityRouters } = require("./modules/identity/routes");
+const { PrismaAdminInviteRepository } = require("./modules/identity/adminInviteRepository");
 const {
   PostgresUserRepository,
 } = require("./modules/identity/userRepository");
+const { createAvatarStorage } = require("./modules/identity/avatarStorage");
+const createAdminRouter = require("./routes/admin");
 const createMentorsRouter = require("./routes/mentors");
 const createMentorSearchRouter = require("./routes/mentorSearch");
 const createMeetingsRouter = require("./routes/meetings");
@@ -52,6 +55,8 @@ function createApp(options = {}) {
   };
   const userRepository =
     options.userRepository || new PostgresUserRepository(lazyPool);
+  const adminInviteRepository =
+    options.adminInviteRepository || new PrismaAdminInviteRepository(prisma);
   const authenticate = createAuthMiddleware(jwtSecret);
   const authorizeAdmin = requireCurrentRole(userRepository, "admin");
 
@@ -85,7 +90,9 @@ function createApp(options = {}) {
     authenticate,
     jwtSecret,
     jwtExpiresIn: options.jwtExpiresIn || process.env.JWT_EXPIRES_IN || "15m",
+    adminInviteRepository,
     notificationService: notifications.notificationService,
+    avatarStorage: options.avatarStorage || createAvatarStorage(),
   });
 
   const app = express();
@@ -189,6 +196,17 @@ function createApp(options = {}) {
   });
   app.use("/api/auth", authLimiter, authRouter);
   app.use("/api/users", usersRouter);
+  app.use(
+    "/api/admin",
+    createAdminRouter({
+      authenticate,
+      authorizeAdmin,
+      alertService: options.alertService || engagement.alertService,
+      userRepository,
+      notificationService: notifications.notificationService,
+      notificationRepository: notifications.notificationRepository,
+    })
+  );
   app.use("/api/mentors", createMentorsRouter({ authenticate }));
   app.use(
     "/api/mentor-search",
@@ -201,6 +219,7 @@ function createApp(options = {}) {
       authenticate,
       notificationRepository: notifications.notificationRepository,
       realtimeHub: notifications.realtimeHub,
+      userRepository,
     })
   );
   app.use("/api/engagement", engagement.router);

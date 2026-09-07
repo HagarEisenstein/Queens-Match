@@ -11,6 +11,11 @@ function mockAuth(overrides = {}) {
     username: "queen",
     full_name: "Queen Bee",
   });
+  const uploadAvatar = jest.fn().mockResolvedValue({
+    username: "queen",
+    full_name: "Queen Bee",
+    photo_url: "https://bucket.s3.amazonaws.com/avatars/u1-test.jpg",
+  });
 
   useAuth.mockReturnValue({
     user: {
@@ -28,10 +33,11 @@ function mockAuth(overrides = {}) {
       ...overrides.user,
     },
     updateProfile: overrides.updateProfile || updateProfile,
+    uploadAvatar: overrides.uploadAvatar || uploadAvatar,
     hasRole: overrides.hasRole || ((role) => (overrides.user?.roles || ["mentee", "mentor"]).includes(role)),
   });
 
-  return { updateProfile };
+  return { updateProfile, uploadAvatar };
 }
 
 describe("Profile", () => {
@@ -78,5 +84,23 @@ describe("Profile", () => {
     );
     expect(await screen.findByText("Profile updated.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit profile" })).toBeInTheDocument();
+  });
+
+  it("uploads a profile photo and shows success feedback", async () => {
+    const { uploadAvatar } = mockAuth();
+
+    render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>
+    );
+
+    const file = new File(["avatar"], "avatar.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Upload profile photo"), {
+      target: { files: [file] },
+    });
+
+    await waitFor(() => expect(uploadAvatar).toHaveBeenCalledWith(file));
+    expect(await screen.findByText("Profile photo updated.")).toBeInTheDocument();
   });
 });

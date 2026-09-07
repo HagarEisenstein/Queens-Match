@@ -48,6 +48,11 @@ class MemoryUserRepository {
     return user ? { ...user } : null;
   }
 
+  async findPublicByEmail(email) {
+    const user = this.users.find((candidate) => candidate.email === email);
+    return user ? this.publicUser(user) : null;
+  }
+
   async findPublicById(id) {
     const user = this.users.find((candidate) => candidate.id === id);
     return user ? this.publicUser(user) : null;
@@ -59,10 +64,56 @@ class MemoryUserRepository {
     Object.assign(user, profile);
     return this.publicUser(user);
   }
+
+  async updateAuthAndRoles(id, { password_hash, roles }) {
+    const user = this.users.find((candidate) => candidate.id === id);
+    if (!user) return null;
+    user.password_hash = password_hash;
+    user.roles = [...roles];
+    return this.publicUser(user);
+  }
+}
+
+class MemoryAdminInviteRepository {
+  constructor() {
+    this.invites = [];
+  }
+
+  async create({ email, invited_by, expires_at }) {
+    const invite = {
+      id: randomUUID(),
+      email,
+      invited_by,
+      expires_at,
+      created_at: new Date().toISOString(),
+      token: randomUUID(),
+      accepted_at: null,
+      accepted_by: null,
+    };
+    this.invites.push(invite);
+    return invite;
+  }
+
+  async findActiveByToken(token) {
+    const invite = this.invites.find((candidate) => candidate.token === token);
+    if (!invite) return null;
+    if (invite.accepted_at) return null;
+    if (new Date(invite.expires_at) <= new Date()) return null;
+    return { ...invite };
+  }
+
+  async markAccepted(id, accepted_by) {
+    const invite = this.invites.find((candidate) => candidate.id === id);
+    if (!invite) return null;
+    invite.accepted_at = new Date().toISOString();
+    invite.accepted_by = accepted_by;
+    return { ...invite };
+  }
 }
 
 describe("Epic 1 identity API", () => {
   let repository;
+  let adminInviteRepository;
   let app;
 
   beforeAll(() => {
@@ -71,7 +122,12 @@ describe("Epic 1 identity API", () => {
 
   beforeEach(() => {
     repository = new MemoryUserRepository();
-    app = createApp({ userRepository: repository, jwtSecret: JWT_SECRET });
+    adminInviteRepository = new MemoryAdminInviteRepository();
+    app = createApp({
+      userRepository: repository,
+      adminInviteRepository,
+      jwtSecret: JWT_SECRET,
+    });
   });
 
   test("rejects a weak password with the standard JSON error", async () => {
@@ -213,5 +269,78 @@ describe("Epic 1 identity API", () => {
     const response = await request(app).get("/api/users/profile");
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("AUTH_REQUIRED");
+  });
+
+  test("previews an active admin invite for a brand new user", async () => {
+    const invite = await adminInviteRepository.create({
+      email: "new-admin@example.com",
+      invited_by: randomUUID(),
+      expires_at: new Date(Date.now() + 60_000),
+    });
+
+    const response = await request(app)
+      .get("/api/auth/accept-invite")
+      .query({ token: invite.token });
+
+    expect(response.status).toBe(200);
+    expect(response.body.invite).toMatchObject({
+      email: "new-admin@example.com",
+      hasAccount: false,
+      username: "",
+    });
+  });
+
+  test("accepts an admin invite for a brand new user and grants the admin role", async () => {
+    const invite = await adminInviteRepository.create({
+      email: "brand-new-admin@example.com",
+      invited_by: randomUUID(),
+      expires_at: new Date(Date.now() + 60_000),
+    });
+
+    const response = await request(app).post("/api/auth/accept-invite").send({
+      token: invite.token,
+      username: "brand-new-admin",
+      password: "Strong!Pass9",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user).toMatchObject({
+      email: "brand-new-admin@example.com",
+      username: "brand-new-admin",
+      roles: ["admin"],
+    });
+    expect(jwt.verify(response.body.token, JWT_SECRET)).toMatchObject({
+      id: response.body.user.id,
+      roles: ["admin"],
+    });
+  });
+
+  test("accepts an admin invite for an existing user by adding the admin role", async () => {
+    const existingUser = await repository.create({
+      email: "mentor@example.com",
+      username: "mentor-user",
+      password_hash: await bcrypt.hash("Old!Pass9", 4),
+      roles: ["mentor"],
+      tech_stack: [],
+    });
+    const invite = await adminInviteRepository.create({
+      email: existingUser.email,
+      invited_by: randomUUID(),
+      expires_at: new Date(Date.now() + 60_000),
+    });
+
+    const response = await request(app).post("/api/auth/accept-invite").send({
+      token: invite.token,
+      password: "Strong!Pass9",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.roles).toEqual(["mentor", "admin"]);
+    await expect(
+      bcrypt.compare(
+        "Strong!Pass9",
+        repository.users.find((user) => user.id === existingUser.id).password_hash
+      )
+    ).resolves.toBe(true);
   });
 });

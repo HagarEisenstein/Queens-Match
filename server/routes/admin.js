@@ -2,6 +2,7 @@ const express = require("express");
 const { query, param, validationResult } = require("express-validator");
 const { AppError } = require("../middleware/errors");
 const prisma = require("../commons/db");
+const { normalizeEmail } = require("../modules/identity/validation");
 
 // The only statuses the real state machine (server/modules/scheduling/meetingStateMachine.js)
 // ever assigns to Meeting.status. There is no "completed" / "arrival_confirmed" /
@@ -75,8 +76,17 @@ function canonicalStatus(meeting, outcomeResponses = [], feedback = []) {
  * @param {import("express").RequestHandler} deps.authorizeAdmin - the app's existing
  *   admin-role check (requireCurrentRole(userRepository, "admin")). Applied once, at the
  *   router level, so every route below is admin-only by construction.
+ * @param {object} deps.adminInviteRepository
+ * @param {object} deps.userRepository
  */
-function createAdminRouter({ authenticate, authorizeAdmin, alertService = null }) {
+function createAdminRouter({
+  authenticate,
+  authorizeAdmin,
+  alertService = null,
+  userRepository,
+  notificationService,
+  notificationRepository,
+}) {
   if (!authenticate || !authorizeAdmin) {
     throw new Error("createAdminRouter requires both authenticate and authorizeAdmin.");
   }
@@ -86,6 +96,116 @@ function createAdminRouter({ authenticate, authorizeAdmin, alertService = null }
   // Zero Trust: nothing under this router is reachable without a valid token AND
   // the admin role, checked before any handler below runs.
   router.use(authenticate, authorizeAdmin);
+
+  router.post("/invites", async (req, res, next) => {
+    try {
+      const email = normalizeEmail(req.body.email);
+      if (!email) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          "A valid email is required."
+        );
+      }
+
+      const existingUser = await userRepository.findPublicByEmail(email);
+      if (!existingUser) {
+        throw new AppError(
+          404,
+          "USER_NOT_FOUND",
+          "No user found with this email. The user must register first."
+        );
+      }
+      if (existingUser.roles?.includes("admin")) {
+        throw new AppError(
+          409,
+          "ADMIN_EXISTS",
+          "That email already belongs to an admin."
+        );
+      }
+
+      const existingPendingInvite =
+        await notificationRepository.findPendingAdminInvite?.(
+          req.user.id,
+          existingUser.id
+        );
+      if (existingPendingInvite) {
+        return res.status(201).json({
+          invite: {
+            id: existingPendingInvite.id,
+            email: existingUser.email,
+            status: existingPendingInvite.status || "pending",
+            recipient: {
+              id: existingUser.id,
+              email: existingUser.email,
+              username: existingUser.username,
+              roles: existingUser.roles,
+            },
+            created_at: existingPendingInvite.createdAt,
+          },
+        });
+      }
+
+      const notification = await notificationService.send({
+        recipientId: existingUser.id,
+        type: "ADMIN_INVITE",
+        status: "pending",
+        title: "Admin invitation",
+        message: "An admin invited you to become an admin in Queens Match.",
+        actionUrl: null,
+        metadata: {
+          invitedBy: req.user.id,
+          invitedEmail: existingUser.email,
+        },
+        popupEligible: true,
+        emailEligible: false,
+        deduplicationKey: `admin_invite:${req.user.id}:${existingUser.id}:${Date.now()}`,
+      });
+
+      res.status(201).json({
+        invite: {
+          id: notification.id,
+          email: existingUser.email,
+          status: notification.status,
+          recipient: {
+            id: existingUser.id,
+            email: existingUser.email,
+            username: existingUser.username,
+            roles: existingUser.roles,
+          },
+          created_at: notification.createdAt,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/invites", async (req, res, next) => {
+    try {
+      const notifications = await notificationRepository.listAdminInvitesByInviter(req.user.id);
+      res.json({
+        invites: notifications.map((notification) => ({
+          id: notification.id,
+          email: notification.recipient?.email || notification.metadata?.invitedEmail || null,
+          status: notification.status || "pending",
+          created_at: notification.createdAt,
+          acted_at: notification.actionCompletedAt,
+          recipient: notification.recipient
+            ? {
+                id: notification.recipient.id,
+                email: notification.recipient.email,
+                username: notification.recipient.username,
+                full_name: notification.recipient.fullName,
+                roles: notification.recipient.roles,
+              }
+            : null,
+        })),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.get("/alerts/persistent", async (req, res, next) => {
     try { res.json({ alerts: alertService ? await alertService.list({ status: req.query.status }) : [] }); } catch (error) { next(error); }

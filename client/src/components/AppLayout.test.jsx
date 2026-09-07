@@ -115,20 +115,31 @@ describe("AppLayout", () => {
     expect(screen.getAllByRole("link", { name: "Discover" }).length).toBeGreaterThan(0);
   });
 
-  it("uses the avatar as a profile link with user initials fallback", () => {
+  it("navigates to the profile when the avatar is clicked and keeps initials fallback", async () => {
     mockAuth({ id: "u1", username: "queen bee", full_name: "", photo_url: "", roles: ["mentee"] });
 
     render(
-      <MemoryRouter>
-        <AppLayout />
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route index element={<div>Home destination</div>} />
+            <Route path="/profile" element={<div>Profile destination</div>} />
+          </Route>
+        </Routes>
       </MemoryRouter>
     );
 
-    expect(screen.getByRole("link", { name: "Open profile" })).toHaveAttribute(
+    const profileLink = screen.getByRole("link", { name: "Open profile" });
+    expect(profileLink).toHaveAttribute(
       "href",
       "/profile"
     );
     expect(screen.getByText("QB")).toBeInTheDocument();
+
+    fireEvent.click(profileLink);
+
+    expect(await screen.findByText("Profile destination")).toBeInTheDocument();
+    expect(screen.queryByText("Home destination")).not.toBeInTheDocument();
   });
 
   it("allows switching to Hebrew and back to English", () => {

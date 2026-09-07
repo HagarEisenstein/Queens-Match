@@ -86,9 +86,11 @@ describe("mentors routes", () => {
     it("passes repeated advice-topic filters to the matching service", async () => {
       getMentors.mockResolvedValue([{ id: "m1" }]);
 
-      const response = await request(app).get(
-        "/api/mentors?adviceTopics=CV%20%2F%20Resume%20Review&adviceTopics=System%20Design%20Interviews"
-      );
+      const response = await request(app)
+        .get(
+          "/api/mentors?adviceTopics=CV%20%2F%20Resume%20Review&adviceTopics=System%20Design%20Interviews"
+        )
+        .set("Authorization", `Bearer ${tokenFor("u1", ["mentee"])}`);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([{ id: "m1" }]);
@@ -100,9 +102,11 @@ describe("mentors routes", () => {
     it("accepts the bracketed array format emitted by HTTP clients", async () => {
       getMentors.mockResolvedValue([{ id: "m1" }]);
 
-      const response = await request(app).get(
-        "/api/mentors?adviceTopics%5B%5D=CV%20%2F%20Resume%20Review&adviceTopics%5B%5D=System%20Design%20Interviews"
-      );
+      const response = await request(app)
+        .get(
+          "/api/mentors?adviceTopics%5B%5D=CV%20%2F%20Resume%20Review&adviceTopics%5B%5D=System%20Design%20Interviews"
+        )
+        .set("Authorization", `Bearer ${tokenFor("u1", ["mentee"])}`);
 
       expect(response.status).toBe(200);
       expect(getMentors).toHaveBeenCalledWith({
@@ -111,7 +115,9 @@ describe("mentors routes", () => {
     });
 
     it("rejects an explicitly empty advice-topic filter", async () => {
-      const response = await request(app).get("/api/mentors?adviceTopics=");
+      const response = await request(app)
+        .get("/api/mentors?adviceTopics=")
+        .set("Authorization", `Bearer ${tokenFor("u1", ["mentee"])}`);
 
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe("VALIDATION_ERROR");

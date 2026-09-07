@@ -35,12 +35,14 @@ function createNotificationCenterService({
       recipientId: input.recipientId,
       meetingId: input.meetingId || null,
       type: input.type,
+      status: input.status || null,
       title: input.title,
       message: input.message,
       actionUrl:
         input.actionUrl ||
         defaultActionUrl(input.type, input.meetingId) ||
         null,
+      metadata: input.metadata || null,
       popupEligible: input.popupEligible !== false,
       deduplicationKey: input.deduplicationKey,
     };
