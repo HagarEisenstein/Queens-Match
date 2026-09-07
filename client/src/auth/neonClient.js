@@ -1,8 +1,13 @@
 import { createAuthClient } from "@neondatabase/neon-js/auth";
 
-const neonAuthUrl = process.env.REACT_APP_NEON_AUTH_URL || "";
+const neonAuthUrl = (process.env.REACT_APP_NEON_AUTH_URL || "").replace(
+  /\/$/,
+  ""
+);
 
 export const isNeonAuthConfigured = Boolean(neonAuthUrl);
+
+export const neonAuthBaseUrl = neonAuthUrl || null;
 
 export const neonAuthClient = isNeonAuthConfigured
   ? createAuthClient(neonAuthUrl, {
