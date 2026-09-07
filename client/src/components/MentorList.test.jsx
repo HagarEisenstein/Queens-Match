@@ -83,6 +83,20 @@ describe("MentorList", () => {
     renderList();
 
     expect(await screen.findByText("Mentors could not be loaded.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+
+  it("lets the user retry after mentors fail to load", async () => {
+    const user = userEvent.setup();
+    getMentors
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValueOnce({ data: [mentor] });
+
+    renderList();
+    await user.click(await screen.findByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByText("Alice Admin")).toBeInTheDocument();
+    expect(getMentors).toHaveBeenCalledTimes(2);
   });
 
   it("falls back to the username when no full name is set", async () => {

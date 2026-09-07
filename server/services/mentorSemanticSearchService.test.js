@@ -137,7 +137,7 @@ describe("mentor semantic search repository", () => {
     expect(sqlText).toContain("JOIN \"mentor_profiles\"");
     expect(sqlText).toContain("JOIN \"users\"");
     expect(sqlText).toContain("WHERE 'mentor' = ANY(u.\"roles\")");
-    expect(sqlText).toContain('mp."is_active" = true');
+    expect(sqlText).not.toContain('mp."is_active"');
     expect(sqlText).toContain("1 -");
     expect(sqlText).toContain("<=>");
     expect(sqlText).toMatch(/ORDER BY[\s\S]*<=>[\s\S]*ASC/);

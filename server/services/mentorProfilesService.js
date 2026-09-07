@@ -17,7 +17,18 @@ const userSelect = {
   linkedinUrl: true,
 };
 
-const profileInclude = {
+// Keep mentor discovery compatible with the shared ori-rag/mentor-side profile
+// shape. Selecting the whole Prisma model also requests newer optional control
+// columns that are not present in existing QueenB databases.
+const profileSelect = {
+  id: true,
+  userId: true,
+  background: true,
+  adviceTopics: true,
+  meetingsOffered: true,
+  meetingLengthMinutes: true,
+  createdAt: true,
+  updatedAt: true,
   user: { select: userSelect },
 };
 
@@ -37,13 +48,12 @@ async function getMentors({ adviceTopics = [] } = {}) {
   const normalizedTopics = normalizeAdviceTopics(adviceTopics);
   const mentors = await prisma.mentorProfile.findMany({
     where: {
-      isActive: true,
       user: { roles: { has: "mentor" } },
       ...(normalizedTopics.length > 0
         ? { adviceTopics: { hasSome: normalizedTopics } }
         : {}),
     },
-    include: profileInclude,
+    select: profileSelect,
     orderBy: { updatedAt: "desc" },
   });
 
@@ -65,15 +75,15 @@ async function getMentors({ adviceTopics = [] } = {}) {
 
 async function getMentorById(id) {
   return prisma.mentorProfile.findFirst({
-    where: { id, isActive: true, user: { roles: { has: "mentor" } } },
-    include: profileInclude,
+    where: { id, user: { roles: { has: "mentor" } } },
+    select: profileSelect,
   });
 }
 
 async function getMentorByUserId(userId) {
   return prisma.mentorProfile.findUnique({
     where: { userId },
-    include: profileInclude,
+    select: profileSelect,
   });
 }
 
@@ -99,7 +109,7 @@ async function upsertMentorProfile(userId, data) {
       where: { userId },
       create: { userId, ...data },
       update: data,
-      include: profileInclude,
+      select: profileSelect,
     });
   });
 }

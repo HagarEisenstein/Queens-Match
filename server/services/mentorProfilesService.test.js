@@ -36,6 +36,18 @@ const {
   upsertMentorProfile,
 } = require("./mentorProfilesService");
 
+const expectedProfileSelect = {
+  id: true,
+  userId: true,
+  background: true,
+  adviceTopics: true,
+  meetingsOffered: true,
+  meetingLengthMinutes: true,
+  createdAt: true,
+  updatedAt: true,
+  user: { select: expect.any(Object) },
+};
+
 describe("mentorProfilesService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -53,8 +65,8 @@ describe("mentorProfilesService", () => {
 
       expect(result).toEqual([{ id: "m1" }]);
       expect(prisma.mentorProfile.findMany).toHaveBeenCalledWith({
-        where: { isActive: true, user: { roles: { has: "mentor" } } },
-        include: { user: expect.any(Object) },
+        where: { user: { roles: { has: "mentor" } } },
+        select: expectedProfileSelect,
         orderBy: { updatedAt: "desc" },
       });
     });
@@ -82,13 +94,12 @@ describe("mentorProfilesService", () => {
       expect(result).toEqual([{ id: "m1", userId: "u1" }]);
       expect(prisma.mentorProfile.findMany).toHaveBeenCalledWith({
         where: {
-          isActive: true,
           user: { roles: { has: "mentor" } },
           adviceTopics: {
             hasSome: ["CV / Resume Review", "System Design Interviews"],
           },
         },
-        include: { user: expect.any(Object) },
+        select: expectedProfileSelect,
         orderBy: { updatedAt: "desc" },
       });
       expect(prisma.meeting.findMany).not.toHaveBeenCalled();
@@ -144,8 +155,8 @@ describe("mentorProfilesService", () => {
       await getMentors({ adviceTopics: ["  "] });
 
       expect(prisma.mentorProfile.findMany).toHaveBeenCalledWith({
-        where: { isActive: true, user: { roles: { has: "mentor" } } },
-        include: { user: expect.any(Object) },
+        where: { user: { roles: { has: "mentor" } } },
+        select: expectedProfileSelect,
         orderBy: { updatedAt: "desc" },
       });
     });
@@ -191,8 +202,8 @@ describe("mentorProfilesService", () => {
 
       expect(result).toEqual({ id: "m1" });
       expect(prisma.mentorProfile.findFirst).toHaveBeenCalledWith({
-        where: { id: "m1", isActive: true, user: { roles: { has: "mentor" } } },
-        include: { user: expect.any(Object) },
+        where: { id: "m1", user: { roles: { has: "mentor" } } },
+        select: expectedProfileSelect,
       });
     });
 
@@ -214,7 +225,7 @@ describe("mentorProfilesService", () => {
       expect(result).toEqual({ id: "m1", userId: "u1" });
       expect(prisma.mentorProfile.findUnique).toHaveBeenCalledWith({
         where: { userId: "u1" },
-        include: { user: expect.any(Object) },
+        select: expectedProfileSelect,
       });
     });
   });
@@ -241,7 +252,7 @@ describe("mentorProfilesService", () => {
         where: { userId: "u1" },
         create: { userId: "u1", ...data },
         update: data,
-        include: { user: expect.any(Object) },
+        select: expectedProfileSelect,
       });
       expect(result).toEqual({ userId: "u1", ...data });
     });

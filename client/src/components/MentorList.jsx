@@ -67,17 +67,43 @@ const TopicFilters = memo(function TopicFilters({
       >
         Select one or more topics to find mentors who can help in those areas.
       </Typography>
-      <FormGroup aria-describedby="mentor-topic-filter-help" sx={{ mt: 1 }}>
+      <FormGroup
+        aria-describedby="mentor-topic-filter-help"
+        sx={{
+          mt: 1.5,
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            sm: "repeat(2, minmax(0, 1fr))",
+          },
+          gap: 0.5,
+        }}
+      >
         {ADVICE_TOPICS.map((topic) => (
           <FormControlLabel
             key={topic}
             control={
               <Checkbox
+                size="small"
                 checked={selectedTopics.includes(topic)}
                 onChange={() => onToggle(topic)}
               />
             }
             label={topic}
+            sx={{
+              m: 0,
+              px: 0.75,
+              borderRadius: 2,
+              bgcolor: selectedTopics.includes(topic)
+                ? "rgba(231, 127, 145, 0.12)"
+                : "transparent",
+              alignItems: "flex-start",
+              "& .MuiFormControlLabel-label": {
+                pt: 0.75,
+                fontSize: "0.9rem",
+                lineHeight: 1.3,
+              },
+            }}
           />
         ))}
       </FormGroup>
@@ -99,6 +125,7 @@ export default function MentorList() {
   const [celebrate, setCelebrate] = useState(false);
   const [exitDir, setExitDir] = useState(null);
   const [selectedTopics, setSelectedTopics] = useState([]);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let isCurrentRequest = true;
@@ -120,7 +147,7 @@ export default function MentorList() {
     return () => {
       isCurrentRequest = false;
     };
-  }, [selectedTopics, user.id]);
+  }, [selectedTopics, user.id, retryCount]);
 
   const toggleTopic = useCallback((topic) => {
     setSelectedTopics((currentTopics) =>
@@ -186,7 +213,20 @@ export default function MentorList() {
       )}
 
       {state === "error" && (
-        <Alert severity="error">Mentors could not be loaded.</Alert>
+        <Alert
+          severity="error"
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => setRetryCount((value) => value + 1)}
+            >
+              Try again
+            </Button>
+          }
+        >
+          Mentors could not be loaded.
+        </Alert>
       )}
 
       {state === "ready" && mentors.length === 0 && (
