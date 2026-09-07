@@ -140,9 +140,28 @@ function createNeonError(code, message, cause, details) {
   return error;
 }
 
+/** Safe JOSE fields only — never raw tokens, emails, cookies, or secrets. */
+function joseDiagnostics(error) {
+  return {
+    joseCode: typeof error?.code === "string" ? error.code : null,
+    joseName: error?.name || null,
+    joseClaim: error?.claim ?? null,
+    joseReason: error?.reason ?? null,
+    joseMessage: typeof error?.message === "string" ? error.message : null,
+  };
+}
+
+function detailsWithJose(details, error) {
+  return {
+    ...(details && typeof details === "object" ? details : {}),
+    ...joseDiagnostics(error),
+  };
+}
+
 function mapJoseVerifyError(error, details) {
   const joseCode = typeof error?.code === "string" ? error.code : null;
   const claim = error?.claim || null;
+  const merged = detailsWithJose(details, error);
 
   if (
     error instanceof joseErrors.JWTExpired ||
@@ -152,7 +171,7 @@ function mapJoseVerifyError(error, details) {
       "NEON_TOKEN_EXPIRED",
       "Neon Auth token has expired.",
       error,
-      details
+      merged
     );
   }
 
@@ -164,7 +183,7 @@ function mapJoseVerifyError(error, details) {
       "NEON_TOKEN_INVALID_SIGNATURE",
       "Neon Auth token signature is invalid.",
       error,
-      details
+      merged
     );
   }
 
@@ -176,7 +195,7 @@ function mapJoseVerifyError(error, details) {
       "NEON_TOKEN_INVALID_SIGNATURE",
       "Neon Auth token signing key was not found in JWKS.",
       error,
-      details
+      merged
     );
   }
 
@@ -188,7 +207,7 @@ function mapJoseVerifyError(error, details) {
       "NEON_TOKEN_INVALID",
       "Neon Auth token algorithm is not allowed.",
       error,
-      details
+      merged
     );
   }
 
@@ -201,7 +220,7 @@ function mapJoseVerifyError(error, details) {
         "NEON_TOKEN_INVALID_ISSUER",
         "Neon Auth token issuer is invalid.",
         error,
-        details
+        merged
       );
     }
     if (claim === "aud") {
@@ -209,7 +228,7 @@ function mapJoseVerifyError(error, details) {
         "NEON_TOKEN_INVALID_AUDIENCE",
         "Neon Auth token audience is invalid.",
         error,
-        details
+        merged
       );
     }
     if (claim === "exp") {
@@ -217,14 +236,14 @@ function mapJoseVerifyError(error, details) {
         "NEON_TOKEN_EXPIRED",
         "Neon Auth token has expired.",
         error,
-        details
+        merged
       );
     }
     return createNeonError(
       "NEON_TOKEN_INVALID",
       `Neon Auth token claim validation failed (${claim || "unknown"}).`,
       error,
-      details
+      merged
     );
   }
 
@@ -238,17 +257,20 @@ function mapJoseVerifyError(error, details) {
       "NEON_TOKEN_INVALID",
       "Neon Auth token is malformed.",
       error,
-      details
+      merged
     );
   }
 
   // JWKS retrieval problems are a server/configuration fault, not a bad token:
   // without the public key every signature check fails for every user.
+  // Neon returns 404 for origin-only `/.well-known/jwks.json` (missing /<db>/auth),
+  // and jose surfaces that as ERR_JOSE_GENERIC + "Expected 200 OK from the JSON Web Key Set…".
   if (
     error instanceof joseErrors.JWKSInvalid ||
     error instanceof joseErrors.JWKSTimeout ||
     joseCode === "ERR_JWKS_TIMEOUT" ||
     joseCode === "ERR_JWKS_INVALID" ||
+    joseCode === "ERR_JOSE_GENERIC" ||
     /JSON Web Key Set/i.test(String(error?.message || "")) ||
     /fetch|network|ENOTFOUND|ECONNREFUSED|ETIMEDOUT/i.test(
       String(error?.message || "")
@@ -256,9 +278,9 @@ function mapJoseVerifyError(error, details) {
   ) {
     return createNeonError(
       "NEON_JWKS_UNAVAILABLE",
-      "Unable to load the Neon Auth JWKS for verification. Check NEON_AUTH_BASE_URL.",
+      "Unable to load the Neon Auth JWKS for verification. Check NEON_AUTH_BASE_URL includes /<database>/auth.",
       error,
-      details
+      merged
     );
   }
 
@@ -266,12 +288,7 @@ function mapJoseVerifyError(error, details) {
     "NEON_TOKEN_INVALID",
     "Neon Auth token verification failed.",
     error,
-    {
-      ...details,
-      joseCode,
-      joseName: error?.name || null,
-      joseMessage: typeof error?.message === "string" ? error.message : null,
-    }
+    merged
   );
 }
 
@@ -281,6 +298,9 @@ function mapJoseVerifyError(error, details) {
  * Official Neon guidance verifies EdDSA signatures against
  * `${NEON_AUTH_BASE_URL}/.well-known/jwks.json` and checks issuer against the
  * Auth URL origin. Managed Better Auth uses that origin for both iss and aud.
+ *
+ * NEON_AUTH_BASE_URL must include the `/<database>/auth` path. An origin-only
+ * value makes jose request `/.well-known/jwks.json`, which Neon 404s.
  *
  * @see https://neon.com/docs/auth/guides/plugins/jwt
  * @see https://neon.com/docs/compute/functions/authentication
@@ -296,6 +316,36 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
   }
 
   const authBase = neonAuthBaseUrl.replace(/\/$/, "");
+  let authUrl;
+  try {
+    authUrl = new URL(authBase);
+  } catch {
+    return async function invalidNeonAuthUrl() {
+      throw createNeonError(
+        "NEON_JWKS_UNAVAILABLE",
+        "NEON_AUTH_BASE_URL is not a valid URL.",
+        null,
+        { configuredPath: null }
+      );
+    };
+  }
+
+  // Fail closed: origin-only Auth URLs never reach a valid JWKS.
+  if (!neonAuthPath(authBase)) {
+    return async function misconfiguredNeonAuthUrl() {
+      throw createNeonError(
+        "NEON_JWKS_UNAVAILABLE",
+        "NEON_AUTH_BASE_URL must include the /<database>/auth path (JWKS lives under that path).",
+        null,
+        {
+          jwksHost: authUrl.host,
+          jwksPath: "/.well-known/jwks.json",
+          configuredPath: authUrl.pathname || "/",
+        }
+      );
+    };
+  }
+
   const origin = neonAuthOrigin(authBase);
   const jwksUrl = new URL(`${authBase}/.well-known/jwks.json`);
   const JWKS = createRemoteJWKSet(jwksUrl);
@@ -403,13 +453,15 @@ function createNeonTokenVerifier(neonAuthBaseUrl) {
       const mapped = mapJoseVerifyError(error, debugDetails);
       logNeonVerifyDebug("verify_failed", {
         errorCode: mapped.code,
-        joseCode: error?.code || null,
-        joseName: error?.name || null,
-        joseClaim: error?.claim || null,
-        joseReason: error?.reason || null,
-        joseMessage:
-          typeof error?.message === "string" ? error.message : null,
-        ...debugDetails,
+        ...joseDiagnostics(error),
+        jwksHost: debugDetails.jwksHost,
+        jwksPath: debugDetails.jwksPath,
+        tokenShape: {
+          header: shape.header || null,
+          claimNames: shape.claimNames || null,
+          iss: shape.iss || null,
+          aud: shape.aud || null,
+        },
       });
       throw mapped;
     }

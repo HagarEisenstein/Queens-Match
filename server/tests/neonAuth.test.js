@@ -208,7 +208,7 @@ describe("createNeonTokenVerifier", () => {
   });
 
   test("reports NEON_JWKS_UNAVAILABLE when the JWKS path returns 404", async () => {
-    // Mirrors an auth URL configured without its /<database>/auth path.
+    // Auth URL has a path, but not the real JWKS mount — network 404.
     const misconfigured = createNeonTokenVerifier(`${origin}/wrong-path`);
     const token = await mintNeonLikeToken({
       privateKey,
@@ -219,6 +219,27 @@ describe("createNeonTokenVerifier", () => {
 
     await expect(misconfigured(token)).rejects.toMatchObject({
       code: "NEON_JWKS_UNAVAILABLE",
+    });
+  });
+
+  test("fails closed when NEON_AUTH_BASE_URL is origin-only (no /<database>/auth)", async () => {
+    // Production failure mode: origin-only base → jose requests
+    // /.well-known/jwks.json → Neon 404 → ERR_JOSE_GENERIC.
+    // Refuse before fetching so the misconfiguration is obvious.
+    const misconfigured = createNeonTokenVerifier(origin);
+    const token = await mintNeonLikeToken({
+      privateKey,
+      kid: publicJwk.kid,
+      issuer: origin,
+      audience: origin,
+    });
+
+    await expect(misconfigured(token)).rejects.toMatchObject({
+      code: "NEON_JWKS_UNAVAILABLE",
+      details: expect.objectContaining({
+        jwksHost: new URL(origin).host,
+        configuredPath: "/",
+      }),
     });
   });
 

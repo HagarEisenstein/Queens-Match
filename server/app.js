@@ -91,6 +91,27 @@ function createApp(options = {}) {
       process.env.NEON_AUTH_BASE_URL,
       process.env.REACT_APP_NEON_AUTH_URL,
     ]);
+  // Safe startup diagnostics only — host + path, never secrets/tokens.
+  if (neonAuthBaseUrl) {
+    try {
+      const configured = new URL(neonAuthBaseUrl.replace(/\/$/, ""));
+      const authPath = configured.pathname.replace(/\/$/, "") || "";
+      console.info("[neon-auth] configured", {
+        host: configured.host,
+        authPath: authPath || "/",
+        jwksPath: `${authPath}/.well-known/jwks.json`,
+      });
+      if (!authPath) {
+        console.warn(
+          "[neon-auth] NEON_AUTH_BASE_URL is origin-only; JWKS requires /<database>/auth"
+        );
+      }
+    } catch {
+      console.warn("[neon-auth] NEON_AUTH_BASE_URL is not a valid URL");
+    }
+  } else {
+    console.warn("[neon-auth] NEON_AUTH_BASE_URL is not set");
+  }
   const verifyNeonToken =
     options.verifyNeonToken || createNeonTokenVerifier(neonAuthBaseUrl);
 

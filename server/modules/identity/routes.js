@@ -17,7 +17,7 @@ const NEON_ERROR_RESPONSES = {
   NEON_AUTH_UNCONFIGURED: [503, "Neon Auth is not configured on this server."],
   NEON_JWKS_UNAVAILABLE: [
     503,
-    "Unable to load the Neon Auth JWKS for verification.",
+    "Unable to load the Neon Auth JWKS for verification. Set NEON_AUTH_BASE_URL to the full Auth URL including /<database>/auth.",
   ],
   NEON_TOKEN_MISSING: [401, "Neon Auth token is required."],
   NEON_TOKEN_EXPIRED: [401, "Neon Auth token has expired."],

@@ -39,15 +39,22 @@ export default function NeonAuthCallback() {
       } catch (requestError) {
         if (!active) return;
         const apiError = requestError.response?.data?.error;
-        const detailHint = apiError?.details?.tokenShape
-          ? ` [${apiError.code || "error"}; alg=${
-              apiError.details.tokenShape.header?.alg || "?"
-            }; claims=${(apiError.details.tokenShape.claimNames || []).join(
-              ","
-            )}]`
-          : apiError?.code
-            ? ` [${apiError.code}]`
-            : "";
+        const details = apiError?.details;
+        const shape = details?.tokenShape;
+        const safeParts = [
+          apiError?.code || null,
+          details?.joseCode || null,
+          details?.joseMessage || null,
+          details?.jwksPath ? `jwks=${details.jwksPath}` : null,
+          shape?.header?.alg ? `alg=${shape.header.alg}` : null,
+          shape?.header?.kid ? `kid=${shape.header.kid}` : null,
+          shape?.claimNames?.length
+            ? `claims=${shape.claimNames.join(",")}`
+            : null,
+        ].filter(Boolean);
+        const detailHint = safeParts.length
+          ? ` [${safeParts.join("; ")}]`
+          : "";
         setError(
           `${
             apiError?.message ||
