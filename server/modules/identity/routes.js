@@ -7,6 +7,14 @@ const {
   validateProfileFields,
   validateRegistration,
 } = require("./validation");
+const { hasMeetingBetween } = require("../scheduling/schedulingService");
+
+// Fields safe to expose about a *peer* (someone else), as opposed to your own
+// `/profile`, which also includes email/phone/roles/created_at.
+function toPeerProfile(user) {
+  const { email, phone, roles, created_at, ...peer } = user;
+  return peer;
+}
 
 function createIdentityRouters({
   userRepository,
@@ -126,6 +134,26 @@ function createIdentityRouters({
           )
         );
       }
+      return next(error);
+    }
+  });
+
+  // A peer's basic profile — only visible to people they've actually
+  // matched/connected with via a meeting (see Matches), on either side.
+  // Returns 404 for both "no such user" and "not matched" so unmatched
+  // callers can't tell the two apart.
+  usersRouter.get("/:id", authenticate, async (req, res, next) => {
+    try {
+      if (req.params.id !== req.user.id) {
+        const matched = await hasMeetingBetween(req.user.id, req.params.id);
+        if (!matched) {
+          throw new AppError(404, "USER_NOT_FOUND", "User not found.");
+        }
+      }
+      const user = await userRepository.findPublicById(req.params.id);
+      if (!user) throw new AppError(404, "USER_NOT_FOUND", "User not found.");
+      return res.json({ user: toPeerProfile(user) });
+    } catch (error) {
       return next(error);
     }
   });

@@ -18,22 +18,6 @@ import {
 import apiClient from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
-const LIKED_KEY = "queens_match_liked_mentors";
-
-function readLikedIds() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(LIKED_KEY) || "[]");
-    return Array.isArray(raw) ? raw : [];
-  } catch {
-    return [];
-  }
-}
-
-function rememberLiked(mentorId) {
-  const next = Array.from(new Set([...readLikedIds(), mentorId]));
-  localStorage.setItem(LIKED_KEY, JSON.stringify(next));
-}
-
 export default function MentorList() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -42,6 +26,8 @@ export default function MentorList() {
   const [cursor, setCursor] = useState(0);
   const [celebrate, setCelebrate] = useState(false);
   const [exitDir, setExitDir] = useState(null);
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState("");
 
   useEffect(() => {
     apiClient
@@ -56,17 +42,34 @@ export default function MentorList() {
   const current = mentors[cursor] || null;
   const peek = mentors[cursor + 1] || null;
 
-  const onConnect = () => {
-    if (!current) return;
-    rememberLiked(current.id);
-    setCelebrate(true);
-    setExitDir("right");
-    const mentorUserId = current.user.id;
-    window.setTimeout(() => {
-      setCelebrate(false);
-      setExitDir(null);
-      navigate(`/meetings/new?mentorId=${mentorUserId}`);
-    }, 650);
+  // "Connect" sends the meeting request right away — a match only exists once
+  // there's a real meeting record between the two of you [prior "liked in
+  // localStorage" behaviour has been removed].
+  const onConnect = async () => {
+    if (!current || connecting) return;
+    setConnecting(true);
+    setConnectError("");
+    try {
+      const { data } = await apiClient.post("/meetings", { mentorId: current.user.id });
+      setCelebrate(true);
+      setExitDir("right");
+      window.setTimeout(() => {
+        setCelebrate(false);
+        setExitDir(null);
+        navigate(`/meetings/${data.id}`);
+      }, 650);
+    } catch (requestError) {
+      if (requestError.response?.status === 409) {
+        // Already have an active meeting with this mentor — send them to Matches instead.
+        navigate("/matches");
+        return;
+      }
+      setConnectError(
+        requestError.response?.data?.error?.message || "Could not send the request."
+      );
+    } finally {
+      setConnecting(false);
+    }
   };
 
   const onMaybeLater = () => {
@@ -244,15 +247,21 @@ export default function MentorList() {
               View profile
             </Button>
             <Box sx={{ flexGrow: 1 }} />
-            <Button variant="outlined" color="secondary" onClick={onMaybeLater}>
+            <Button variant="outlined" color="secondary" onClick={onMaybeLater} disabled={connecting}>
               Maybe later
             </Button>
-            <Button variant="contained" onClick={onConnect}>
-              Connect →
+            <Button variant="contained" onClick={onConnect} disabled={connecting}>
+              {connecting ? "Connecting…" : "Connect →"}
             </Button>
           </CardActions>
         </Card>
       </Box>
+
+      {connectError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {connectError}
+        </Alert>
+      )}
 
       <Fade in={celebrate}>
         <Alert

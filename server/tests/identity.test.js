@@ -1,8 +1,13 @@
+jest.mock("../modules/scheduling/schedulingService", () => ({
+  hasMeetingBetween: jest.fn(),
+}));
+
 const request = require("supertest");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { randomUUID } = require("crypto");
 const { createApp } = require("../app");
+const { hasMeetingBetween } = require("../modules/scheduling/schedulingService");
 
 const JWT_SECRET = "identity-test-secret";
 
@@ -213,5 +218,81 @@ describe("Epic 1 identity API", () => {
     const response = await request(app).get("/api/users/profile");
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe("AUTH_REQUIRED");
+  });
+
+  describe("GET /api/users/:id — a peer's profile", () => {
+    async function registerAndLogin(username, extra = {}) {
+      const email = `${username}@example.com`;
+      const password = "Strong!Pass9";
+      const registration = await request(app).post("/api/auth/register").send({
+        email,
+        username,
+        password,
+        ...extra,
+      });
+      const login = await request(app).post("/api/auth/login").send({ email, password });
+      return { id: registration.body.user.id, authorization: `Bearer ${login.body.token}` };
+    }
+
+    afterEach(() => {
+      hasMeetingBetween.mockReset();
+    });
+
+    test("returns a matched peer's public fields, stripped of private ones", async () => {
+      const viewer = await registerAndLogin("viewer-user");
+      const peer = await registerAndLogin("peer-user", {
+        job: "Backend engineer",
+        tech_stack: ["Node.js"],
+      });
+      hasMeetingBetween.mockResolvedValue(true);
+
+      const response = await request(app)
+        .get(`/api/users/${peer.id}`)
+        .set("Authorization", viewer.authorization);
+
+      expect(hasMeetingBetween).toHaveBeenCalledWith(viewer.id, peer.id);
+      expect(response.status).toBe(200);
+      expect(response.body.user).toMatchObject({
+        id: peer.id,
+        username: "peer-user",
+        job: "Backend engineer",
+        tech_stack: ["Node.js"],
+      });
+      expect(response.body.user).not.toHaveProperty("email");
+      expect(response.body.user).not.toHaveProperty("phone");
+      expect(response.body.user).not.toHaveProperty("roles");
+      expect(response.body.user).not.toHaveProperty("created_at");
+    });
+
+    test("returns 404 when the caller has no meeting with that user", async () => {
+      const viewer = await registerAndLogin("viewer-user-2");
+      const peer = await registerAndLogin("peer-user-2");
+      hasMeetingBetween.mockResolvedValue(false);
+
+      const response = await request(app)
+        .get(`/api/users/${peer.id}`)
+        .set("Authorization", viewer.authorization);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("USER_NOT_FOUND");
+    });
+
+    test("lets a user fetch their own profile via :id without checking for a match", async () => {
+      const viewer = await registerAndLogin("viewer-user-3");
+
+      const response = await request(app)
+        .get(`/api/users/${viewer.id}`)
+        .set("Authorization", viewer.authorization);
+
+      expect(hasMeetingBetween).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(response.body.user).toMatchObject({ id: viewer.id, username: "viewer-user-3" });
+    });
+
+    test("requires authentication", async () => {
+      const peer = await registerAndLogin("peer-user-3");
+      const response = await request(app).get(`/api/users/${peer.id}`);
+      expect(response.status).toBe(401);
+    });
   });
 });

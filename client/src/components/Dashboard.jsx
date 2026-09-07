@@ -93,9 +93,9 @@ function Dashboard() {
           </Stack>
         </Box>
 
-        <Box className="qm-dashboard-art" sx={{ position: "relative", minHeight: 390, display: "grid", placeItems: "center" }}>
-          <Box sx={{ position: "absolute", width: "78%", height: "78%", borderRadius: "48% 52% 58% 42%", bgcolor: "#FFD6E2", transform: "rotate(-12deg)" }} />
-          <Box sx={{ position: "absolute", width: "62%", height: "62%", borderRadius: "55% 45% 42% 58%", bgcolor: "#FA9797", transform: "rotate(23deg)" }} />
+        <Box className="qm-dashboard-art" sx={{ position: "relative", minHeight: 420, display: "grid", placeItems: "center" }}>
+          <Box sx={{ position: "absolute", width: "74%", height: "74%", borderRadius: "48% 52% 58% 42%", bgcolor: "#FFD6E2", transform: "rotate(-12deg)" }} />
+          <Box sx={{ position: "absolute", width: "68%", height: "68%", borderRadius: "55% 45% 42% 58%", bgcolor: "#FA9797", transform: "rotate(23deg)" }} />
           <Card sx={{ position: "relative", width: "min(100%, 410px)", p: { xs: 2, md: 3 }, transform: "rotate(3deg)" }}>
             <CardContent sx={{ p: "8px !important" }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
@@ -106,8 +106,6 @@ function Dashboard() {
               <Typography color="text.secondary" sx={{ mb: 3 }}>Small conversations can open big doors.</Typography>
               <Divider sx={{ borderColor: "#202124", mb: 2 }} />
               <Stack direction="row" justifyContent="space-between">
-                <Typography variant="caption">01 / CONNECT</Typography>
-                <Typography variant="caption">→</Typography>
               </Stack>
             </CardContent>
           </Card>

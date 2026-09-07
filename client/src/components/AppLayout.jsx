@@ -94,16 +94,35 @@ export default function AppLayout() {
             to="/"
             variant="h6"
             sx={{
-              flexGrow: 1,
               textDecoration: "none",
               color: "text.primary",
               fontFamily: '"Space Mono", "Courier New", monospace',
               fontWeight: 700,
               letterSpacing: "-.06em",
+              mr: 1,
             }}
           >
             Queen's Match
           </Typography>
+
+          {hasRole("mentee") && (
+            <Button component={Link} to="/mentors" sx={navLinkSx}>
+              Discover
+            </Button>
+          )}
+          <Button component={Link} to="/matches" sx={navLinkSx}>
+            Matches
+          </Button>
+          {hasRole("mentor") && (
+            <Button color="inherit" component={Link} to="/mentor-profile" sx={navLinkSx}>
+              Mentor Profile
+            </Button>
+          )}
+          <Button component={Link} to="/calendar" sx={navLinkSx}>
+            Calendar
+          </Button>
+
+          <Box sx={{ flexGrow: 1 }} />
 
           <Stack direction="row" spacing={0.5} aria-label="Account capabilities">
             {user.roles.map((role) => (
@@ -125,19 +144,6 @@ export default function AppLayout() {
             ))}
           </Stack>
 
-          {hasRole("mentee") && (
-            <Button component={Link} to="/mentors" sx={navLinkSx}>
-              Discover
-            </Button>
-          )}
-          <Button component={Link} to="/matches" sx={navLinkSx}>
-            Matches
-          </Button>
-          {hasRole("mentor") && (
-            <Button color="inherit" component={Link} to="/mentor-profile" sx={navLinkSx}>
-              Mentor Profile
-            </Button>
-          )}
           {hasRole("admin") && (
             <Button component={Link} to="/admin" sx={navLinkSx}>Admin</Button>
           )}
@@ -150,12 +156,6 @@ export default function AppLayout() {
               borderColor: "divider",
             }}
           />
-          <Button component={Link} to="/meetings" sx={navLinkSx}>
-            Meetings
-          </Button>
-          <Button component={Link} to="/calendar" sx={navLinkSx}>
-            Calendar
-          </Button>
           <Button color="inherit" onClick={logout} sx={navLinkSx}>
             Log out
           </Button>

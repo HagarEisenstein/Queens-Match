@@ -265,6 +265,24 @@ async function listMeetingsForUser(userId) {
 }
 
 /**
+ * Whether these two users have ever had a meeting together, on either side,
+ * regardless of status. Used to gate access to a peer's profile info to only
+ * people they've actually matched/connected with (see GET /api/users/:id).
+ */
+async function hasMeetingBetween(userIdA, userIdB) {
+  const meeting = await prisma.meeting.findFirst({
+    where: {
+      OR: [
+        { mentorId: userIdA, menteeId: userIdB },
+        { mentorId: userIdB, menteeId: userIdA },
+      ],
+    },
+    select: { id: true },
+  });
+  return Boolean(meeting);
+}
+
+/**
  * Coerce API slot input into DB rows: each slot must have a start strictly
  * before its end, and starts must be in the future.
  */
@@ -300,4 +318,5 @@ module.exports = {
   confirmArrival,
   getMeetingById,
   listMeetingsForUser,
+  hasMeetingBetween,
 };

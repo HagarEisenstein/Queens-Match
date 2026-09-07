@@ -85,7 +85,7 @@ export default function MeetingDetail() {
 
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>
-      <Button component={Link} to="/meetings" sx={{ mb: 3 }}>← All meetings</Button>
+      <Button component={Link} to="/matches" sx={{ mb: 3 }}>← Back to matches</Button>
 
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }} flexWrap="wrap">
         <Typography variant="h4">

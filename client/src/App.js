@@ -12,13 +12,13 @@ import Register from "./components/Register";
 import MentorList from "./components/MentorList";
 import MentorDetail from "./components/MentorDetail";
 import MentorProfile from "./components/MentorProfile";
+import MenteeDetail from "./components/MenteeDetail";
 import Matches from "./components/Matches";
 import RoleGuard from "./components/RoleGuard";
 import MeetingArrivalPage from "./components/MeetingArrivalPage";
 import MeetingOutcomePage from "./components/MeetingOutcomePage";
 import MeetingFeedbackPage from "./components/MeetingFeedbackPage";
 import RequestMeeting from "./components/RequestMeeting";
-import MeetingsList from "./components/MeetingsList";
 import MeetingCalendar from "./components/MeetingCalendar";
 import MeetingDetail from "./components/MeetingDetail";
 import { NotificationProvider } from "./notifications/NotificationContext";
@@ -62,6 +62,14 @@ function App() {
                   />
                   <Route path="/matches" element={<Matches />} />
                   <Route
+                    path="/mentees/:id"
+                    element={
+                      <RoleGuard roles={["mentor"]}>
+                        <MenteeDetail />
+                      </RoleGuard>
+                    }
+                  />
+                  <Route
                     path="/mentor-profile"
                     element={
                       <RoleGuard roles={["mentor"]}>
@@ -69,7 +77,6 @@ function App() {
                       </RoleGuard>
                     }
                   />
-                  <Route path="/meetings" element={<MeetingsList />} />
                   <Route path="/calendar" element={<MeetingCalendar />} />
                   <Route
                     path="/meetings/new"
