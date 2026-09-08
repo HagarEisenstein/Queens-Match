@@ -13,8 +13,16 @@ const { createLinkedinRouter } = require("./modules/identity/linkedin");
 const {
   PostgresUserRepository,
 } = require("./modules/identity/userRepository");
+const {
+  createNeonTokenVerifier,
+  neonAuthOrigin,
+  resolveNeonAuthBaseUrl,
+} = require("./modules/identity/neonAuth");
 const createMentorsRouter = require("./routes/mentors");
+const createMentorSearchRouter = require("./routes/mentorSearch");
 const createMeetingsRouter = require("./routes/meetings");
+const createAdminRouter = require("./routes/admin");
+const { createAdminAlertService } = require("./services/adminAlertService");
 const { bootstrapNotifications } = require("./comms/bootstrap");
 const { createNotificationsRouter } = require("./comms/routes");
 const {
@@ -80,12 +88,43 @@ function createApp(options = {}) {
       feedbackRepository,
     });
 
+  const neonAuthBaseUrl =
+    options.neonAuthBaseUrl ||
+    resolveNeonAuthBaseUrl([
+      process.env.NEON_AUTH_BASE_URL,
+      process.env.REACT_APP_NEON_AUTH_URL,
+    ]);
+  // Safe startup diagnostics only — host + path, never secrets/tokens.
+  if (neonAuthBaseUrl) {
+    try {
+      const configured = new URL(neonAuthBaseUrl.replace(/\/$/, ""));
+      const authPath = configured.pathname.replace(/\/$/, "") || "";
+      console.info("[neon-auth] configured", {
+        host: configured.host,
+        authPath: authPath || "/",
+        jwksPath: `${authPath}/.well-known/jwks.json`,
+      });
+      if (!authPath) {
+        console.warn(
+          "[neon-auth] NEON_AUTH_BASE_URL is origin-only; JWKS requires /<database>/auth"
+        );
+      }
+    } catch {
+      console.warn("[neon-auth] NEON_AUTH_BASE_URL is not a valid URL");
+    }
+  } else {
+    console.warn("[neon-auth] NEON_AUTH_BASE_URL is not set");
+  }
+  const verifyNeonToken =
+    options.verifyNeonToken || createNeonTokenVerifier(neonAuthBaseUrl);
+
   const { authRouter, usersRouter } = createIdentityRouters({
     userRepository,
     authenticate,
     jwtSecret,
     jwtExpiresIn: options.jwtExpiresIn || process.env.JWT_EXPIRES_IN || "15m",
     notificationService: notifications.notificationService,
+    verifyNeonToken,
   });
 
   const linkedinRouter =
@@ -111,14 +150,17 @@ function createApp(options = {}) {
     process.env.RENDER_EXTERNAL_URL,
     ...localDevOrigins,
   ].map((origin) => origin?.trim()).filter(Boolean);
+  const neonAuthConnectOrigins = neonAuthBaseUrl
+    ? [neonAuthOrigin(neonAuthBaseUrl)]
+    : [];
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         baseUri: ["'self'"],
-        connectSrc: ["'self'", ...configuredOrigins],
+        connectSrc: ["'self'", ...configuredOrigins, ...neonAuthConnectOrigins],
         fontSrc: ["'self'", "https:", "data:"],
-        formAction: ["'self'"],
+        formAction: ["'self'", ...neonAuthConnectOrigins],
         frameAncestors: ["'none'"],
         imgSrc: ["'self'", "data:", "https:"],
         objectSrc: ["'none'"],
@@ -197,6 +239,10 @@ function createApp(options = {}) {
   app.use("/api/auth", authLimiter, authRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/mentors", createMentorsRouter({ authenticate }));
+  app.use(
+    "/api/mentor-search",
+    createMentorSearchRouter({ authenticate, authorizeAdmin })
+  );
   app.use("/api/meetings", createMeetingsRouter({ authenticate }));
   app.use(
     "/api/notifications",
@@ -207,6 +253,16 @@ function createApp(options = {}) {
     })
   );
   app.use("/api/engagement", engagement.router);
+  const alertService =
+    options.alertService ||
+    createAdminAlertService({
+      prisma,
+      notificationService: notifications.notificationService,
+    });
+  app.use(
+    "/api/admin",
+    createAdminRouter({ authenticate, authorizeAdmin, alertService })
+  );
 
   mountClientApp(app);
   app.use(notFound);

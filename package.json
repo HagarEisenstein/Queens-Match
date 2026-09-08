@@ -4,7 +4,7 @@
   "description": "Queen's Match — mentor/mentee matching (Express + React)",
   "main": "server/index.js",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
@@ -20,6 +20,7 @@
     "build": "cd client && npm run build",
     "build:prod": "npm --prefix server run db:generate && npm run build",
     "db:migrate:deploy": "npm --prefix server run db:migrate:deploy",
+    "embeddings:mentor": "npm --prefix server run embeddings:mentor --",
     "render:build": "npm run install-all && npm run build",
     "start": "npm --prefix server start",
     "start:prod": "npm run start"

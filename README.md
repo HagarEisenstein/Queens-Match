@@ -50,6 +50,13 @@ See `server/.env.example`. Required:
 
 For hosted Postgres, append `?sslmode=require` to `DATABASE_URL`.
 
+Mentor vector search requires `GEMINI_API_KEY`. Embeddings use
+`gemini-embedding-001` at exactly 768 dimensions. Query understanding defaults
+to `gemini-2.5-flash` and can be overridden with
+`GEMINI_QUERY_UNDERSTANDING_MODEL`. Set `MENTOR_SEARCH_DEBUG=true` only during
+local diagnostics to include structured intent and normalized ranking scores;
+embeddings and raw engagement values are never returned.
+
 ## Deploy (free, GitHub-integrated) — Render + Neon
 
 Vercel is a poor fit for this backend (long-lived Express, `node-cron`, in-memory SSE). Use **Render**.
@@ -100,6 +107,11 @@ Push this repo to a GitHub remote you own.
 | `npm start` | Production Express server |
 | `npm test` | Server + client tests |
 | `npm run db:migrate:deploy` | Apply Prisma migrations (CI/prod) |
+| `npm run embeddings:mentor -- <mentorProfileId>` | Generate or refresh one mentor search embedding |
+
+After the pgvector migration is deployed, a current database admin can safely
+backfill all mentor embeddings with `POST /api/mentor-search/admin/backfill`.
+The endpoint is idempotent and returns only counts plus sanitized failure IDs.
 
 ## Notifications
 

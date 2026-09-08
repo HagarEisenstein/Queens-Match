@@ -2,18 +2,20 @@ const nodemailer = require("nodemailer");
 const { createEmailProvider } = require("./emailProvider");
 
 function createBrevoProvider(env = process.env) {
-  const host = env.EMAIL_HOST || "smtp-relay.brevo.com";
-  const port = Number(env.EMAIL_PORT || 587);
-  if (!env.EMAIL_USER || !env.EMAIL_PASSWORD || !env.EMAIL_FROM) {
-    throw new Error("EMAIL_USER, EMAIL_PASSWORD and EMAIL_FROM are required for Brevo email");
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !env.EMAIL_FROM) {
+    throw new Error("SMTP_USER, SMTP_PASSWORD and EMAIL_FROM are required for email");
   }
-  const emailTransport = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user: env.EMAIL_USER, pass: env.EMAIL_PASSWORD },
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
   });
-  return createEmailProvider({ emailTransport, fromAddress: env.EMAIL_FROM });
+  return createEmailProvider({
+    emailTransport: transporter,
+    fromAddress: env.EMAIL_FROM,
+  });
 }
 
 module.exports = { createBrevoProvider };

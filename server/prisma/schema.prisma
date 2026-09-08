@@ -11,7 +11,8 @@ model User {
   id                 String              @id @default(uuid()) @db.Uuid
   email              String              @unique
   phone              String?
-  passwordHash       String              @map("password_hash")
+  passwordHash       String?             @map("password_hash")
+  neonAuthUserId     String?             @unique @map("neon_auth_user_id")
   username           String              @unique
   roles              String[]
   fullName           String?             @map("full_name")
@@ -117,8 +118,23 @@ model MentorProfile {
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  searchEmbedding       MentorSearchEmbedding?
 
   @@map("mentor_profiles")
+}
+
+model MentorSearchEmbedding {
+  mentorProfileId String          @id @map("mentor_profile_id") @db.Uuid
+  embedding       Unsupported("vector(768)")
+  documentText    String          @map("document_text")
+  documentHash    String          @map("document_hash")
+  model           String
+  dimensions      Int
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  mentorProfile   MentorProfile   @relation(fields: [mentorProfileId], references: [id], onDelete: Cascade)
+
+  @@map("mentor_search_embeddings")
 }
 
 model Feedback {

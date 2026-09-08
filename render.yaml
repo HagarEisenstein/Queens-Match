@@ -29,6 +29,32 @@ services:
         value: "20"
       - key: DATABASE_URL
         sync: false
+      - key: NEON_AUTH_BASE_URL
+        value: https://ep-cold-math-b258daz2.neonauth.c-6.eu-central-1.aws.neon.tech/neondb/auth
+      - key: REACT_APP_NEON_AUTH_URL
+        value: https://ep-cold-math-b258daz2.neonauth.c-6.eu-central-1.aws.neon.tech/neondb/auth
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_EMBEDDING_MODEL
+        value: gemini-embedding-001
+      - key: GEMINI_EMBEDDING_DIMENSIONS
+        value: "768"
+      - key: GEMINI_QUERY_UNDERSTANDING_MODEL
+        value: gemini-2.5-flash
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: LINKEDIN_REDIRECT_URI
+        sync: false
+      - key: CLIENT_URL
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN

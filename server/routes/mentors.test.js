@@ -55,31 +55,30 @@ describe("mentors routes", () => {
   });
 
   describe("GET /api/mentors", () => {
-    it("requires the mentee capability", async () => {
-      const response = await request(app).get("/api/mentors");
-
-      expect(response.status).toBe(401);
-      expect(getMentors).not.toHaveBeenCalled();
-    });
-
-    it("rejects mentor-only users", async () => {
-      const response = await request(app)
-        .get("/api/mentors")
-        .set("Authorization", `Bearer ${tokenFor("u1", ["mentor"])}`);
-
-      expect(response.status).toBe(403);
-      expect(getMentors).not.toHaveBeenCalled();
-    });
-
-    it("returns the mentor list to mentees", async () => {
+    it("exposes mentor discovery without authentication", async () => {
       getMentors.mockResolvedValue([{ id: "m1" }]);
 
-      const response = await request(app)
-        .get("/api/mentors")
-        .set("Authorization", `Bearer ${tokenFor("u1", ["mentee"])}`);
+      const response = await request(app).get("/api/mentors");
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([{ id: "m1" }]);
+      expect(getMentors).toHaveBeenCalled();
+    });
+
+    it("returns the mentor list to authenticated mentors and mentees alike", async () => {
+      getMentors.mockResolvedValue([{ id: "m1" }]);
+
+      const mentorResponse = await request(app)
+        .get("/api/mentors")
+        .set("Authorization", `Bearer ${tokenFor("u1", ["mentor"])}`);
+      const menteeResponse = await request(app)
+        .get("/api/mentors")
+        .set("Authorization", `Bearer ${tokenFor("u2", ["mentee"])}`);
+
+      expect(mentorResponse.status).toBe(200);
+      expect(menteeResponse.status).toBe(200);
+      expect(mentorResponse.body).toEqual([{ id: "m1" }]);
+      expect(menteeResponse.body).toEqual([{ id: "m1" }]);
     });
 
     it("forwards service errors to the standard error shape", async () => {
@@ -87,9 +86,7 @@ describe("mentors routes", () => {
         Object.assign(new Error("boom"), { statusCode: 500 })
       );
 
-      const response = await request(app)
-        .get("/api/mentors")
-        .set("Authorization", `Bearer ${tokenFor("u1", ["mentee"])}`);
+      const response = await request(app).get("/api/mentors");
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({
@@ -102,21 +99,10 @@ describe("mentors routes", () => {
   });
 
   describe("GET /api/mentors/:id", () => {
-    it("rejects mentor-only users", async () => {
-      const response = await request(app)
-        .get("/api/mentors/m1")
-        .set("Authorization", `Bearer ${tokenFor("u1", ["mentor"])}`);
-
-      expect(response.status).toBe(403);
-      expect(getMentorById).not.toHaveBeenCalled();
-    });
-
-    it("returns the profile when found", async () => {
+    it("returns the profile when found without requiring a mentee role", async () => {
       getMentorById.mockResolvedValue({ id: "m1", ...validProfile });
 
-      const response = await request(app)
-        .get("/api/mentors/m1")
-        .set("Authorization", `Bearer ${tokenFor("u1", ["mentee"])}`);
+      const response = await request(app).get("/api/mentors/m1");
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ id: "m1", ...validProfile });
@@ -126,9 +112,7 @@ describe("mentors routes", () => {
     it("returns 404 with the standard error shape when missing", async () => {
       getMentorById.mockResolvedValue(null);
 
-      const response = await request(app)
-        .get("/api/mentors/missing")
-        .set("Authorization", `Bearer ${tokenFor("u1", ["mentee"])}`);
+      const response = await request(app).get("/api/mentors/missing");
 
       expect(response.status).toBe(404);
       expect(response.body).toEqual({
@@ -141,9 +125,7 @@ describe("mentors routes", () => {
         Object.assign(new Error("boom"), { statusCode: 500 })
       );
 
-      const response = await request(app)
-        .get("/api/mentors/m1")
-        .set("Authorization", `Bearer ${tokenFor("u1", ["mentee"])}`);
+      const response = await request(app).get("/api/mentors/m1");
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({

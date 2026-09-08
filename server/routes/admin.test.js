@@ -30,6 +30,10 @@ function appWithRoles(roles) {
       realtimeHub: { subscribe: () => () => {}, publish() {} },
     },
     userRepository: { findPublicById: async () => ({ roles }) },
+    alertService: {
+      list: async () => [],
+      review: async () => ({ ok: true }),
+    },
   });
 }
 

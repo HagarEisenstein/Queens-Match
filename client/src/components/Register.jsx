@@ -14,6 +14,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import api from "../api";
 import LocaleToggle from "./LocaleToggle";
+import GoogleContinueButton from "./GoogleContinueButton";
 
 const initialForm = {
   email: "",
@@ -373,6 +374,10 @@ export default function Register() {
           >
             {submitting ? "Creating account…" : "Find my match →"}
           </Button>
+          <Typography align="center" color="text.secondary">
+            or
+          </Typography>
+          <GoogleContinueButton roles={form.roles} disabled={submitting} />
           <Typography>
             Already registered?{" "}
             <MuiLink component={Link} to="/login" color="secondary">

@@ -31,6 +31,19 @@ function createPrismaFeedbackRepository(prisma) {
       return rows.map(mapFeedback);
     },
 
+    async findByMeetingIds(meetingIds) {
+      if (!meetingIds.length) return [];
+      const rows = await prisma.feedback.findMany({
+        where: { meetingId: { in: meetingIds } },
+        select: {
+          meetingId: true,
+          submittedBy: true,
+          rating: true,
+        },
+      });
+      return rows.map(mapFeedback);
+    },
+
     async findByMeetingAndSubmitter(meetingId, submittedBy) {
       const row = await prisma.feedback.findUnique({
         where: {

@@ -9,6 +9,7 @@ import Dashboard from "./components/Dashboard";
 import Login from "./components/Login";
 import Profile from "./components/Profile";
 import Register from "./components/Register";
+import NeonAuthCallback from "./components/NeonAuthCallback";
 import MentorList from "./components/MentorList";
 import MentorDetail from "./components/MentorDetail";
 import MentorProfile from "./components/MentorProfile";
@@ -40,6 +41,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/auth/callback" element={<NeonAuthCallback />} />
               <Route element={<ProtectedRoute />}>
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<Dashboard />} />

@@ -82,6 +82,17 @@ export function AuthProvider({ children }) {
     [saveSession]
   );
 
+  const loginWithNeon = useCallback(
+    async ({ neonToken, roles }) => {
+      const payload = { neonToken };
+      if (roles) payload.roles = roles;
+      const { data } = await api.post("/auth/neon", payload);
+      saveSession(data);
+      return data.user;
+    },
+    [saveSession]
+  );
+
   const register = useCallback(
     async (registration) => {
       const { data } = await api.post("/auth/register", registration);
@@ -111,12 +122,23 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(token && user),
       hasRole: (role) => Boolean(user?.roles?.includes(role)),
       login,
+      loginWithNeon,
       register,
       logout,
       updateProfile,
       refreshUser,
     }),
-    [token, user, loading, login, register, logout, updateProfile, refreshUser]
+    [
+      token,
+      user,
+      loading,
+      login,
+      loginWithNeon,
+      register,
+      logout,
+      updateProfile,
+      refreshUser,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

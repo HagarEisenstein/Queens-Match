@@ -4,7 +4,7 @@
   "description": "Node.js backend server",
   "main": "index.js",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "prestart": "prisma generate && prisma migrate deploy",
@@ -16,11 +16,13 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
+    "embeddings:mentor": "node scripts/generateMentorSearchEmbedding.js",
     "test": "npm run test:jest && npm run test:comms",
     "test:jest": "jest --runInBand",
     "test:comms": "bash -c 'node --test comms/__tests__/*.test.js'"
   },
   "dependencies": {
+    "@google/genai": "^2.21.0",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -29,6 +31,7 @@
     "express-rate-limit": "^8.7.0",
     "express-validator": "^7.2.1",
     "helmet": "^7.1.0",
+    "jose": "^5.10.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "node-cron": "^4.6.0",

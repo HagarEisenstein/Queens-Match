@@ -1,9 +1,12 @@
 const express = require("express");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const { AppError } = require("../../middleware/errors");
 const {
+  createAccountService,
+  toPublicUser,
+} = require("./accountService");
+const {
   normalizeEmail,
+  normalizeOptionalRoles,
   validateProfileFields,
   validateRegistration,
 } = require("./validation");
@@ -16,47 +19,83 @@ function toPeerProfile(user) {
   return peer;
 }
 
+// Verification failures are reported with their own code so a misconfigured
+// server (503) is never mistaken for a rejected user token (401).
+const NEON_ERROR_RESPONSES = {
+  NEON_AUTH_UNCONFIGURED: [503, "Neon Auth is not configured on this server."],
+  NEON_JWKS_UNAVAILABLE: [
+    503,
+    "Unable to load the Neon Auth JWKS for verification. Set NEON_AUTH_BASE_URL to the full Auth URL including /<database>/auth.",
+  ],
+  NEON_TOKEN_MISSING: [401, "Neon Auth token is required."],
+  NEON_TOKEN_EXPIRED: [401, "Neon Auth token has expired."],
+  NEON_TOKEN_INVALID_ISSUER: [401, "Neon Auth token issuer is invalid."],
+  NEON_TOKEN_INVALID_AUDIENCE: [401, "Neon Auth token audience is invalid."],
+  NEON_TOKEN_INVALID_SIGNATURE: [401, "Neon Auth token signature is invalid."],
+  NEON_TOKEN_MISSING_CLAIMS: [
+    401,
+    "Neon Auth token is missing required identity claims.",
+  ],
+  NEON_TOKEN_UNVERIFIED_EMAIL: [
+    401,
+    "Neon Auth identity must contain a verified email.",
+  ],
+};
+
+function toNeonAppError(error) {
+  const details =
+    error.details && typeof error.details === "object"
+      ? error.details
+      : undefined;
+  const mapped = NEON_ERROR_RESPONSES[error.code];
+
+  if (mapped) {
+    const [status, message] = mapped;
+    return new AppError(status, error.code, message, details);
+  }
+
+  return new AppError(
+    401,
+    error.code && String(error.code).startsWith("NEON_")
+      ? error.code
+      : "INVALID_NEON_TOKEN",
+    error.message || "Neon Auth token is invalid.",
+    details
+  );
+}
+
 function createIdentityRouters({
   userRepository,
   authenticate,
   jwtSecret,
   jwtExpiresIn = "1d",
   notificationService,
+  verifyNeonToken,
   logger = console,
 }) {
   const authRouter = express.Router();
   const usersRouter = express.Router();
-  const createAccessToken = (user) =>
-    jwt.sign({ id: user.id, roles: user.roles }, jwtSecret, {
-      expiresIn: jwtExpiresIn,
-    });
+  const accountService = createAccountService({
+    userRepository,
+    jwtSecret,
+    jwtExpiresIn,
+    notificationService,
+    logger,
+  });
 
   authRouter.post("/register", async (req, res, next) => {
     try {
       const { email, password, roles, profile } = validateRegistration(req.body);
-      const password_hash = await bcrypt.hash(
-        password,
-        Number(process.env.BCRYPT_ROUNDS) || 12
-      );
-      const user = await userRepository.create({
+      const session = await accountService.registerPassword({
         email,
-        password_hash,
+        password,
         roles,
-        ...profile,
+        profile,
       });
-      if (notificationService) {
-        await notificationService.send({
-          recipientId: user.id,
-          type: "welcome",
-          title: "Welcome to Queen's Match!",
-          message: "We’re so happy you’re here. Complete your profile to find meaningful mentorship connections and make the most of your Queen's Match experience.",
-          actionUrl: "/profile",
-          emailEligible: true,
-          emailDelayMilliseconds: 0,
-          deduplicationKey: `welcome:${user.id}`,
-        }).catch((error) => logger.error?.("Welcome notification failed", { error: error.message, userId: user.id }));
-      }
-      return res.status(201).json({ token: createAccessToken(user), user });
+      return res.status(201).json({
+        token: session.token,
+        user: session.user,
+      });
     } catch (error) {
       if (error.code === "23505") {
         return next(
@@ -82,21 +121,56 @@ function createIdentityRouters({
         );
       }
 
-      const user = await userRepository.findAuthByEmail(email);
-      const validPassword =
-        user && (await bcrypt.compare(req.body.password, user.password_hash));
-      if (!validPassword) {
+      const session = await accountService.loginPassword({
+        email,
+        password: req.body.password,
+      });
+      return res.json(session);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  authRouter.post("/neon", async (req, res, next) => {
+    try {
+      if (typeof verifyNeonToken !== "function") {
         throw new AppError(
-          401,
-          "INVALID_CREDENTIALS",
-          "Email or password is incorrect."
+          503,
+          "NEON_AUTH_UNCONFIGURED",
+          "Neon Auth is not configured on this server."
         );
       }
 
-      const token = createAccessToken(user);
-      const { password_hash, ...publicUser } = user;
-      return res.json({ token, user: publicUser });
+      const neonToken =
+        typeof req.body?.neonToken === "string"
+          ? req.body.neonToken
+          : typeof req.headers.authorization === "string" &&
+              req.headers.authorization.startsWith("Bearer ")
+            ? req.headers.authorization.slice(7)
+            : null;
+
+      let identity;
+      try {
+        identity = await verifyNeonToken(neonToken);
+      } catch (error) {
+        throw toNeonAppError(error);
+      }
+
+      const roles = normalizeOptionalRoles(req.body?.roles);
+      const session = await accountService.loginWithNeonIdentity(identity, {
+        roles,
+      });
+      return res.status(session.created ? 201 : 200).json(session);
     } catch (error) {
+      if (error.code === "23505") {
+        return next(
+          new AppError(
+            409,
+            "ACCOUNT_EXISTS",
+            "An account with that email or username already exists."
+          )
+        );
+      }
       return next(error);
     }
   });
@@ -105,7 +179,7 @@ function createIdentityRouters({
     try {
       const user = await userRepository.findPublicById(req.user.id);
       if (!user) throw new AppError(404, "USER_NOT_FOUND", "User not found.");
-      return res.json({ user });
+      return res.json({ user: toPublicUser(user) });
     } catch (error) {
       return next(error);
     }
@@ -123,7 +197,7 @@ function createIdentityRouters({
       }
       const user = await userRepository.updateProfile(req.user.id, profile);
       if (!user) throw new AppError(404, "USER_NOT_FOUND", "User not found.");
-      return res.json({ user });
+      return res.json({ user: toPublicUser(user) });
     } catch (error) {
       if (error.code === "23505") {
         return next(
