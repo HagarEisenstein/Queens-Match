@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import MeetingDetail from "./MeetingDetail";
 import apiClient from "../api/client";
@@ -58,5 +59,70 @@ describe("MeetingDetail", () => {
     await waitFor(() =>
       expect(window.HTMLElement.prototype.scrollIntoView).toHaveBeenCalled()
     );
+  });
+
+  describe("cancelling a meeting", () => {
+    function scheduledMeeting(status = "scheduled") {
+      return {
+        id: MEETING_ID,
+        mentorId: MENTOR_ID,
+        menteeId: MENTEE_ID,
+        status,
+        scheduledTime: "2026-09-10T15:00:00.000Z",
+        timeSlots: [],
+        mentee: { id: MENTEE_ID, username: "mentee", fullName: "Mentee User" },
+        mentor: { id: MENTOR_ID, username: "mentor", fullName: "Mentor User" },
+      };
+    }
+
+    it("offers a Cancel Meeting button on an active meeting", async () => {
+      apiClient.get.mockResolvedValue({ data: scheduledMeeting() });
+
+      renderPage();
+
+      expect(await screen.findByRole("button", { name: "Cancel Meeting" })).toBeEnabled();
+    });
+
+    it("hides the Cancel Meeting button once the meeting is terminal", async () => {
+      apiClient.get.mockResolvedValue({ data: scheduledMeeting("cancelled") });
+
+      renderPage();
+
+      await screen.findByText(/This meeting was cancelled\./i);
+      expect(screen.queryByRole("button", { name: "Cancel Meeting" })).not.toBeInTheDocument();
+    });
+
+    it("requires confirmation before calling the cancel endpoint", async () => {
+      apiClient.get.mockResolvedValue({ data: scheduledMeeting() });
+
+      renderPage();
+      await userEvent.click(await screen.findByRole("button", { name: "Cancel Meeting" }));
+
+      expect(await screen.findByText("Cancel this meeting?")).toBeInTheDocument();
+      expect(apiClient.post).not.toHaveBeenCalled();
+
+      await userEvent.click(screen.getByRole("button", { name: "Keep meeting" }));
+
+      await waitFor(() =>
+        expect(screen.queryByText("Cancel this meeting?")).not.toBeInTheDocument()
+      );
+      expect(apiClient.post).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Cancel Meeting" })).toBeInTheDocument();
+    });
+
+    it("cancels and refreshes the meeting state after confirmation", async () => {
+      apiClient.get.mockResolvedValue({ data: scheduledMeeting() });
+      apiClient.post.mockResolvedValue({ data: scheduledMeeting("cancelled") });
+
+      renderPage();
+      await userEvent.click(await screen.findByRole("button", { name: "Cancel Meeting" }));
+      await userEvent.click(screen.getByRole("button", { name: "Yes, cancel meeting" }));
+
+      await waitFor(() =>
+        expect(apiClient.post).toHaveBeenCalledWith(`/meetings/${MEETING_ID}/cancel`)
+      );
+      expect(await screen.findByText(/This meeting was cancelled\./i)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Cancel Meeting" })).not.toBeInTheDocument();
+    });
   });
 });

@@ -62,6 +62,8 @@ function createFeedbackService({
           title: "Please leave meeting feedback",
           message: "Share a short rating and note about your mentoring meeting.",
           actionUrl: `/meetings/${meeting.id}/feedback`,
+          emailEligible: true,
+          emailDelayMilliseconds: 0,
           deduplicationKey: `${NOTIFICATION_TYPES.FEEDBACK_REQUEST}:${meeting.id}:${recipientId}`,
         });
       }

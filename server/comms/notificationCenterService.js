@@ -1,4 +1,4 @@
-const { NOTIFICATION_TYPES } = require("./notificationTypes");
+const { NOTIFICATION_TYPES, IMPORTANT_NOTIFICATION_TYPES } = require("./notificationTypes");
 
 function defaultActionUrl(type, meetingId) {
   switch (type) {
@@ -25,6 +25,8 @@ function defaultActionUrl(type, meetingId) {
     case NOTIFICATION_TYPES.FEEDBACK_REQUEST:
     case NOTIFICATION_TYPES.FEEDBACK_REMINDER:
       return meetingId ? `/meetings/${meetingId}/feedback` : "/meetings";
+    case NOTIFICATION_TYPES.MEETING_CANCELLED:
+      return meetingId ? `/meetings/${meetingId}` : "/meetings";
     default:
       return meetingId ? `/meetings/${meetingId}` : "/meetings";
   }
@@ -42,8 +44,18 @@ function createNotificationCenterService({
   const defaultEmailTypes = new Set([
     "request_received", "times_offered", "more_times_requested", "meeting_rejected",
     "meeting_declined", "meeting_matched", "meeting_reminder", "post_meeting_check",
-    "feedback_request", "feedback_reminder",
+    "feedback_request", "feedback_reminder", "meeting_cancelled",
   ]);
+
+  // Important prompts (outcome check, feedback request, cancellation) are mailed
+  // on the spot: waiting out the digest delay used to lose them entirely,
+  // because the fallback job skips deliveries whose notification was read.
+  function resolveEmailDelay(input) {
+    if (input.emailDelayMilliseconds != null) return input.emailDelayMilliseconds;
+    if (IMPORTANT_NOTIFICATION_TYPES.has(input.type)) return 0;
+    return emailDelayMilliseconds;
+  }
+
   async function send(input) {
     const existing = await notificationRepository.findByDeduplicationKey(input.deduplicationKey);
     if (existing) return existing;
@@ -65,7 +77,7 @@ function createNotificationCenterService({
     const deliveries = [{ channel: "IN_APP", status: "SENT", sentAt: createdAt }];
 
     if (input.emailEligible ?? defaultEmailTypes.has(input.type)) {
-      const deliveryDelay = input.emailDelayMilliseconds ?? emailDelayMilliseconds;
+      const deliveryDelay = resolveEmailDelay(input);
       deliveries.push({ channel: "EMAIL", status: "PENDING", nextAttemptAt: new Date(createdAt.getTime() + deliveryDelay) });
     }
 

@@ -19,7 +19,84 @@ jest.mock("../comms/repositories/prismaRecipientRepository", () => ({
   }),
 }));
 
+jest.mock("../comms/providers/twilioEmailProvider", () => ({
+  createTwilioEmailProvider: jest.fn(() => {
+    throw new Error("Twilio email must never back NOTIFICATION_PROVIDER=email");
+  }),
+}));
+
+const nodemailer = require("nodemailer");
 const { bootstrapNotifications } = require("../comms/bootstrap");
+const { createTwilioEmailProvider } = require("../comms/providers/twilioEmailProvider");
+
+describe("production email provider selection", () => {
+  const createTransport = nodemailer.createTransport;
+  let transports;
+
+  beforeEach(() => {
+    transports = [];
+    nodemailer.createTransport = (config) => {
+      transports.push(config);
+      return { sendMail: async () => ({ messageId: "test" }) };
+    };
+  });
+
+  afterEach(() => {
+    nodemailer.createTransport = createTransport;
+    jest.clearAllMocks();
+  });
+
+  function bootstrapWithGmail() {
+    return bootstrapNotifications({
+      env: {
+        NODE_ENV: "test",
+        NOTIFICATION_PROVIDER: "email",
+        SMTP_USER: "queenb@gmail.com",
+        SMTP_PASSWORD: "app-password",
+        EMAIL_FROM: "queenb@gmail.com",
+        CLIENT_URL: "https://queenb-task-management-application.onrender.com",
+        NOTIFICATION_EMAIL_DELAY_MS: "0",
+      },
+      adminRecipientRepository: { findAdmins: async () => [] },
+      adminAlertService: { createAlert: async () => ({}) },
+    });
+  }
+
+  it("uses the Gmail SMTP provider and never the Twilio email provider", () => {
+    const result = bootstrapWithGmail();
+
+    expect(result.provider.channel).toBe("email");
+    expect(createTwilioEmailProvider).not.toHaveBeenCalled();
+    result.unregisterHandlers();
+  });
+
+  it("configures Gmail on smtp.gmail.com:465 with TLS over IPv4", () => {
+    const result = bootstrapWithGmail();
+
+    expect(transports).toHaveLength(1);
+    expect(transports[0]).toEqual({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      family: 4,
+      auth: { user: "queenb@gmail.com", pass: "app-password" },
+    });
+    expect(result.provider.smtp).toEqual({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      family: 4,
+    });
+    result.unregisterHandlers();
+  });
+
+  it("mails eligible notifications immediately when the delay is zero", () => {
+    const result = bootstrapWithGmail();
+
+    expect(result.config.emailDelayMilliseconds).toBe(0);
+    result.unregisterHandlers();
+  });
+});
 
 describe("notification jobs bootstrap", () => {
   it("parses NOTIFICATION_*_MS env overrides", () => {

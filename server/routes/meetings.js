@@ -5,6 +5,7 @@ const {
   requestMeeting,
   offerTimes,
   rejectMeeting,
+  cancelMeeting,
   selectTime,
   requestMoreTimes,
   reportCannotAttend,
@@ -98,6 +99,22 @@ function createMeetingsRouter({ authenticate }) {
   });
   router.put("/:id/reject", async (req, res, next) => {
     try { res.json(await rejectMeeting({ meetingId: req.params.id, actorId: req.user.id })); } catch (error) { next(error); }
+  });
+
+  // Either participant calls off an active meeting — distinct from /reject.
+  router.post("/:id/cancel", async (req, res, next) => {
+    try {
+      const meeting = await cancelMeeting({
+        meetingId: req.params.id,
+        actorId: req.user.id,
+      });
+      res.json(meeting);
+    } catch (error) {
+      next(error);
+    }
+  });
+  router.put("/:id/cancel", async (req, res, next) => {
+    try { res.json(await cancelMeeting({ meetingId: req.params.id, actorId: req.user.id })); } catch (error) { next(error); }
   });
 
   // Mentee picks exactly one offered time [R4.4].

@@ -6,6 +6,11 @@ import {
   Chip,
   CircularProgress,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   FormControlLabel,
   Paper,
@@ -20,6 +25,15 @@ import { MEETING_STATUS, statusMeta, statusPrompt } from "../meetings/meetingSta
 import OfferTimesCalendar from "./OfferTimesCalendar";
 import AddToCalendarButtons from "./AddToCalendarButtons";
 
+// Mirrors the CANCEL action in server/modules/scheduling/meetingStateMachine.js:
+// an active meeting can be called off, a terminal one cannot.
+const CANCELLABLE_STATUSES = [
+  MEETING_STATUS.PENDING_MENTOR_TIMES,
+  MEETING_STATUS.PENDING_MENTEE_SELECTION,
+  MEETING_STATUS.SCHEDULED,
+  MEETING_STATUS.ARRIVAL_CONFIRMED,
+];
+
 export default function MeetingDetail() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -33,6 +47,7 @@ export default function MeetingDetail() {
   const [busy, setBusy] = useState(false);
   const [chosenSlot, setChosenSlot] = useState("");
   const [meetingLength, setMeetingLength] = useState(30);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const load = useCallback(() => {
     apiClient
@@ -88,6 +103,10 @@ export default function MeetingDetail() {
   const reject = () => runAction(() => apiClient.post(`/meetings/${id}/reject`));
   const selectTime = () => runAction(() => apiClient.post(`/meetings/${id}/select-time`, { slotId: chosenSlot }));
   const requestAdditionalTimes = () => runAction(() => apiClient.put(`/meetings/${id}/request-more-times`));
+  const confirmCancel = async () => {
+    setCancelOpen(false);
+    await runAction(() => apiClient.post(`/meetings/${id}/cancel`));
+  };
 
   if (state === "loading") return <Container sx={{ py: 6, textAlign: "center" }}><CircularProgress /></Container>;
   if (state === "missing") return <Container sx={{ py: 4 }}><Alert severity="warning">Meeting not found.</Alert></Container>;
@@ -96,6 +115,8 @@ export default function MeetingDetail() {
   const role = iAmMentor ? "mentor" : "mentee";
   const other = iAmMentor ? meeting.mentee : meeting.mentor;
   const meta = statusMeta(meeting.status);
+  const otherName = other?.fullName || other?.username || "the other participant";
+  const canCancel = CANCELLABLE_STATUSES.includes(meeting.status);
 
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>
@@ -213,6 +234,40 @@ export default function MeetingDetail() {
           </Stack>
         </Paper>
       )}
+
+      {/* Either side can call off an active meeting */}
+      {canCancel && (
+        <Paper sx={{ p: 3, mt: 3 }}>
+          <Typography variant="h6" gutterBottom>Cancel this meeting</Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            Cancelling closes this meeting for both of you. {otherName} will be notified.
+          </Typography>
+          <Button
+            color="error"
+            variant="outlined"
+            disabled={busy}
+            onClick={() => setCancelOpen(true)}
+          >
+            Cancel Meeting
+          </Button>
+        </Paper>
+      )}
+
+      <Dialog open={cancelOpen} onClose={() => setCancelOpen(false)}>
+        <DialogTitle>Cancel this meeting?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This cannot be undone. {otherName} will be told the meeting was cancelled, and QueenB
+            staff are notified.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelOpen(false)}>Keep meeting</Button>
+          <Button color="error" variant="contained" disabled={busy} onClick={confirmCancel}>
+            Yes, cancel meeting
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

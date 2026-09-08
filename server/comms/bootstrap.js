@@ -14,6 +14,7 @@ const { createWhatsAppProvider } = require("./providers/whatsappProvider");
 const { createWhatsAppOrEmailProvider } = require("./providers/whatsappOrEmailProvider");
 const { createTwilioEmailProvider } = require("./providers/twilioEmailProvider");
 const { registerNotificationEventHandlers } = require("./registerEventHandlers");
+const { createAdminAlertService } = require("../services/adminAlertService");
 const { createMeetingReminderJob } = require("./jobs/meetingReminderJob");
 const { createPostMeetingCheckJob } = require("./jobs/postMeetingCheckJob");
 const { createFeedbackReminderJob } = require("./jobs/feedbackReminderJob");
@@ -25,11 +26,31 @@ function parsePositiveInt(value, fallback) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
+/**
+ * Resolve the configured notification provider. `NOTIFICATION_PROVIDER=email`
+ * must always land on the Gmail/SMTP provider — never on the Twilio email
+ * fallback, which only exists for the WhatsApp path.
+ */
+function createConfiguredProvider(env, logger) {
+  if (env.NOTIFICATION_PROVIDER === "email") {
+    return createBrevoProvider(env, { logger });
+  }
+  if (env.NOTIFICATION_PROVIDER === "whatsapp") {
+    return createWhatsAppOrEmailProvider(env, {
+      whatsappProvider: createWhatsAppProvider(env, { logger }),
+      emailProvider: createTwilioEmailProvider(env),
+    });
+  }
+  return createConsoleProvider({ logger });
+}
+
 function bootstrapNotifications({
   env = process.env,
   scheduler = cron,
   meetingRepository,
   feedbackRepository,
+  adminRecipientRepository = null,
+  adminAlertService = null,
 } = {}) {
   const emailDelayMilliseconds = parsePositiveInt(
     env.NOTIFICATION_EMAIL_DELAY_MS,
@@ -52,14 +73,7 @@ function bootstrapNotifications({
   const deliveryRepository = createPrismaDeliveryRepository(prisma);
   const recipientRepository = createPrismaRecipientRepository(prisma);
   const realtimeHub = createRealtimeHub();
-  const provider = env.NOTIFICATION_PROVIDER === "email"
-    ? createBrevoProvider(env)
-    : env.NOTIFICATION_PROVIDER === "whatsapp"
-      ? createWhatsAppOrEmailProvider(env, {
-        whatsappProvider: createWhatsAppProvider(env, { logger }),
-        emailProvider: createTwilioEmailProvider(env),
-      })
-      : createConsoleProvider({ logger });
+  const provider = createConfiguredProvider(env, logger);
   const notificationService = createNotificationCenterService({
     notificationRepository,
     deliveryRepository,
@@ -69,7 +83,20 @@ function bootstrapNotifications({
     emailDelayMilliseconds,
   });
   const emailFallbackJob = createEmailFallbackJob({ deliveryRepository, emailProvider: provider });
-  const unregisterHandlers = registerNotificationEventHandlers({ eventBus, notificationService, logger });
+  const adminRecipients = adminRecipientRepository || {
+    findAdmins: () => prisma.user.findMany({
+      where: { roles: { has: "admin" } },
+      select: { id: true },
+    }),
+  };
+  const alertService = adminAlertService || createAdminAlertService({ prisma });
+  const unregisterHandlers = registerNotificationEventHandlers({
+    eventBus,
+    notificationService,
+    logger,
+    adminRecipientRepository: adminRecipients,
+    adminAlertService: alertService,
+  });
   const scheduledTask = env.NODE_ENV === "test" ? null : scheduler.schedule("* * * * *", () =>
     emailFallbackJob.run().catch((error) => logger.error("Email fallback job failed", { error: error.message }))
   );
@@ -110,6 +137,7 @@ function bootstrapNotifications({
     notificationRepository,
     realtimeHub,
     notificationService,
+    provider,
     emailFallbackJob,
     unregisterHandlers,
     scheduledTask,

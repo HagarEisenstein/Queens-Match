@@ -17,10 +17,14 @@ services:
         value: 15m
       - key: BCRYPT_ROUNDS
         value: "12"
+      # Gmail SMTP over IPv4 (see server/comms/providers/brevoProvider.js).
       - key: NOTIFICATION_PROVIDER
         value: email
       - key: NOTIFICATION_JOBS_CRON
         value: "*/5 * * * *"
+      # Send notification email on the spot instead of after a digest delay.
+      - key: NOTIFICATION_EMAIL_DELAY_MS
+        value: "0"
       - key: REQUEST_BODY_LIMIT
         value: 32kb
       - key: AUTH_RATE_LIMIT_WINDOW_MS
@@ -47,8 +51,11 @@ services:
         sync: false
       - key: LINKEDIN_REDIRECT_URI
         sync: false
+      # Public app origin used to build absolute email action links.
+      # https://queenb-task-management-application.onrender.com
       - key: CLIENT_URL
         sync: false
+      # Gmail address + Gmail App Password (never committed).
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASSWORD

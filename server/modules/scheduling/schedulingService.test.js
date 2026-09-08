@@ -22,6 +22,7 @@ const {
   requestMeeting,
   offerTimes,
   rejectMeeting,
+  cancelMeeting,
   selectTime,
   requestMoreTimes,
   getMeetingById,
@@ -210,6 +211,112 @@ describe("rejectMeeting", () => {
       meetingId: MEETING_ID,
       mentorId: MENTOR,
       menteeId: MENTEE,
+    });
+  });
+});
+
+describe("cancelMeeting", () => {
+  function activeMeeting(overrides = {}) {
+    return {
+      id: MEETING_ID,
+      menteeId: MENTEE,
+      mentorId: MENTOR,
+      status: MEETING_STATUS.SCHEDULED,
+      scheduledTime: new Date("2026-09-10T15:00:00.000Z"),
+      mentee: { id: MENTEE, username: "mia", fullName: "Mia Mentee" },
+      mentor: { id: MENTOR, username: "nora", fullName: "Nora Mentor" },
+      timeSlots: [],
+      ...overrides,
+    };
+  }
+
+  it("lets the mentee cancel a scheduled meeting", async () => {
+    prisma.meeting.findUnique.mockResolvedValue(activeMeeting());
+    prisma.meeting.update.mockResolvedValue({ id: MEETING_ID, status: MEETING_STATUS.CANCELLED });
+
+    const result = await cancelMeeting({ meetingId: MEETING_ID, actorId: MENTEE });
+
+    expect(prisma.meeting.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: MEETING_STATUS.CANCELLED } })
+    );
+    expect(result.status).toBe(MEETING_STATUS.CANCELLED);
+    expect(eventBus.emit).toHaveBeenCalledWith("MeetingCancelled", {
+      meetingId: MEETING_ID,
+      mentorId: MENTOR,
+      menteeId: MENTEE,
+      cancelledBy: MENTEE,
+      cancelledByRole: "mentee",
+      cancelledByName: "Mia Mentee",
+      scheduledTime: new Date("2026-09-10T15:00:00.000Z"),
+      mentorName: "Nora Mentor",
+      menteeName: "Mia Mentee",
+    });
+  });
+
+  it("lets the mentor cancel a scheduled meeting", async () => {
+    prisma.meeting.findUnique.mockResolvedValue(activeMeeting());
+    prisma.meeting.update.mockResolvedValue({ id: MEETING_ID, status: MEETING_STATUS.CANCELLED });
+
+    await cancelMeeting({ meetingId: MEETING_ID, actorId: MENTOR });
+
+    expect(eventBus.emit).toHaveBeenCalledWith(
+      "MeetingCancelled",
+      expect.objectContaining({ cancelledBy: MENTOR, cancelledByRole: "mentor" })
+    );
+  });
+
+  it("cancels meetings that are still being coordinated", async () => {
+    for (const status of [
+      MEETING_STATUS.PENDING_MENTOR_TIMES,
+      MEETING_STATUS.PENDING_MENTEE_SELECTION,
+      MEETING_STATUS.ARRIVAL_CONFIRMED,
+    ]) {
+      jest.clearAllMocks();
+      prisma.meeting.findUnique.mockResolvedValue(activeMeeting({ status }));
+      prisma.meeting.update.mockResolvedValue({ id: MEETING_ID, status: MEETING_STATUS.CANCELLED });
+
+      await cancelMeeting({ meetingId: MEETING_ID, actorId: MENTEE });
+
+      expect(prisma.meeting.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: MEETING_STATUS.CANCELLED } })
+      );
+    }
+  });
+
+  it("refuses to cancel a meeting in a terminal state", async () => {
+    for (const status of [
+      MEETING_STATUS.CANCELLED,
+      MEETING_STATUS.REJECTED,
+      MEETING_STATUS.COMPLETED,
+      MEETING_STATUS.NOT_COMPLETED,
+      MEETING_STATUS.FEEDBACK_SUBMITTED,
+    ]) {
+      jest.clearAllMocks();
+      prisma.meeting.findUnique.mockResolvedValue(activeMeeting({ status }));
+
+      await expect(cancelMeeting({ meetingId: MEETING_ID, actorId: MENTEE })).rejects.toMatchObject({
+        statusCode: 409,
+        code: "ILLEGAL_TRANSITION",
+      });
+      expect(prisma.meeting.update).not.toHaveBeenCalled();
+      expect(eventBus.emit).not.toHaveBeenCalled();
+    }
+  });
+
+  it("forbids a non-participant from cancelling", async () => {
+    prisma.meeting.findUnique.mockResolvedValue(activeMeeting());
+
+    await expect(cancelMeeting({ meetingId: MEETING_ID, actorId: OTHER })).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    expect(prisma.meeting.update).not.toHaveBeenCalled();
+  });
+
+  it("404s for a missing meeting", async () => {
+    prisma.meeting.findUnique.mockResolvedValue(null);
+
+    await expect(cancelMeeting({ meetingId: MEETING_ID, actorId: MENTEE })).rejects.toMatchObject({
+      statusCode: 404,
     });
   });
 });

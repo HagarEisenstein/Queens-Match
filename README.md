@@ -119,11 +119,19 @@ Production (Render) uses Gmail SMTP with `NOTIFICATION_PROVIDER=email`. Set `SMT
 
 Meeting reminder, post-meeting outcome, and feedback jobs run on `NOTIFICATION_JOBS_CRON` (default every 5 minutes).
 
+`NOTIFICATION_EMAIL_DELAY_MS=0` mails every eligible notification as soon as it is created. The important prompts — `post_meeting_check`, `feedback_request` and `meeting_cancelled` — are always sent immediately regardless of that value, and are still emailed even if the recipient already read them in the notification center.
+
+Once a meeting's scheduled time has passed, both participants are asked whether it happened (in-app and by email), whether or not anyone confirmed arrival. When both answer yes the meeting is completed and both sides get a feedback request — in-app and by email — linking to `/meetings/:id/feedback`.
+
 WhatsApp remains available by setting `NOTIFICATION_PROVIDER=whatsapp` with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, and `TWILIO_EMAIL_FROM`. Users must save a phone number in international E.164 format in their profile. For local development, the default remains `NOTIFICATION_PROVIDER=console`. Without the required provider credentials, the app fails fast rather than claim delivery. See `server/.env.example`.
 
 ## Admin alerts and account inactivity
 
-`AdminAlert` records are created by the scheduled scan and keyed by a unique idempotency key, so rerunning the scan does not duplicate the same exception. Admins can review open records at `/api/admin/alerts/persistent` and approve or resolve one with `PUT /api/admin/alerts/:id/review` (`{ "status": "approved" | "resolved", "note": "..." }`). These alerts are intentionally in-app/admin-dashboard records; they do not create personal admin email notifications.
+`AdminAlert` records are created by the scheduled scan and keyed by a unique idempotency key, so rerunning the scan does not duplicate the same exception. Admins can review open records at `/api/admin/alerts/persistent` and approve or resolve one with `PUT /api/admin/alerts/:id/review` (`{ "status": "approved" | "resolved", "note": "..." }`). Apart from cancellations, these alerts are in-app/admin-dashboard records and do not create personal admin email notifications.
+
+## Cancelling a meeting
+
+`POST /api/meetings/:id/cancel` (also accepted as `PUT`) lets either participant call off a meeting that already progressed — distinct from `/reject`, which only declines a request before any time was agreed. Cancellation is legal from `pending_mentor_times`, `pending_mentee_selection`, `scheduled` and `arrival_confirmed`, and returns `409 ILLEGAL_TRANSITION` for terminal statuses. The meeting moves to `cancelled`, the other participant is notified in-app and by email, a `cancelled_meeting` admin alert is raised, and every admin resolved from the `users` table (`roles` contains `admin`) is emailed the meeting id, mentor, mentee, scheduled time and who cancelled. Deterministic deduplication keys mean repeating the request cannot duplicate any of it.
 
 The scan covers cancelled meetings, mentor responses older than 72 hours, stalled pre-arrival meetings, not-completed meetings, overdue feedback, and overloaded mentors using genuinely completed meetings. Mentee accounts use `last_activity_at`; after one year of inactivity they receive an in-app warning and are scheduled for deletion one week later. A successful login clears the warning and deletion schedule.
 

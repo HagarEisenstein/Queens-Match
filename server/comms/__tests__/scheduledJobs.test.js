@@ -75,6 +75,12 @@ test("post-meeting job asks both participants whether the meeting happened", asy
   assert.equal(notifications.length, 2);
   assert.ok(notifications.every(({ type }) => type === NOTIFICATION_TYPES.POST_MEETING_CHECK));
   assert.ok(notifications.every(({ actionUrl }) => actionUrl === "/meetings/meeting-1/outcome"));
+  assert.deepEqual(
+    notifications.map(({ recipientId }) => recipientId).sort(),
+    ["mentee-1", "mentor-1"],
+  );
+  assert.ok(notifications.every(({ emailEligible }) => emailEligible === true));
+  assert.ok(notifications.every(({ emailDelayMilliseconds }) => emailDelayMilliseconds === 0));
 });
 
 test("post-meeting job deduplicates prompts across repeated cron runs", async () => {

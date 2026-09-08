@@ -202,6 +202,42 @@ async function rejectMeeting({ meetingId, actorId }) {
 }
 
 /**
+ * Either participant calls off a meeting that already progressed → `cancelled`.
+ * This is deliberately not `rejectMeeting`: reject declines a request nobody
+ * agreed to yet, cancel abandons a meeting that was accepted or scheduled. The
+ * state machine refuses terminal statuses, so a cancelled/rejected/completed
+ * meeting cannot be cancelled again.
+ */
+async function cancelMeeting({ meetingId, actorId }) {
+  const meeting = await loadMeetingOr404(meetingId);
+  assertParticipant(meeting, actorId);
+
+  const nextStatus = transition(meeting.status, MEETING_ACTION.CANCEL);
+  const cancelledByRole = meeting.mentorId === actorId ? "mentor" : "mentee";
+  const canceller = cancelledByRole === "mentor" ? meeting.mentor : meeting.mentee;
+
+  const updated = await prisma.meeting.update({
+    where: { id: meetingId },
+    data: { status: nextStatus },
+    include: meetingInclude,
+  });
+
+  eventBus.emit("MeetingCancelled", {
+    meetingId,
+    mentorId: meeting.mentorId,
+    menteeId: meeting.menteeId,
+    cancelledBy: actorId,
+    cancelledByRole,
+    cancelledByName: canceller?.fullName || canceller?.username || null,
+    scheduledTime: meeting.scheduledTime || null,
+    mentorName: meeting.mentor?.fullName || meeting.mentor?.username || null,
+    menteeName: meeting.mentee?.fullName || meeting.mentee?.username || null,
+  });
+
+  return updated;
+}
+
+/**
  * Mentee picks exactly one offered time [R4.4] → `scheduled`; the mentor is
  * notified of the match [R4.5]. No multi-select: exactly one slot id.
  */
@@ -338,6 +374,7 @@ module.exports = {
   requestMeeting,
   offerTimes,
   rejectMeeting,
+  cancelMeeting,
   selectTime,
   requestMoreTimes,
   reportCannotAttend,

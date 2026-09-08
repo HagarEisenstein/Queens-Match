@@ -117,6 +117,66 @@ test("Gmail email provider defaults to smtp.gmail.com:465 over IPv4", async () =
   nodemailer.createTransport = originalCreateTransport;
 });
 
+test("Gmail provider builds action links from CLIENT_URL even when it is not in process.env", async () => {
+  const deliveries = [];
+  nodemailer.createTransport = () => ({
+    async sendMail(delivery) {
+      deliveries.push(delivery);
+      return { messageId: "gmail-1" };
+    },
+  });
+
+  const provider = createBrevoProvider({
+    SMTP_USER: "queenb@gmail.com",
+    SMTP_PASSWORD: "app-password",
+    EMAIL_FROM: "queenb@gmail.com",
+    CLIENT_URL: "https://queenb-task-management-application.onrender.com/",
+  });
+
+  await provider.send({
+    recipient: { id: "mentor-1", email: "mentor@example.com" },
+    type: "feedback_request",
+    title: "Please leave meeting feedback",
+    message: "Share a short rating.",
+    actionUrl: "/meetings/meeting-1/feedback",
+  });
+
+  const expectedLink =
+    "https://queenb-task-management-application.onrender.com/meetings/meeting-1/feedback";
+  assert.ok(deliveries[0].text.includes(expectedLink));
+  assert.ok(deliveries[0].html.includes(`href="${expectedLink}"`));
+  nodemailer.createTransport = originalCreateTransport;
+});
+
+test("blank optional SMTP overrides never displace the Gmail defaults", async () => {
+  const transports = [];
+  nodemailer.createTransport = (config) => {
+    transports.push(config);
+    return { async sendMail() { return { messageId: "gmail-2" }; } };
+  };
+
+  // Render exposes declared-but-unset variables as empty strings.
+  createBrevoProvider({
+    SMTP_USER: "queenb@gmail.com",
+    SMTP_PASSWORD: "app-password",
+    EMAIL_FROM: "queenb@gmail.com",
+    EMAIL_HOST: "",
+    EMAIL_PORT: "",
+    EMAIL_SECURE: "",
+    EMAIL_USER: "",
+    EMAIL_PASSWORD: "",
+  });
+
+  assert.deepEqual(transports[0], {
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    family: 4,
+    auth: { user: "queenb@gmail.com", pass: "app-password" },
+  });
+  nodemailer.createTransport = originalCreateTransport;
+});
+
 test("email provider accepts optional EMAIL_HOST override without requiring it", async () => {
   const transports = [];
   nodemailer.createTransport = (config) => {

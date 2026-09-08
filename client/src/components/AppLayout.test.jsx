@@ -130,4 +130,35 @@ describe("AppLayout", () => {
     );
     expect(screen.getByText("QB")).toBeInTheDocument();
   });
+
+  describe("branding", () => {
+    beforeEach(() => mockAuth({ id: "u1", username: "e", roles: ["mentee"] }));
+
+    it("keeps Queen's Match as the primary header wordmark", () => {
+      render(
+        <MemoryRouter>
+          <AppLayout />
+        </MemoryRouter>
+      );
+
+      const wordmark = screen.getByRole("link", { name: "Queen's Match" });
+      expect(wordmark).toHaveAttribute("href", "/");
+      // The QueenB logo must not stand in for the app's own branding.
+      expect(screen.queryByAltText("Queen's Match")).not.toBeInTheDocument();
+    });
+
+    it("shows QueenB only as a small footer attribution", () => {
+      render(
+        <MemoryRouter>
+          <AppLayout />
+        </MemoryRouter>
+      );
+
+      const attribution = screen.getByAltText("QueenB");
+      expect(attribution.tagName).toBe("IMG");
+      expect(screen.getByText("An initiative by")).toBeInTheDocument();
+      expect(attribution.closest("footer")).not.toBeNull();
+      expect(screen.getAllByAltText("QueenB")).toHaveLength(1);
+    });
+  });
 });

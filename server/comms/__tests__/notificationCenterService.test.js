@@ -36,6 +36,61 @@ test("persists one in-app notification, schedules email, and publishes it", asyn
   assert.equal(published.length, 1);
 });
 
+test("mails important prompts immediately even when a digest delay is configured", async () => {
+  for (const type of ["post_meeting_check", "feedback_request", "meeting_cancelled"]) {
+    const deliveries = [];
+    const sent = [];
+    const service = createNotificationCenterService({
+      notificationRepository: {
+        findByDeduplicationKey: async () => null,
+        create: async (item) => ({ id: `n-${type}`, ...item }),
+      },
+      deliveryRepository: {
+        create: async (item) => {
+          deliveries.push({ id: `d-${deliveries.length + 1}`, ...item });
+        },
+        findPendingEmailDeliveryForNotification: async (notificationId) =>
+          deliveries.find(
+            (delivery) => delivery.notificationId === notificationId && delivery.channel === "EMAIL",
+          ) || null,
+        markSent: async (id, data) => {
+          const delivery = deliveries.find((item) => item.id === id);
+          Object.assign(delivery, { status: "SENT", ...data, errorMessage: null });
+        },
+        markFailed: async () => {
+          throw new Error(`markFailed should not be called for ${type}`);
+        },
+      },
+      recipientRepository: { findById: async (id) => ({ id, email: "user@example.com" }) },
+      emailProvider: {
+        send: async (notification) => {
+          sent.push(notification);
+          return { providerMessageId: `provider-${type}` };
+        },
+      },
+      realtimeHub: { publish() {} },
+      // Production used to leave these queued for an hour, which lost them.
+      emailDelayMilliseconds: 60 * 60 * 1000,
+      now: () => new Date("2026-09-03T10:00:00Z"),
+    });
+
+    await service.send({
+      recipientId: "u1",
+      meetingId: "m1",
+      type,
+      title: "Important",
+      message: "Act on this",
+      deduplicationKey: `${type}:m1:u1`,
+    });
+
+    assert.deepEqual(deliveries.map((delivery) => delivery.channel), ["IN_APP", "EMAIL"], type);
+    assert.equal(deliveries[1].status, "SENT", type);
+    assert.equal(deliveries[1].errorMessage, null, type);
+    assert.equal(deliveries[1].providerMessageId, `provider-${type}`, type);
+    assert.equal(sent.length, 1, type);
+  }
+});
+
 test("does not create an email delivery for quiet in-app notifications", async () => {
   const deliveries = [];
   const service = createNotificationCenterService({

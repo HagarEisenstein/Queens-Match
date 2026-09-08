@@ -5,6 +5,7 @@ jest.mock("../modules/scheduling/schedulingService", () => ({
   requestMeeting: jest.fn(),
   offerTimes: jest.fn(),
   rejectMeeting: jest.fn(),
+  cancelMeeting: jest.fn(),
   selectTime: jest.fn(),
   getMeetingById: jest.fn(),
   listMeetingsForUser: jest.fn(),
@@ -17,6 +18,7 @@ const {
   requestMeeting,
   offerTimes,
   rejectMeeting,
+  cancelMeeting,
   selectTime,
   getMeetingById,
   listMeetingsForUser,
@@ -147,6 +149,51 @@ describe("POST /api/meetings/:id/reject", () => {
 
     expect(response.status).toBe(200);
     expect(rejectMeeting).toHaveBeenCalledWith({ meetingId: MEETING_ID, actorId: MENTOR });
+  });
+});
+
+describe("POST /api/meetings/:id/cancel", () => {
+  it("rejects an unauthenticated cancellation", async () => {
+    const response = await request(app).post(`/api/meetings/${MEETING_ID}/cancel`);
+
+    expect(response.status).toBe(401);
+    expect(cancelMeeting).not.toHaveBeenCalled();
+  });
+
+  it("cancels on behalf of the authenticated mentee", async () => {
+    cancelMeeting.mockResolvedValue({ id: MEETING_ID, status: "cancelled" });
+
+    const response = await request(app)
+      .post(`/api/meetings/${MEETING_ID}/cancel`)
+      .set("Authorization", `Bearer ${tokenFor("u1")}`);
+
+    expect(response.status).toBe(200);
+    expect(cancelMeeting).toHaveBeenCalledWith({ meetingId: MEETING_ID, actorId: "u1" });
+    expect(response.body.status).toBe("cancelled");
+  });
+
+  it("cancels on behalf of the authenticated mentor", async () => {
+    cancelMeeting.mockResolvedValue({ id: MEETING_ID, status: "cancelled" });
+
+    const response = await request(app)
+      .post(`/api/meetings/${MEETING_ID}/cancel`)
+      .set("Authorization", `Bearer ${tokenFor(MENTOR, ["mentor"])}`);
+
+    expect(response.status).toBe(200);
+    expect(cancelMeeting).toHaveBeenCalledWith({ meetingId: MEETING_ID, actorId: MENTOR });
+  });
+
+  it("surfaces an illegal transition as 409", async () => {
+    cancelMeeting.mockRejectedValue(
+      Object.assign(new Error("terminal"), { statusCode: 409, code: "ILLEGAL_TRANSITION" })
+    );
+
+    const response = await request(app)
+      .post(`/api/meetings/${MEETING_ID}/cancel`)
+      .set("Authorization", `Bearer ${tokenFor("u1")}`);
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("ILLEGAL_TRANSITION");
   });
 });
 
