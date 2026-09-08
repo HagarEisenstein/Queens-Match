@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
+  Button,
   FormControl,
   InputLabel,
   Link as MuiLink,
@@ -20,6 +21,7 @@ import { Link } from "react-router-dom";
 import api from "../api";
 import StatusBadge from "./StatusBadge";
 import { MEETING_STATUSES, statusLabel } from "./meetingStatus";
+import { downloadMeetingsExcel } from "./meetingsReportExport";
 
 function formatWhen(value) {
   if (!value) return "Not scheduled";
@@ -32,6 +34,7 @@ export default function MeetingsReport() {
   const [status, setStatus] = useState("");
   const [participantId, setParticipantId] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     api
@@ -42,6 +45,7 @@ export default function MeetingsReport() {
 
   useEffect(() => {
     let active = true;
+    setIsLoading(true);
     const params = {};
     if (status) params.status = status;
     if (participantId) params.participantId = participantId;
@@ -51,9 +55,12 @@ export default function MeetingsReport() {
         if (!active) return;
         setMeetings(data.meetings);
         setError("");
+        setIsLoading(false);
       })
       .catch((requestError) => {
         if (!active) return;
+        setMeetings([]);
+        setIsLoading(false);
         setError(
           requestError.response?.data?.error?.message ||
             "Meetings could not be loaded."
@@ -72,6 +79,14 @@ export default function MeetingsReport() {
       })),
     [users]
   );
+
+  async function handleDownload() {
+    try {
+      await downloadMeetingsExcel(meetings);
+    } catch {
+      setError("Meetings could not be exported.");
+    }
+  }
 
   return (
     <Box>
@@ -117,6 +132,13 @@ export default function MeetingsReport() {
             ))}
           </Select>
         </FormControl>
+        <Button
+          variant="outlined"
+          disabled={isLoading}
+          onClick={handleDownload}
+        >
+          Download Excel
+        </Button>
       </Stack>
       {error && <Alert severity="error">{error}</Alert>}
       {!error && meetings.length === 0 && (

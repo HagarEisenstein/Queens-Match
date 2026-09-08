@@ -1,10 +1,12 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import MeetingsReport from "./MeetingsReport";
 import api from "../api";
+import { downloadMeetingsExcel } from "./meetingsReportExport";
 
 jest.mock("../api", () => ({ get: jest.fn() }));
+jest.mock("./meetingsReportExport", () => ({ downloadMeetingsExcel: jest.fn() }));
 
 const meeting = {
   id: "m1",
@@ -38,5 +40,34 @@ describe("MeetingsReport", () => {
       "href",
       "/admin/meetings/m1"
     );
+  });
+
+  it("exports the exact meetings returned for the current filters", async () => {
+    const outsideCurrentFilter = {
+      ...meeting,
+      id: "m2",
+      status: "scheduled",
+      mentee: { username: "carol" },
+    };
+    api.get.mockImplementation((path, options = {}) => {
+      if (path === "/admin/users") return Promise.resolve({ data: { users: [] } });
+      const isCompletedFilter = options.params?.status === "completed";
+      return Promise.resolve({
+        data: { meetings: isCompletedFilter ? [meeting] : [meeting, outsideCurrentFilter] },
+      });
+    });
+
+    render(
+      <MemoryRouter>
+        <MeetingsReport />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("carol");
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Status" }));
+    fireEvent.click(screen.getByRole("option", { name: "Completed" }));
+    await waitFor(() => expect(screen.queryByText("carol")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Download Excel" }));
+    expect(downloadMeetingsExcel).toHaveBeenCalledWith([meeting]);
   });
 });

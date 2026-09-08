@@ -30,6 +30,8 @@ model User {
   meetingsAsMentor   Meeting[]           @relation("MentorMeetings")
   mentorProfile      MentorProfile?
   notifications      Notification[]
+  outcomeResponses   MeetingOutcomeResponse[]
+  feedbackRequests   FeedbackRequest[]
 
   @@map("users")
 }
@@ -150,6 +152,36 @@ model Feedback {
   @@unique([meetingId, submittedBy])
   @@index([meetingId])
   @@map("feedbacks")
+}
+
+model MeetingOutcomeResponse {
+  id               String   @id @default(uuid()) @db.Uuid
+  meetingId        String   @map("meeting_id") @db.Uuid
+  respondentId     String   @map("respondent_id") @db.Uuid
+  role             String
+  happened         Boolean
+  absentParty      String?  @map("absent_party")
+  stillWantToMeet  Boolean? @map("still_want_to_meet")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  respondent       User     @relation(fields: [respondentId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, respondentId])
+  @@index([meetingId])
+  @@map("meeting_outcome_responses")
+}
+
+model FeedbackRequest {
+  id                  String    @id @default(uuid()) @db.Uuid
+  meetingId           String    @map("meeting_id") @db.Uuid
+  recipientId         String    @map("recipient_id") @db.Uuid
+  feedbackRequestedAt DateTime  @map("feedback_requested_at")
+  fulfilledAt         DateTime? @map("fulfilled_at")
+  recipient           User      @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, recipientId])
+  @@index([fulfilledAt, feedbackRequestedAt])
+  @@map("feedback_requests")
 }
 
 model AvailabilityBlock {

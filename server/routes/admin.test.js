@@ -100,6 +100,97 @@ describe("GET /api/admin/meetings", () => {
     expect(response.status).toBe(200);
     expect(response.body.meetings[0].isCompleted).toBe(true);
   });
+
+  it("filters on canonical status after loading DB-backed outcomes", async () => {
+    const reviewMeeting = {
+      id: MEETING_ID,
+      status: "arrival_confirmed",
+      menteeId: MENTEE,
+      mentorId: MENTOR,
+      mentee: { id: MENTEE, email: "mentee@example.com", username: "mentee" },
+      mentor: { id: MENTOR, email: "mentor@example.com", username: "mentor" },
+      timeSlots: [],
+    };
+    const scheduledMeeting = {
+      ...reviewMeeting,
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      status: "scheduled",
+    };
+    prisma.meeting.findMany.mockResolvedValue([reviewMeeting, scheduledMeeting]);
+    prisma.meetingOutcomeResponse.findMany.mockResolvedValue([
+      { meetingId: MEETING_ID, role: "mentee", happened: true },
+      { meetingId: MEETING_ID, role: "mentor", happened: false },
+    ]);
+
+    const app = appWithRoles(["admin"]);
+    const response = await request(app)
+      .get("/api/admin/meetings")
+      .query({ status: "admin_review" })
+      .set("Authorization", `Bearer ${tokenFor(MENTOR, ["admin"])}`);
+
+    expect(response.status).toBe(200);
+    expect(prisma.meeting.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} })
+    );
+    expect(response.body.meetings).toHaveLength(1);
+    expect(response.body.meetings[0]).toMatchObject({
+      id: MEETING_ID,
+      canonicalStatus: "admin_review",
+      meetingHappened: null,
+    });
+  });
+
+  it("applies the participant filter in the Prisma query", async () => {
+    prisma.meeting.findMany.mockResolvedValue([]);
+    const app = appWithRoles(["admin"]);
+
+    const response = await request(app)
+      .get("/api/admin/meetings")
+      .query({ participantId: MENTEE })
+      .set("Authorization", `Bearer ${tokenFor(MENTOR, ["admin"])}`);
+
+    expect(response.status).toBe(200);
+    expect(prisma.meeting.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { OR: [{ menteeId: MENTEE }, { mentorId: MENTEE }] },
+      })
+    );
+  });
+
+  it("returns participant-specific feedback fields for the report", async () => {
+    prisma.meeting.findMany.mockResolvedValue([
+      {
+        id: MEETING_ID,
+        status: "completed",
+        menteeId: MENTEE,
+        mentorId: MENTOR,
+        mentee: { id: MENTEE, email: "mentee@example.com", username: "mentee" },
+        mentor: { id: MENTOR, email: "mentor@example.com", username: "mentor" },
+        timeSlots: [],
+      },
+    ]);
+    prisma.meetingOutcomeResponse.findMany.mockResolvedValue([
+      { meetingId: MEETING_ID, role: "mentee", happened: true },
+      { meetingId: MEETING_ID, role: "mentor", happened: true },
+    ]);
+    prisma.feedback.findMany.mockResolvedValue([
+      { meetingId: MEETING_ID, submittedBy: MENTEE, rating: 5 },
+    ]);
+
+    const app = appWithRoles(["admin"]);
+    const response = await request(app)
+      .get("/api/admin/meetings")
+      .set("Authorization", `Bearer ${tokenFor(MENTOR, ["admin"])}`);
+
+    expect(response.body.meetings[0]).toMatchObject({
+      canonicalStatus: "completed",
+      meetingHappened: true,
+      menteeFeedbackSubmitted: true,
+      mentorFeedbackSubmitted: false,
+      menteeRating: 5,
+      mentorRating: null,
+    });
+  });
 });
 
 describe("GET /api/admin/meetings/:id", () => {

@@ -3,10 +3,8 @@ const { query, param, validationResult } = require("express-validator");
 const { AppError } = require("../middleware/errors");
 const prisma = require("../commons/db");
 
-// The only statuses the real state machine (server/modules/scheduling/meetingStateMachine.js)
-// ever assigns to Meeting.status. There is no "completed" / "arrival_confirmed" /
-// "feedback_submitted" status — those concepts are tracked as separate rows (see below),
-// not as values of this column.
+// Report statuses include persisted meeting states plus the derived admin-review state.
+// Keep this list aligned with the existing scheduling and engagement lifecycle.
 const MEETING_STATUSES = [
   "pending_mentor_times",
   "pending_mentee_selection",
@@ -41,32 +39,57 @@ const userSummarySelect = {
   roles: true,
 };
 
-/**
- * "Completed" is not a Meeting.status value — it's derived from whether any
- * MeetingOutcomeResponse row exists for the meeting (a participant reported on it
- * at all, regardless of whether `happened` was true or false).
- */
-async function completedMeetingIdSet(meetingIds) {
-  if (meetingIds.length === 0) return new Set();
-  const rows = await prisma.meetingOutcomeResponse.findMany({
-    where: { meetingId: { in: meetingIds }, happened: true },
-    select: { meetingId: true, happened: true },
-  });
-  const responses = new Map();
-  for (const row of rows) responses.set(row.meetingId, (responses.get(row.meetingId) || 0) + 1);
-  return new Set([...responses].filter(([, count]) => count >= 2).map(([id]) => id));
-}
-
 function canonicalStatus(meeting, outcomeResponses = [], feedback = []) {
   if (["rejected", "cancelled"].includes(meeting.status)) return meeting.status;
   const mentee = outcomeResponses.find((row) => row.role === "mentee");
   const mentor = outcomeResponses.find((row) => row.role === "mentor");
   if (mentee && mentor) {
     if (mentee.happened !== mentor.happened) return "admin_review";
-    if (mentee.happened && mentor.happened) return feedback.length >= 2 ? "feedback_submitted" : "completed";
+    if (mentee.happened && mentor.happened) {
+      const submitters = new Set(feedback.map((row) => row.submittedBy));
+      const bothSubmitted =
+        submitters.has(meeting.menteeId) && submitters.has(meeting.mentorId);
+      return bothSubmitted ? "feedback_submitted" : "completed";
+    }
     return "not_completed";
   }
   return meeting.status;
+}
+
+function groupByMeeting(rows) {
+  const grouped = new Map();
+  for (const row of rows) {
+    const meetingRows = grouped.get(row.meetingId) || [];
+    meetingRows.push(row);
+    grouped.set(row.meetingId, meetingRows);
+  }
+  return grouped;
+}
+
+function reportMeeting(meeting, outcomeResponses = [], feedback = []) {
+  const menteeOutcome = outcomeResponses.find((row) => row.role === "mentee");
+  const mentorOutcome = outcomeResponses.find((row) => row.role === "mentor");
+  const menteeFeedback = feedback.find(
+    (row) => row.submittedBy === meeting.menteeId
+  );
+  const mentorFeedback = feedback.find(
+    (row) => row.submittedBy === meeting.mentorId
+  );
+  const outcomesAgree =
+    menteeOutcome &&
+    mentorOutcome &&
+    menteeOutcome.happened === mentorOutcome.happened;
+
+  return {
+    ...meeting,
+    canonicalStatus: canonicalStatus(meeting, outcomeResponses, feedback),
+    isCompleted: Boolean(outcomesAgree && menteeOutcome.happened),
+    meetingHappened: outcomesAgree ? menteeOutcome.happened : null,
+    menteeFeedbackSubmitted: Boolean(menteeFeedback),
+    mentorFeedbackSubmitted: Boolean(mentorFeedback),
+    menteeRating: menteeFeedback?.rating ?? null,
+    mentorRating: mentorFeedback?.rating ?? null,
+  };
 }
 
 /**
@@ -109,7 +132,6 @@ function createAdminRouter({ authenticate, authorizeAdmin, alertService = null }
       try {
         const { status, participantId } = req.query;
         const where = {};
-        if (status) where.status = status;
         if (participantId) {
           where.OR = [{ menteeId: participantId }, { mentorId: participantId }];
         }
@@ -124,21 +146,32 @@ function createAdminRouter({ authenticate, authorizeAdmin, alertService = null }
           orderBy: [{ scheduledTime: "asc" }, { createdAt: "desc" }],
         });
 
-        const outcomeRows = meetings.length ? await prisma.meetingOutcomeResponse.findMany({ where: { meetingId: { in: meetings.map((m) => m.id) } } }) : [];
-        const feedbackRows = meetings.length ? await prisma.feedback.findMany({ where: { meetingId: { in: meetings.map((m) => m.id) } } }) : [];
-        const outcomeByMeeting = new Map();
-        const feedbackByMeeting = new Map();
-        for (const row of outcomeRows) outcomeByMeeting.set(row.meetingId, [...(outcomeByMeeting.get(row.meetingId) || []), row]);
-        for (const row of feedbackRows) feedbackByMeeting.set(row.meetingId, [...(feedbackByMeeting.get(row.meetingId) || []), row]);
-        if (status) meetings = meetings.filter((meeting) => canonicalStatus(meeting, outcomeByMeeting.get(meeting.id) || [], feedbackByMeeting.get(meeting.id) || []) === status);
-        const completed = await completedMeetingIdSet(meetings.map((m) => m.id));
-        res.json({
-          meetings: meetings.map((meeting) => ({
-            ...meeting,
-            isCompleted: completed.has(meeting.id),
-            canonicalStatus: canonicalStatus(meeting, outcomeByMeeting.get(meeting.id) || [], feedbackByMeeting.get(meeting.id) || []),
-          })),
-        });
+        const meetingIds = meetings.map((meeting) => meeting.id);
+        const [outcomeRows, feedbackRows] = meetingIds.length
+          ? await Promise.all([
+              prisma.meetingOutcomeResponse.findMany({
+                where: { meetingId: { in: meetingIds } },
+                select: { meetingId: true, role: true, happened: true },
+              }),
+              prisma.feedback.findMany({
+                where: { meetingId: { in: meetingIds } },
+                select: { meetingId: true, submittedBy: true, rating: true },
+              }),
+            ])
+          : [[], []];
+        const outcomeByMeeting = groupByMeeting(outcomeRows);
+        const feedbackByMeeting = groupByMeeting(feedbackRows);
+        meetings = meetings.map((meeting) =>
+          reportMeeting(
+            meeting,
+            outcomeByMeeting.get(meeting.id) || [],
+            feedbackByMeeting.get(meeting.id) || []
+          )
+        );
+        if (status) {
+          meetings = meetings.filter((meeting) => meeting.canonicalStatus === status);
+        }
+        res.json({ meetings });
       } catch (error) {
         next(error);
       }
@@ -146,9 +179,8 @@ function createAdminRouter({ authenticate, authorizeAdmin, alertService = null }
   );
 
   // R12 — single meeting detail, including outcome responses and feedback.
-  // MeetingOutcomeResponse, Feedback, and FeedbackRequest hold meetingId as a plain
-  // column with no relation back to Meeting in the current schema, so these are
-  // fetched with separate queries rather than a Prisma `include`.
+  // Outcome responses and feedback requests intentionally have no Prisma relation
+  // back to Meeting, so detail data is fetched in a small fixed query set.
   router.get(
     "/meetings/:id",
     [param("id").isUUID(), validate],
