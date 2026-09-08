@@ -1,17 +1,32 @@
 const { NOTIFICATION_TYPES } = require("./notificationTypes");
 
 function defaultActionUrl(type, meetingId) {
-  if (!meetingId) return null;
   switch (type) {
+    case NOTIFICATION_TYPES.WELCOME:
+      return "/profile";
+    case NOTIFICATION_TYPES.REQUEST_RECEIVED:
+      return meetingId ? `/meetings/${meetingId}?action=offer-times` : "/meetings";
+    case NOTIFICATION_TYPES.TIMES_OFFERED:
+      return meetingId ? `/meetings/${meetingId}` : "/meetings";
+    case NOTIFICATION_TYPES.MORE_TIMES_REQUESTED:
+      return meetingId ? `/meetings/${meetingId}?action=offer-times` : "/meetings";
+    case NOTIFICATION_TYPES.MEETING_REJECTED:
+      return meetingId ? `/meetings/${meetingId}` : "/meetings";
+    case NOTIFICATION_TYPES.MEETING_DECLINED:
+      return meetingId ? `/meetings/${meetingId}` : "/meetings";
+    case NOTIFICATION_TYPES.MEETING_MATCHED:
+    case NOTIFICATION_TYPES.MEETING_REMINDER:
+    case NOTIFICATION_TYPES.MENTOR_THANK_YOU:
+      return meetingId ? `/meetings/${meetingId}` : "/meetings";
     case NOTIFICATION_TYPES.ARRIVAL_CHECK:
-      return `/meetings/${meetingId}/arrival`;
+      return meetingId ? `/meetings/${meetingId}/arrival` : "/meetings";
     case NOTIFICATION_TYPES.POST_MEETING_CHECK:
-      return `/meetings/${meetingId}/outcome`;
+      return meetingId ? `/meetings/${meetingId}/outcome` : "/meetings";
     case NOTIFICATION_TYPES.FEEDBACK_REQUEST:
     case NOTIFICATION_TYPES.FEEDBACK_REMINDER:
-      return `/meetings/${meetingId}/feedback`;
+      return meetingId ? `/meetings/${meetingId}/feedback` : "/meetings";
     default:
-      return `/meetings/${meetingId}`;
+      return meetingId ? `/meetings/${meetingId}` : "/meetings";
   }
 }
 
@@ -19,6 +34,8 @@ function createNotificationCenterService({
   notificationRepository,
   deliveryRepository,
   realtimeHub,
+  recipientRepository = null,
+  emailProvider = null,
   emailDelayMilliseconds = 60 * 60 * 1000,
   now = () => new Date(),
 }) {
@@ -58,6 +75,40 @@ function createNotificationCenterService({
       notification = await notificationRepository.create(notificationData);
       for (const delivery of deliveries) {
         await deliveryRepository.create({ notificationId: notification.id, ...delivery });
+      }
+    }
+
+    const emailDelivery = deliveries.find((delivery) => delivery.channel === "EMAIL");
+    if (
+      emailDelivery &&
+      input.emailEligible !== false &&
+      emailProvider &&
+      recipientRepository &&
+      emailDelivery.nextAttemptAt.getTime() <= createdAt.getTime()
+    ) {
+      try {
+        const recipient = await recipientRepository.findById(notification.recipientId);
+        if (!recipient) {
+          throw new Error(`Recipient ${notification.recipientId} not found`);
+        }
+        const result = await emailProvider.send({ ...notification, recipient });
+        const pendingDelivery = await deliveryRepository.findPendingEmailDeliveryForNotification?.(notification.id);
+        if (pendingDelivery) {
+          await deliveryRepository.markSent(pendingDelivery.id, {
+            sentAt: createdAt,
+            providerMessageId: result.providerMessageId || null,
+          });
+        }
+      } catch (error) {
+        const pendingDelivery = await deliveryRepository.findPendingEmailDeliveryForNotification?.(notification.id);
+        if (pendingDelivery) {
+          const retryAt = new Date(createdAt.getTime() + 60 * 60 * 1000);
+          await deliveryRepository.markFailed(
+            pendingDelivery.id,
+            error.message,
+            retryAt
+          );
+        }
       }
     }
 

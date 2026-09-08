@@ -30,15 +30,20 @@ test("meeting events create notifications for the correct recipients", async () 
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.deepEqual(
-    notifications.map(({ recipientId, type, actionUrl }) => ({ recipientId, type, actionUrl })),
+    notifications.map(({ recipientId, type, actionUrl, emailDelayMilliseconds }) => ({
+      recipientId,
+      type,
+      actionUrl,
+      emailDelayMilliseconds,
+    })),
     [
-      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.REQUEST_RECEIVED, actionUrl: undefined },
-      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.TIMES_OFFERED, actionUrl: undefined },
-      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MORE_TIMES_REQUESTED, actionUrl: "/meetings/meeting-1?action=offer-times" },
-      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.MEETING_REJECTED, actionUrl: undefined },
-      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MEETING_DECLINED, actionUrl: undefined },
-      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MEETING_MATCHED, actionUrl: undefined },
-      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MENTOR_THANK_YOU, actionUrl: undefined },
+      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.REQUEST_RECEIVED, actionUrl: "/meetings/meeting-1?action=offer-times", emailDelayMilliseconds: 0 },
+      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.TIMES_OFFERED, actionUrl: "/meetings/meeting-1", emailDelayMilliseconds: 0 },
+      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MORE_TIMES_REQUESTED, actionUrl: "/meetings/meeting-1?action=offer-times", emailDelayMilliseconds: 0 },
+      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.MEETING_REJECTED, actionUrl: "/meetings/meeting-1", emailDelayMilliseconds: 0 },
+      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MEETING_DECLINED, actionUrl: "/meetings/meeting-1", emailDelayMilliseconds: 0 },
+      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MEETING_MATCHED, actionUrl: "/meetings/meeting-1", emailDelayMilliseconds: 0 },
+      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MENTOR_THANK_YOU, actionUrl: "/meetings/meeting-1", emailDelayMilliseconds: undefined },
     ],
   );
 

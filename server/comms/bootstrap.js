@@ -6,6 +6,7 @@ const { createNotificationCenterService } = require("./notificationCenterService
 const { createRealtimeHub } = require("./realtimeHub");
 const { createPrismaNotificationRepository } = require("./repositories/prismaNotificationRepository");
 const { createPrismaDeliveryRepository } = require("./repositories/prismaDeliveryRepository");
+const { createPrismaRecipientRepository } = require("./repositories/prismaRecipientRepository");
 const { createEmailFallbackJob } = require("./jobs/emailFallbackJob");
 const { createBrevoProvider } = require("./providers/brevoProvider");
 const { createConsoleProvider } = require("./providers/consoleProvider");
@@ -49,13 +50,8 @@ function bootstrapNotifications({
 
   const notificationRepository = createPrismaNotificationRepository(prisma);
   const deliveryRepository = createPrismaDeliveryRepository(prisma);
+  const recipientRepository = createPrismaRecipientRepository(prisma);
   const realtimeHub = createRealtimeHub();
-  const notificationService = createNotificationCenterService({
-    notificationRepository,
-    deliveryRepository,
-    realtimeHub,
-    emailDelayMilliseconds,
-  });
   const provider = env.NOTIFICATION_PROVIDER === "email"
     ? createBrevoProvider(env)
     : env.NOTIFICATION_PROVIDER === "whatsapp"
@@ -64,6 +60,14 @@ function bootstrapNotifications({
         emailProvider: createTwilioEmailProvider(env),
       })
       : createConsoleProvider({ logger });
+  const notificationService = createNotificationCenterService({
+    notificationRepository,
+    deliveryRepository,
+    recipientRepository,
+    emailProvider: provider,
+    realtimeHub,
+    emailDelayMilliseconds,
+  });
   const emailFallbackJob = createEmailFallbackJob({ deliveryRepository, emailProvider: provider });
   const unregisterHandlers = registerNotificationEventHandlers({ eventBus, notificationService, logger });
   const scheduledTask = env.NODE_ENV === "test" ? null : scheduler.schedule("* * * * *", () =>

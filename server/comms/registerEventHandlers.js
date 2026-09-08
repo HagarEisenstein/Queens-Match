@@ -8,6 +8,7 @@ function createNotification({
   message,
   uniqueValue = "initial",
   actionUrl,
+  emailDelayMilliseconds,
 }) {
   const notification = {
     recipientId,
@@ -20,6 +21,9 @@ function createNotification({
   if (actionUrl) {
     notification.actionUrl = actionUrl;
   }
+  if (emailDelayMilliseconds != null) {
+    notification.emailDelayMilliseconds = emailDelayMilliseconds;
+  }
   return notification;
 }
 
@@ -31,6 +35,8 @@ function registerNotificationEventHandlers({ eventBus, notificationService, logg
       type: NOTIFICATION_TYPES.REQUEST_RECEIVED,
       title: "New meeting request",
       message: "A mentee requested a meeting with you.",
+      actionUrl: `/meetings/${meetingId}?action=offer-times`,
+      emailDelayMilliseconds: 0,
     })),
     TimesOffered: ({ meetingId, menteeId }) => notificationService.send(createNotification({
       recipientId: menteeId,
@@ -38,6 +44,8 @@ function registerNotificationEventHandlers({ eventBus, notificationService, logg
       type: NOTIFICATION_TYPES.TIMES_OFFERED,
       title: "Meeting times available",
       message: "Your mentor offered meeting times for you to choose from.",
+      actionUrl: `/meetings/${meetingId}`,
+      emailDelayMilliseconds: 0,
     })),
     MoreTimesRequested: ({ meetingId, mentorId }) => notificationService.send(createNotification({
       recipientId: mentorId,
@@ -46,6 +54,7 @@ function registerNotificationEventHandlers({ eventBus, notificationService, logg
       title: "Additional times requested",
       message: "Your mentee asked for another round of availability for this meeting.",
       actionUrl: `/meetings/${meetingId}?action=offer-times`,
+      emailDelayMilliseconds: 0,
     })),
     MeetingRejected: ({ meetingId, menteeId }) => notificationService.send(createNotification({
       recipientId: menteeId,
@@ -53,6 +62,8 @@ function registerNotificationEventHandlers({ eventBus, notificationService, logg
       type: NOTIFICATION_TYPES.MEETING_REJECTED,
       title: "Meeting request update",
       message: "The mentor could not accept this meeting request.",
+      actionUrl: `/meetings/${meetingId}`,
+      emailDelayMilliseconds: 0,
     })),
     MeetingDeclined: ({ meetingId, mentorId }) => notificationService.send(createNotification({
       recipientId: mentorId,
@@ -60,6 +71,8 @@ function registerNotificationEventHandlers({ eventBus, notificationService, logg
       type: NOTIFICATION_TYPES.MEETING_DECLINED,
       title: "Meeting request closed",
       message: "The mentee declined this meeting after reviewing the available times.",
+      actionUrl: `/meetings/${meetingId}`,
+      emailDelayMilliseconds: 0,
     })),
     MeetingMatched: ({ meetingId, mentorId, scheduledTime }) => notificationService.send(createNotification({
       recipientId: mentorId,
@@ -68,6 +81,8 @@ function registerNotificationEventHandlers({ eventBus, notificationService, logg
       title: "Meeting scheduled",
       message: `Your meeting was scheduled for ${new Date(scheduledTime).toISOString()}.`,
       uniqueValue: new Date(scheduledTime).toISOString(),
+      actionUrl: `/meetings/${meetingId}`,
+      emailDelayMilliseconds: 0,
     })),
     MeetingCompleted: ({ meetingId, mentorId }) => notificationService.send(createNotification({
       recipientId: mentorId,
@@ -75,6 +90,7 @@ function registerNotificationEventHandlers({ eventBus, notificationService, logg
       type: NOTIFICATION_TYPES.MENTOR_THANK_YOU,
       title: "Thank you",
       message: "Thank you for mentoring with QueenB.",
+      actionUrl: `/meetings/${meetingId}`,
     })),
   };
 

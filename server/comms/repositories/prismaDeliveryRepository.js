@@ -1,6 +1,10 @@
 function createPrismaDeliveryRepository(prisma) {
   return {
     create: (data) => prisma.notificationDelivery.create({ data }),
+    findPendingEmailDeliveryForNotification: (notificationId) => prisma.notificationDelivery.findFirst({
+      where: { notificationId, channel: "EMAIL", status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+    }),
     findPendingEmailDeliveries: (now) => prisma.notificationDelivery.findMany({
       where: { channel: "EMAIL", status: "PENDING", nextAttemptAt: { lte: now } },
       include: { notification: { include: { recipient: { select: { id: true, email: true, phone: true } } } } },

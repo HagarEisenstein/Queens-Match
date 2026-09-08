@@ -42,7 +42,7 @@ function createIdentityRouters({
           type: "welcome",
           title: "Welcome to Queen's Match!",
           message: "We’re so happy you’re here. Complete your profile to find meaningful mentorship connections and make the most of your Queen's Match experience.",
-          actionUrl: "/profile",
+          actionUrl: "/profile?welcome=1",
           emailEligible: true,
           emailDelayMilliseconds: 0,
           deduplicationKey: `welcome:${user.id}`,

@@ -17,6 +17,7 @@ import { useAuth } from "../auth/AuthContext";
 import apiClient from "../api/client";
 import NotificationBell from "../notifications/NotificationBell";
 import QueenBLogo from "./QueenBLogo";
+import footerLogo from "../assets/logo.png";
 
 export default function AppLayout() {
   const { user, logout, hasRole } = useAuth();
@@ -232,7 +233,17 @@ export default function AppLayout() {
                 fontSize: 22,
               }}
             >
-              Queen's Match
+              <Box
+                component="img"
+                src={footerLogo}
+                alt="Queen's Match"
+                sx={{
+                  display: "block",
+                  height: 56,
+                  width: "auto",
+                  objectFit: "contain",
+                }}
+              />
             </Typography>
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               For help contact: 055-9384923

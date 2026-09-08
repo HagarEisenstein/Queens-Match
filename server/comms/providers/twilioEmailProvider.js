@@ -1,11 +1,4 @@
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+const { buildEmailContent } = require("../emailContent");
 
 function createTwilioEmailProvider(env = process.env, { fetchImpl = global.fetch } = {}) {
   const { TWILIO_ACCOUNT_SID: sid, TWILIO_AUTH_TOKEN: token } = env;
@@ -18,10 +11,12 @@ function createTwilioEmailProvider(env = process.env, { fetchImpl = global.fetch
 
   return {
     channel: "twilio-email",
-    async send({ recipient, title, message }) {
+    async send({ recipient, type, title, message, actionUrl }) {
       if (!recipient.email) {
         throw new Error(`Email address is required for recipient ${recipient.id}`);
       }
+
+      const content = buildEmailContent({ title, message, type, actionUrl, env });
 
       const response = await fetchImpl("https://comms.twilio.com/v1/Emails", {
         method: "POST",
@@ -34,8 +29,8 @@ function createTwilioEmailProvider(env = process.env, { fetchImpl = global.fetch
           to: [{ address: recipient.email }],
           content: {
             subject: title,
-            text: message,
-            html: `<p>${escapeHtml(message).replaceAll("\\n", "<br>")}</p>`,
+            text: content.text,
+            html: content.html,
           },
         }),
       });

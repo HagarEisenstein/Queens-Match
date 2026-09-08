@@ -1,11 +1,20 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createConsoleProvider } = require("../providers/consoleProvider");
+const { createBrevoProvider } = require("../providers/brevoProvider");
 const { createEmailProvider } = require("../providers/emailProvider");
 const { createNotificationProvider } = require("../providers/providerFactory");
 const { createWhatsAppProvider } = require("../providers/whatsappProvider");
 const { createWhatsAppOrEmailProvider } = require("../providers/whatsappOrEmailProvider");
 const { createTwilioEmailProvider } = require("../providers/twilioEmailProvider");
+const { buildAbsoluteAppUrl, resolveAppBaseUrl } = require("../emailContent");
+const nodemailer = require("nodemailer");
+
+const originalCreateTransport = nodemailer.createTransport;
+
+process.on("exit", () => {
+  nodemailer.createTransport = originalCreateTransport;
+});
 
 test("console provider writes a structured notification", async () => {
   const entries = [];
@@ -50,8 +59,10 @@ test("email provider delegates delivery to the supplied transport", async () => 
 
   const result = await provider.send({
     recipient: { id: "user-1", email: "user@example.com" },
+    type: "meeting_reminder",
     title: "Meeting reminder",
     message: "Your meeting starts soon",
+    actionUrl: "/meetings/meeting-1",
   });
 
   assert.equal(provider.channel, "email");
@@ -59,9 +70,66 @@ test("email provider delegates delivery to the supplied transport", async () => 
     from: "notifications@queenb.example",
     to: "user@example.com",
     subject: "Meeting reminder",
-    text: "Your meeting starts soon",
+    text: `Your meeting starts soon\n\nOpen your meeting: http://localhost:3000/meetings/meeting-1\nIf the button does not open, copy and paste this URL into your browser: http://localhost:3000/meetings/meeting-1`,
+    html: '<p>Your meeting starts soon</p><p><a href="http://localhost:3000/meetings/meeting-1">Open your meeting</a></p><p>Direct link: <a href="http://localhost:3000/meetings/meeting-1">http://localhost:3000/meetings/meeting-1</a></p>',
   });
   assert.equal(result.providerMessageId, "email-1");
+});
+
+test("Brevo provider builds a nodemailer SMTP transport from EMAIL_* env vars", async () => {
+  const transports = [];
+  nodemailer.createTransport = (config) => {
+    transports.push(config);
+    return {
+      async sendMail(delivery) {
+        return { messageId: `${delivery.to}:sent` };
+      },
+    };
+  };
+
+  const provider = createBrevoProvider({
+    EMAIL_HOST: "smtp-relay.example.com",
+    EMAIL_PORT: "587",
+    EMAIL_USER: "mailer",
+    EMAIL_PASSWORD: "secret",
+    EMAIL_FROM: "notifications@queenb.example",
+  });
+
+  const result = await provider.send({
+    recipient: { id: "user-1", email: "user@example.com" },
+    type: "meeting_reminder",
+    title: "Meeting reminder",
+    message: "Your meeting starts soon",
+    actionUrl: "/meetings/meeting-1",
+  });
+
+  assert.equal(provider.channel, "email");
+  assert.deepEqual(transports[0], {
+    host: "smtp-relay.example.com",
+    port: 587,
+    secure: false,
+    auth: {
+      user: "mailer",
+      pass: "secret",
+    },
+  });
+  assert.equal(result.providerMessageId, "user@example.com:sent");
+  nodemailer.createTransport = originalCreateTransport;
+});
+
+test("Brevo provider also accepts legacy SMTP_* env vars", () => {
+  nodemailer.createTransport = () => ({ sendMail: async () => ({ messageId: "legacy" }) });
+
+  const provider = createBrevoProvider({
+    SMTP_HOST: "smtp.example.com",
+    SMTP_PORT: "465",
+    SMTP_USER: "legacy-user",
+    SMTP_PASSWORD: "legacy-password",
+    EMAIL_FROM: "notifications@queenb.example",
+  });
+
+  assert.equal(provider.channel, "email");
+  nodemailer.createTransport = originalCreateTransport;
 });
 
 test("provider factory selects providers without changing callers", () => {
@@ -151,12 +219,22 @@ test("Twilio Email provider sends the welcome email through the Comms API", asyn
 
   const result = await provider.send({
     recipient: { id: "user-1", email: "user@example.com" },
+    type: "welcome",
     title: "Welcome to Queen's Match!",
     message: "Welcome!",
+    actionUrl: "/profile?welcome=1",
   });
 
   assert.equal(result.providerMessageId, "comms_operation_123");
   assert.equal(requests[0].url, "https://comms.twilio.com/v1/Emails");
   assert.equal(requests[0].options.body.includes("user@example.com"), true);
+  assert.equal(requests[0].options.body.includes("http://localhost:3000/profile?welcome=1"), true);
   assert.match(requests[0].options.headers.Authorization, /^Basic /);
+});
+
+test("email content resolves the configured frontend base URL", () => {
+  assert.equal(resolveAppBaseUrl({ APP_URL: "https://app.example.com/" }), "https://app.example.com");
+  assert.equal(resolveAppBaseUrl({ FRONTEND_URL: "https://frontend.example.com" }), "https://frontend.example.com");
+  assert.equal(resolveAppBaseUrl({ NEXT_PUBLIC_APP_URL: "https://next.example.com/" }), "https://next.example.com");
+  assert.equal(buildAbsoluteAppUrl("/meetings/m1", { APP_URL: "https://app.example.com/" }), "https://app.example.com/meetings/m1");
 });

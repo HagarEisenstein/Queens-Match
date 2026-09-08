@@ -2,14 +2,28 @@ const nodemailer = require("nodemailer");
 const { createEmailProvider } = require("./emailProvider");
 
 function createBrevoProvider(env = process.env) {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !env.EMAIL_FROM) {
-    throw new Error("SMTP_USER, SMTP_PASSWORD and EMAIL_FROM are required for email");
+  const host = env.EMAIL_HOST || env.SMTP_HOST;
+  const port = Number.parseInt(env.EMAIL_PORT || env.SMTP_PORT || "", 10);
+  const user = env.EMAIL_USER || env.SMTP_USER;
+  const pass = env.EMAIL_PASSWORD || env.SMTP_PASSWORD;
+  const secure =
+    typeof env.EMAIL_SECURE === "string"
+      ? env.EMAIL_SECURE.toLowerCase() === "true"
+      : port === 465;
+
+  if (!host || !Number.isFinite(port) || !user || !pass || !env.EMAIL_FROM) {
+    throw new Error(
+      "EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASSWORD and EMAIL_FROM are required for email"
+    );
   }
+
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host,
+    port,
+    secure,
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASSWORD,
+      user,
+      pass,
     },
   });
   return createEmailProvider({
