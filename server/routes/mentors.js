@@ -7,6 +7,9 @@ const {
   getMentorByUserId,
   upsertMentorProfile,
 } = require("../services/mentorProfilesService");
+const {
+  generateMentorSearchEmbedding,
+} = require("../services/mentorSearchEmbeddingService");
 
 const profileValidation = [
   body("background").isString().trim().isLength({ min: 1, max: 5000 }),
@@ -62,6 +65,16 @@ function createMentorsRouter({ authenticate }) {
         meetingsOffered: req.body.meetingsOffered,
         meetingLengthMinutes: req.body.meetingLengthMinutes,
       });
+
+      try {
+        await generateMentorSearchEmbedding(profile.id);
+      } catch (error) {
+        console.error("Failed to refresh mentor search embedding", {
+          mentorProfileId: profile.id,
+          message: error.message,
+        });
+      }
+
       res.json(profile);
     } catch (error) {
       next(error);

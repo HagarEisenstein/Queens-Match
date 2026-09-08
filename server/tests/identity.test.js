@@ -1,6 +1,14 @@
 jest.mock("../modules/scheduling/schedulingService", () => ({
   hasMeetingBetween: jest.fn(),
 }));
+jest.mock("../commons/db", () => ({
+  mentorProfile: {
+    findUnique: jest.fn(),
+  },
+}));
+jest.mock("../services/mentorSearchEmbeddingService", () => ({
+  generateMentorSearchEmbedding: jest.fn(),
+}));
 
 const request = require("supertest");
 const bcrypt = require("bcryptjs");
@@ -8,6 +16,10 @@ const jwt = require("jsonwebtoken");
 const { randomUUID } = require("crypto");
 const { createApp } = require("../app");
 const { hasMeetingBetween } = require("../modules/scheduling/schedulingService");
+const prisma = require("../commons/db");
+const {
+  generateMentorSearchEmbedding,
+} = require("../services/mentorSearchEmbeddingService");
 
 const JWT_SECRET = "identity-test-secret";
 
@@ -116,7 +128,10 @@ describe("Epic 1 identity API", () => {
   });
 
   beforeEach(() => {
+    jest.clearAllMocks();
     repository = new MemoryUserRepository();
+    prisma.mentorProfile.findUnique.mockResolvedValue(null);
+    generateMentorSearchEmbedding.mockResolvedValue(undefined);
     notificationService = { send: jest.fn().mockResolvedValue(undefined) };
     app = createApp({
       userRepository: repository,
@@ -298,6 +313,164 @@ describe("Epic 1 identity API", () => {
       tech_stack: ["JavaScript", "PostgreSQL"],
     });
     expect(read.body.user).not.toHaveProperty("password_hash");
+  });
+
+  describe("PUT /api/users/profile mentor embedding refresh", () => {
+    async function createAuthenticatedUser(roles) {
+      const user = await repository.create({
+        email: `${roles.join("-")}@example.com`,
+        username: `${roles.join("-")}-user`,
+        password_hash: null,
+        roles,
+        tech_stack: [],
+      });
+      return {
+        user,
+        authorization: `Bearer ${jwt.sign(
+          { id: user.id, roles },
+          JWT_SECRET
+        )}`,
+      };
+    }
+
+    test.each([
+      ["job", { job: "Engineering Manager" }],
+      ["workplace", { workplace: "QueenB" }],
+      ["tech_stack", { tech_stack: ["Node.js", "PostgreSQL"] }],
+    ])("refreshes a mentor embedding when %s is updated", async (_, update) => {
+      const { user, authorization } = await createAuthenticatedUser(["mentor"]);
+      prisma.mentorProfile.findUnique.mockResolvedValue({ id: "mentor-profile-1" });
+
+      const response = await request(app)
+        .put("/api/users/profile")
+        .set("Authorization", authorization)
+        .send(update);
+
+      expect(response.status).toBe(200);
+      expect(prisma.mentorProfile.findUnique).toHaveBeenCalledWith({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      expect(generateMentorSearchEmbedding).toHaveBeenCalledTimes(1);
+      expect(generateMentorSearchEmbedding).toHaveBeenCalledWith(
+        "mentor-profile-1"
+      );
+    });
+
+    test.each([
+      ["photo_url", { photo_url: "https://example.com/photo.png" }],
+      ["full_name", { full_name: "Mentor Name" }],
+    ])("does not refresh a mentor embedding when only %s is updated", async (_, update) => {
+      const { authorization } = await createAuthenticatedUser(["mentor"]);
+
+      const response = await request(app)
+        .put("/api/users/profile")
+        .set("Authorization", authorization)
+        .send(update);
+
+      expect(response.status).toBe(200);
+      expect(prisma.mentorProfile.findUnique).not.toHaveBeenCalled();
+      expect(generateMentorSearchEmbedding).not.toHaveBeenCalled();
+    });
+
+    test.each([["mentee"], ["admin"]])(
+      "does not refresh an embedding for a %s updating job",
+      async (role) => {
+        const { authorization } = await createAuthenticatedUser([role]);
+
+        const response = await request(app)
+          .put("/api/users/profile")
+          .set("Authorization", authorization)
+          .send({ job: "Software Engineer" });
+
+        expect(response.status).toBe(200);
+        expect(prisma.mentorProfile.findUnique).not.toHaveBeenCalled();
+        expect(generateMentorSearchEmbedding).not.toHaveBeenCalled();
+      }
+    );
+
+    test("succeeds when a mentor has no mentor profile", async () => {
+      const { authorization } = await createAuthenticatedUser(["mentor"]);
+
+      const response = await request(app)
+        .put("/api/users/profile")
+        .set("Authorization", authorization)
+        .send({ job: "Software Engineer" });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty("user.job", "Software Engineer");
+      expect(generateMentorSearchEmbedding).not.toHaveBeenCalled();
+    });
+
+    test("succeeds when the mentor profile lookup fails", async () => {
+      const consoleError = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const { user, authorization } = await createAuthenticatedUser(["mentor"]);
+      prisma.mentorProfile.findUnique.mockRejectedValueOnce(
+        new Error("database unavailable")
+      );
+
+      const response = await request(app)
+        .put("/api/users/profile")
+        .set("Authorization", authorization)
+        .send({ workplace: "QueenB" });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty("user.workplace", "QueenB");
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to refresh mentor search embedding",
+        { userId: user.id, message: "database unavailable" }
+      );
+      consoleError.mockRestore();
+    });
+
+    test("succeeds when embedding generation fails", async () => {
+      const consoleError = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const { user, authorization } = await createAuthenticatedUser(["mentor"]);
+      prisma.mentorProfile.findUnique.mockResolvedValue({ id: "mentor-profile-1" });
+      generateMentorSearchEmbedding.mockRejectedValueOnce(
+        new Error("provider unavailable")
+      );
+
+      const response = await request(app)
+        .put("/api/users/profile")
+        .set("Authorization", authorization)
+        .send({ tech_stack: ["Node.js"] });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty("user.tech_stack", ["Node.js"]);
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to refresh mentor search embedding",
+        {
+          userId: user.id,
+          mentorProfileId: "mentor-profile-1",
+          message: "provider unavailable",
+        }
+      );
+      consoleError.mockRestore();
+    });
+
+    test("preserves the successful profile response shape", async () => {
+      const { user, authorization } = await createAuthenticatedUser(["mentor"]);
+      prisma.mentorProfile.findUnique.mockResolvedValue({ id: "mentor-profile-1" });
+
+      const response = await request(app)
+        .put("/api/users/profile")
+        .set("Authorization", authorization)
+        .send({ job: "Staff Engineer" });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        user: expect.objectContaining({
+          id: user.id,
+          job: "Staff Engineer",
+          roles: ["mentor"],
+        }),
+      });
+    });
   });
 
   test("requires authentication for profile routes", async () => {

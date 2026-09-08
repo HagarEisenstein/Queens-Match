@@ -11,6 +11,10 @@ const {
   validateRegistration,
 } = require("./validation");
 const { hasMeetingBetween } = require("../scheduling/schedulingService");
+const prisma = require("../../commons/db");
+const {
+  generateMentorSearchEmbedding,
+} = require("../../services/mentorSearchEmbeddingService");
 
 // Fields safe to expose about a *peer* (someone else), as opposed to your own
 // `/profile`, which also includes email/phone/roles/created_at.
@@ -197,6 +201,36 @@ function createIdentityRouters({
       }
       const user = await userRepository.updateProfile(req.user.id, profile);
       if (!user) throw new AppError(404, "USER_NOT_FOUND", "User not found.");
+
+      const embeddingRelevantChange =
+        profile.job !== undefined ||
+        profile.workplace !== undefined ||
+        profile.tech_stack !== undefined;
+
+      if (
+        embeddingRelevantChange &&
+        Array.isArray(user.roles) &&
+        user.roles.includes("mentor")
+      ) {
+        let mentorProfileId;
+        try {
+          const mentorProfile = await prisma.mentorProfile.findUnique({
+            where: { userId: user.id },
+            select: { id: true },
+          });
+          mentorProfileId = mentorProfile?.id;
+          if (mentorProfileId) {
+            await generateMentorSearchEmbedding(mentorProfileId);
+          }
+        } catch (error) {
+          logger.error("Failed to refresh mentor search embedding", {
+            userId: user.id,
+            ...(mentorProfileId ? { mentorProfileId } : {}),
+            message: error.message,
+          });
+        }
+      }
+
       return res.json({ user: toPublicUser(user) });
     } catch (error) {
       if (error.code === "23505") {

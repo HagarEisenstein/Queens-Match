@@ -7,6 +7,9 @@ jest.mock("../services/mentorProfilesService", () => ({
   getMentorByUserId: jest.fn(),
   upsertMentorProfile: jest.fn(),
 }));
+jest.mock("../services/mentorSearchEmbeddingService", () => ({
+  generateMentorSearchEmbedding: jest.fn(),
+}));
 
 const jwt = require("jsonwebtoken");
 const request = require("supertest");
@@ -17,6 +20,9 @@ const {
   getMentorByUserId,
   upsertMentorProfile,
 } = require("../services/mentorProfilesService");
+const {
+  generateMentorSearchEmbedding,
+} = require("../services/mentorSearchEmbeddingService");
 
 function tokenFor(userId, roles = ["mentee"]) {
   return jwt.sign({ id: userId, roles }, process.env.JWT_SECRET);
@@ -202,6 +208,45 @@ describe("mentors routes", () => {
   });
 
   describe("PUT /api/mentors/me", () => {
+    it("refreshes the saved mentor's search embedding", async () => {
+      const savedProfile = { id: "m1", userId: "u1", ...validProfile };
+      upsertMentorProfile.mockResolvedValue(savedProfile);
+
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1", ["mentor"])}`)
+        .send(validProfile);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(savedProfile);
+      expect(generateMentorSearchEmbedding).toHaveBeenCalledTimes(1);
+      expect(generateMentorSearchEmbedding).toHaveBeenCalledWith("m1");
+    });
+
+    it("keeps the successful profile response when embedding refresh fails", async () => {
+      const savedProfile = { id: "m1", userId: "u1", ...validProfile };
+      const consoleError = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      upsertMentorProfile.mockResolvedValue(savedProfile);
+      generateMentorSearchEmbedding.mockRejectedValueOnce(
+        new Error("provider unavailable")
+      );
+
+      const response = await request(app)
+        .put("/api/mentors/me")
+        .set("Authorization", `Bearer ${tokenFor("u1", ["mentor"])}`)
+        .send(validProfile);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(savedProfile);
+      expect(consoleError).toHaveBeenCalledWith(
+        "Failed to refresh mentor search embedding",
+        { mentorProfileId: "m1", message: "provider unavailable" }
+      );
+      consoleError.mockRestore();
+    });
+
     it("rejects an unauthenticated request", async () => {
       const response = await request(app)
         .put("/api/mentors/me")
