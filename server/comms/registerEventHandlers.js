@@ -46,14 +46,20 @@ function registerNotificationEventHandlers({ eventBus, notificationService, logg
       title: "Meeting request update",
       message: "The mentor could not accept this meeting request.",
     })),
-    MeetingMatched: ({ meetingId, mentorId, scheduledTime }) => notificationService.send(createNotification({
-      recipientId: mentorId,
-      meetingId,
-      type: NOTIFICATION_TYPES.MEETING_MATCHED,
-      title: "Meeting scheduled",
-      message: `Your meeting was scheduled for ${new Date(scheduledTime).toISOString()}.`,
-      uniqueValue: new Date(scheduledTime).toISOString(),
-    })),
+    MeetingMatched: ({ meetingId, mentorId, menteeId, scheduledTime }) => {
+      const formattedTime = new Date(scheduledTime).toISOString();
+      return Promise.all([mentorId, menteeId].map((recipientId) =>
+        notificationService.send(createNotification({
+          recipientId,
+          meetingId,
+          type: NOTIFICATION_TYPES.MEETING_MATCHED,
+          title: "Meeting confirmed",
+          message: `Your meeting is confirmed for ${formattedTime}.`,
+          uniqueValue: formattedTime,
+          actionUrl: `/meetings/${meetingId}`,
+        }))
+      ));
+    },
     MeetingCompleted: ({ meetingId, mentorId }) => notificationService.send(createNotification({
       recipientId: mentorId,
       meetingId,

@@ -16,19 +16,19 @@ export default function MeetingArrivalPage() {
       setStatus("saved");
     } catch (err) {
       setStatus("error");
-      setError(err.response?.data?.error?.message || "Could not confirm arrival.");
+      setError(err.response?.data?.error?.message || "Could not confirm attendance.");
     }
   };
 
   return (
     <Container maxWidth="sm" sx={{ py: 5 }}>
       <Typography variant="h4" color="primary" gutterBottom>
-        Confirm arrival
+        Confirm attendance
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Let QueenB know you plan to attend this meeting.
+        Please confirm that you still plan to attend this meeting.
       </Typography>
-      {status === "saved" && <Alert severity="success" sx={{ mb: 2 }}>Arrival confirmed.</Alert>}
+      {status === "saved" && <Alert severity="success" sx={{ mb: 2 }}>Attendance confirmed.</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Stack spacing={2}>
         <Button

@@ -211,6 +211,7 @@ async function selectTime({ meetingId, actorId, slotId }) {
   eventBus.emit("MeetingMatched", {
     meetingId,
     mentorId: meeting.mentorId,
+    menteeId: meeting.menteeId,
     scheduledTime: slot.startTime,
   });
 

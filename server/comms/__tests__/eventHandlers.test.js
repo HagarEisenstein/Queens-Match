@@ -22,6 +22,7 @@ test("meeting events create notifications for the correct recipients", async () 
   eventBus.emit("MeetingMatched", {
     meetingId: "meeting-1",
     mentorId: "mentor-1",
+    menteeId: "mentee-1",
     scheduledTime: "2026-09-10T15:00:00.000Z",
   });
   eventBus.emit("MeetingCompleted", { meetingId: "meeting-1", mentorId: "mentor-1" });
@@ -34,9 +35,17 @@ test("meeting events create notifications for the correct recipients", async () 
       { recipientId: "mentee-1", type: NOTIFICATION_TYPES.TIMES_OFFERED },
       { recipientId: "mentee-1", type: NOTIFICATION_TYPES.MEETING_REJECTED },
       { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MEETING_MATCHED },
+      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.MEETING_MATCHED },
       { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MENTOR_THANK_YOU },
     ],
   );
+
+  const confirmations = notifications.filter(
+    ({ type }) => type === NOTIFICATION_TYPES.MEETING_MATCHED,
+  );
+  assert.ok(confirmations.every(({ title }) => title === "Meeting confirmed"));
+  assert.ok(confirmations.every(({ actionUrl }) => actionUrl === "/meetings/meeting-1"));
+  assert.equal(new Set(confirmations.map(({ deduplicationKey }) => deduplicationKey)).size, 2);
 
   unregisterHandlers();
   assert.equal(eventBus.listenerCount("MeetingMatched"), 1);

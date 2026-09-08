@@ -32,6 +32,15 @@ describe("MeetingArrivalPage", () => {
         `/engagement/meetings/${MEETING_ID}/arrival`
       )
     );
-    expect(await screen.findByText("Arrival confirmed.")).toBeInTheDocument();
+    expect(await screen.findByText("Attendance confirmed.")).toBeInTheDocument();
+  });
+
+  it("describes the action as confirming attendance", () => {
+    renderPage();
+
+    expect(screen.getByRole("heading", { name: "Confirm attendance" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Please confirm that you still plan to attend this meeting.")
+    ).toBeInTheDocument();
   });
 });

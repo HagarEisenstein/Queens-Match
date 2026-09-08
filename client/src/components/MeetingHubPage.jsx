@@ -30,7 +30,7 @@ export default function MeetingHubPage() {
             variant="contained"
             size="large"
           >
-            Confirm arrival
+            Confirm attendance
           </Button>
           <Button
             component={Link}

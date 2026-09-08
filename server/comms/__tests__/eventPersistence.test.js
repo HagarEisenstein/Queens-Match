@@ -5,7 +5,7 @@ const { registerNotificationEventHandlers } = require("../registerEventHandlers"
 const { createNotificationCenterService } = require("../notificationCenterService");
 const { NOTIFICATION_TYPES } = require("../notificationTypes");
 
-test("sequential MeetingMatched emits persist only one notification", async () => {
+test("sequential MeetingMatched emits persist one notification per participant", async () => {
   const eventBus = new EventEmitter();
   const notifications = [];
   const deliveries = [];
@@ -40,6 +40,7 @@ test("sequential MeetingMatched emits persist only one notification", async () =
   const payload = {
     meetingId: "11111111-1111-1111-1111-111111111111",
     mentorId: "22222222-2222-2222-2222-222222222222",
+    menteeId: "33333333-3333-3333-3333-333333333333",
     scheduledTime: "2026-09-10T15:00:00.000Z",
   };
 
@@ -48,12 +49,13 @@ test("sequential MeetingMatched emits persist only one notification", async () =
   eventBus.emit("MeetingMatched", payload);
   await new Promise((resolve) => setImmediate(resolve));
 
-  assert.equal(notifications.length, 1);
-  assert.equal(notifications[0].type, NOTIFICATION_TYPES.MEETING_MATCHED);
-  assert.equal(
-    notifications[0].deduplicationKey,
-    `${NOTIFICATION_TYPES.MEETING_MATCHED}:${payload.meetingId}:${payload.mentorId}:${payload.scheduledTime}`
+  assert.equal(notifications.length, 2);
+  assert.deepEqual(
+    new Set(notifications.map(({ recipientId }) => recipientId)),
+    new Set([payload.mentorId, payload.menteeId]),
   );
+  assert.ok(notifications.every(({ type }) => type === NOTIFICATION_TYPES.MEETING_MATCHED));
+  assert.equal(new Set(notifications.map(({ deduplicationKey }) => deduplicationKey)).size, 2);
 
   unregister();
 });

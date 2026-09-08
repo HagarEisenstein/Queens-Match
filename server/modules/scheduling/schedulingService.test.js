@@ -209,6 +209,7 @@ describe("selectTime", () => {
     expect(eventBus.emit).toHaveBeenCalledWith("MeetingMatched", {
       meetingId: MEETING_ID,
       mentorId: MENTOR,
+      menteeId: MENTEE,
       scheduledTime: slot.startTime,
     });
   });

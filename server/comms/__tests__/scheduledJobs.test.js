@@ -43,6 +43,17 @@ test("meeting reminder job reminds both parties and asks both to confirm arrival
     new Set(notifications.map(({ recipientId }) => recipientId)),
     new Set(["mentee-1", "mentor-1"]),
   );
+  const attendanceNotifications = notifications.filter(
+    ({ type }) => type === NOTIFICATION_TYPES.ARRIVAL_CHECK,
+  );
+  assert.equal(attendanceNotifications.length, 2);
+  assert.ok(attendanceNotifications.every(({ title }) => title === "Confirm attendance"));
+  assert.ok(attendanceNotifications.every(({ actionUrl }) => actionUrl === "/meetings/meeting-1/arrival"));
+  assert.ok(attendanceNotifications.every(({ emailEligible }) => emailEligible === true));
+  const meetingNotifications = notifications.filter(
+    ({ type }) => type === NOTIFICATION_TYPES.MEETING_REMINDER,
+  );
+  assert.ok(meetingNotifications.every(({ emailEligible }) => emailEligible === false));
 });
 
 test("post-meeting job asks both participants whether the meeting happened", async () => {
@@ -63,6 +74,7 @@ test("post-meeting job asks both participants whether the meeting happened", asy
 
   assert.equal(notifications.length, 2);
   assert.ok(notifications.every(({ type }) => type === NOTIFICATION_TYPES.POST_MEETING_CHECK));
+  assert.ok(notifications.every(({ actionUrl }) => actionUrl === "/meetings/meeting-1/outcome"));
 });
 
 test("feedback reminder job sends once per completed two-day period", async () => {
@@ -89,7 +101,30 @@ test("feedback reminder job sends once per completed two-day period", async () =
 
   assert.equal(notifications.length, 1);
   assert.equal(notifications[0].recipientId, "user-1");
+  assert.equal(notifications[0].actionUrl, "/meetings/meeting-1/feedback");
+  assert.equal(notifications[0].emailEligible, false);
   assert.equal(notifications[0].deduplicationKey, "feedback_reminder:meeting-1:user-1:2");
+});
+
+test("first feedback reminder is email eligible and links to feedback", async () => {
+  const { notifications, notificationService } = createNotificationCollector();
+  const feedbackRepository = {
+    async findOutstandingFeedbackRequests() {
+      return [{
+        meetingId: "meeting-1",
+        recipientId: "user-1",
+        feedbackRequestedAt: new Date("2026-08-31T10:00:00.000Z"),
+      }];
+    },
+  };
+  const job = createFeedbackReminderJob({ feedbackRepository, notificationService });
+
+  await job.run(new Date("2026-09-02T10:00:00.000Z"));
+
+  assert.equal(notifications.length, 1);
+  assert.equal(notifications[0].actionUrl, "/meetings/meeting-1/feedback");
+  assert.equal(notifications[0].emailEligible, true);
+  assert.equal(notifications[0].deduplicationKey, "feedback_reminder:meeting-1:user-1:1");
 });
 
 test("notification jobs use one configurable cron schedule", async () => {

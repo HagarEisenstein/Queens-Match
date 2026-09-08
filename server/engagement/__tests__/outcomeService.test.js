@@ -204,6 +204,14 @@ describe("outcomeService (in-memory)", () => {
     expect(mentorResult.aggregation.status).toBe("completed");
     expect(feedbackRepository.requests).toHaveLength(2);
     expect(notifications).toHaveLength(2);
+    expect(new Set(notifications.map(({ recipientId }) => recipientId))).toEqual(
+      new Set([meeting.menteeId, meeting.mentorId])
+    );
+    expect(
+      notifications.every(
+        ({ actionUrl }) => actionUrl === `/meetings/${meeting.id}/feedback`
+      )
+    ).toBe(true);
     expect(
       meetingLifecyclePort.events.some(
         (event) => event.eventName === LIFECYCLE_EVENTS.MEETING_COMPLETED

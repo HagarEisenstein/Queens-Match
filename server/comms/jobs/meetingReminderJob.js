@@ -30,15 +30,17 @@ function createMeetingReminderJob({
           message: `Your meeting is scheduled for ${scheduledTime}.`,
           actionUrl: `/meetings/${meeting.id}`,
           deduplicationKey: `${NOTIFICATION_TYPES.MEETING_REMINDER}:${meeting.id}:${recipientId}:${scheduledTime}`,
+          emailEligible: false,
         });
         await notificationService.send({
           recipientId,
           meetingId: meeting.id,
           type: NOTIFICATION_TYPES.ARRIVAL_CHECK,
-          title: "Confirm your arrival",
-          message: "Open the meeting in QueenB and confirm that you plan to attend.",
+          title: "Confirm attendance",
+          message: "Please confirm that you still plan to attend this meeting.",
           actionUrl: `/meetings/${meeting.id}/arrival`,
           deduplicationKey: `${NOTIFICATION_TYPES.ARRIVAL_CHECK}:${meeting.id}:${recipientId}:${scheduledTime}`,
+          emailEligible: true,
         });
       }
     }

@@ -64,6 +64,30 @@ test("email provider delegates delivery to the supplied transport", async () => 
   assert.equal(result.providerMessageId, "email-1");
 });
 
+test("email provider includes an absolute action URL in text and HTML", async () => {
+  const deliveries = [];
+  const provider = createEmailProvider({
+    fromAddress: "notifications@queenb.example",
+    clientUrl: "https://example.com/",
+    emailTransport: {
+      async sendMail(delivery) {
+        deliveries.push(delivery);
+        return { messageId: "email-2" };
+      },
+    },
+  });
+
+  await provider.send({
+    recipient: { id: "user-1", email: "user@example.com" },
+    title: "Please leave feedback",
+    message: "Tell us how the meeting went.",
+    actionUrl: "/meetings/abc/feedback",
+  });
+
+  assert.match(deliveries[0].text, /https:\/\/example\.com\/meetings\/abc\/feedback/);
+  assert.match(deliveries[0].html, /href="https:\/\/example\.com\/meetings\/abc\/feedback"/);
+});
+
 test("provider factory selects providers without changing callers", () => {
   const logger = { info() {} };
   const emailTransport = { sendMail() {} };
