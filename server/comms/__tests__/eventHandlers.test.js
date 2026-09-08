@@ -18,7 +18,9 @@ test("meeting events create notifications for the correct recipients", async () 
 
   eventBus.emit("MeetingRequested", { meetingId: "meeting-1", mentorId: "mentor-1" });
   eventBus.emit("TimesOffered", { meetingId: "meeting-1", menteeId: "mentee-1" });
+  eventBus.emit("MoreTimesRequested", { meetingId: "meeting-1", mentorId: "mentor-1" });
   eventBus.emit("MeetingRejected", { meetingId: "meeting-1", menteeId: "mentee-1" });
+  eventBus.emit("MeetingDeclined", { meetingId: "meeting-1", mentorId: "mentor-1" });
   eventBus.emit("MeetingMatched", {
     meetingId: "meeting-1",
     mentorId: "mentor-1",
@@ -29,14 +31,16 @@ test("meeting events create notifications for the correct recipients", async () 
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.deepEqual(
-    notifications.map(({ recipientId, type }) => ({ recipientId, type })),
+    notifications.map(({ recipientId, type, actionUrl }) => ({ recipientId, type, actionUrl })),
     [
-      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.REQUEST_RECEIVED },
-      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.TIMES_OFFERED },
-      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.MEETING_REJECTED },
-      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MEETING_MATCHED },
-      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.MEETING_MATCHED },
-      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MENTOR_THANK_YOU },
+      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.REQUEST_RECEIVED, actionUrl: "/meetings/meeting-1?action=offer-times" },
+      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.TIMES_OFFERED, actionUrl: "/meetings/meeting-1" },
+      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MORE_TIMES_REQUESTED, actionUrl: "/meetings/meeting-1?action=offer-times" },
+      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.MEETING_REJECTED, actionUrl: "/meetings/meeting-1" },
+      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MEETING_DECLINED, actionUrl: "/meetings/meeting-1" },
+      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MEETING_MATCHED, actionUrl: "/meetings/meeting-1" },
+      { recipientId: "mentee-1", type: NOTIFICATION_TYPES.MEETING_MATCHED, actionUrl: "/meetings/meeting-1" },
+      { recipientId: "mentor-1", type: NOTIFICATION_TYPES.MENTOR_THANK_YOU, actionUrl: "/meetings/meeting-1" },
     ],
   );
 
@@ -44,7 +48,7 @@ test("meeting events create notifications for the correct recipients", async () 
     ({ type }) => type === NOTIFICATION_TYPES.MEETING_MATCHED,
   );
   assert.ok(confirmations.every(({ title }) => title === "Meeting confirmed"));
-  assert.ok(confirmations.every(({ actionUrl }) => actionUrl === "/meetings/meeting-1"));
+  assert.ok(confirmations.every(({ emailDelayMilliseconds }) => emailDelayMilliseconds === 0));
   assert.equal(new Set(confirmations.map(({ deduplicationKey }) => deduplicationKey)).size, 2);
 
   unregisterHandlers();

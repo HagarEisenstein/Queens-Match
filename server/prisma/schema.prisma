@@ -23,6 +23,9 @@ model User {
   workplace          String?
   yearsExperience    Int?                @map("years_experience")
   techStack          String[]            @map("tech_stack")
+  lastActivityAt     DateTime            @default(now()) @map("last_activity_at")
+  deletionWarningSentAt DateTime?        @map("deletion_warning_sent_at")
+  deletionScheduledAt   DateTime?        @map("deletion_scheduled_at")
   createdAt          DateTime            @default(now()) @map("created_at")
   availabilityBlocks AvailabilityBlock[]
   feedbacks          Feedback[]
@@ -45,6 +48,8 @@ model Meeting {
   moreTimesUsed           Boolean             @default(false) @map("more_times_used")
   rescheduleUsed          Boolean             @default(false) @map("reschedule_used")
   retryAfterNoshowUsed    Boolean             @default(false) @map("retry_after_noshow_used")
+  menteeArrivalConfirmed  Boolean             @default(false) @map("mentee_arrival_confirmed")
+  mentorArrivalConfirmed  Boolean             @default(false) @map("mentor_arrival_confirmed")
   createdAt               DateTime            @default(now()) @map("created_at")
   updatedAt               DateTime            @updatedAt @map("updated_at")
   timeSlots               MeetingTimeSlot[]
@@ -197,4 +202,24 @@ model AvailabilityBlock {
   @@index([meetingId])
   @@index([mentorId])
   @@map("availability_blocks")
+}
+
+model AdminAlert {
+  idempotencyKey String    @id @map("idempotency_key")
+  alertType      String    @map("alert_type")
+  status         String    @default("open")
+  meetingId      String?   @map("meeting_id") @db.Uuid
+  subjectUserId  String?   @map("subject_user_id") @db.Uuid
+  payload        Json
+  reviewedBy     String?   @map("reviewed_by") @db.Uuid
+  reviewNote     String?   @map("review_note")
+  reviewedAt     DateTime? @map("reviewed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@index([alertType, createdAt])
+  @@index([meetingId])
+  @@index([subjectUserId])
+  @@map("admin_alerts")
 }

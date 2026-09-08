@@ -1,13 +1,24 @@
 function createPrismaDeliveryRepository(prisma) {
   return {
     create: (data) => prisma.notificationDelivery.create({ data }),
+    findPendingEmailDeliveryForNotification: (notificationId) => prisma.notificationDelivery.findFirst({
+      where: { notificationId, channel: "EMAIL", status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+    }),
     findPendingEmailDeliveries: (now) => prisma.notificationDelivery.findMany({
       where: { channel: "EMAIL", status: "PENDING", nextAttemptAt: { lte: now } },
       include: { notification: { include: { recipient: { select: { id: true, email: true, phone: true } } } } },
       take: 100,
     }),
     markSent: (id, data) => prisma.notificationDelivery.update({
-      where: { id }, data: { status: "SENT", sentAt: data.sentAt, providerMessageId: data.providerMessageId, attemptCount: { increment: 1 } },
+      where: { id },
+      data: {
+        status: "SENT",
+        sentAt: data.sentAt,
+        providerMessageId: data.providerMessageId,
+        errorMessage: null,
+        attemptCount: { increment: 1 },
+      },
     }),
     markSkipped: (id) => prisma.notificationDelivery.update({ where: { id }, data: { status: "SKIPPED" } }),
     markFailed: (id, errorMessage, nextAttemptAt) => prisma.notificationDelivery.update({

@@ -102,7 +102,7 @@ function bootstrapNotifications({
         meetingReminderJob,
         postMeetingCheckJob,
         feedbackReminderJob,
-        cronExpression: env.NOTIFICATION_JOBS_CRON || "0 * * * *",
+        cronExpression: env.NOTIFICATION_JOBS_CRON || "*/5 * * * *",
       })
       : null;
 

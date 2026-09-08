@@ -28,9 +28,11 @@ function createPrismaMeetingQueryRepository(prisma) {
     },
 
     findMeetingsAwaitingOutcome({ before }) {
+      // Past scheduled meetings must enter the outcome flow even if nobody
+      // clicked arrival. Do not auto-complete — only prompt for outcomes.
       return prisma.meeting.findMany({
         where: {
-          status: "arrival_confirmed",
+          status: { in: ["scheduled", "arrival_confirmed"] },
           scheduledTime: { lt: before },
         },
         include,

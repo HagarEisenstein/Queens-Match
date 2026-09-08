@@ -18,9 +18,9 @@ services:
       - key: BCRYPT_ROUNDS
         value: "12"
       - key: NOTIFICATION_PROVIDER
-        value: whatsapp
+        value: email
       - key: NOTIFICATION_JOBS_CRON
-        value: "0 * * * *"
+        value: "*/5 * * * *"
       - key: REQUEST_BODY_LIMIT
         value: 32kb
       - key: AUTH_RATE_LIMIT_WINDOW_MS

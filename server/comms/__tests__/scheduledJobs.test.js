@@ -77,6 +77,45 @@ test("post-meeting job asks both participants whether the meeting happened", asy
   assert.ok(notifications.every(({ actionUrl }) => actionUrl === "/meetings/meeting-1/outcome"));
 });
 
+test("post-meeting job deduplicates prompts across repeated cron runs", async () => {
+  const keys = new Set();
+  const notifications = [];
+  const notificationService = {
+    async send(notification) {
+      if (keys.has(notification.deduplicationKey)) {
+        return { id: "existing", ...notification };
+      }
+      keys.add(notification.deduplicationKey);
+      notifications.push(notification);
+      return { id: `n-${notifications.length}`, ...notification };
+    },
+  };
+  const meetingRepository = {
+    async findMeetingsAwaitingOutcome() {
+      return [{
+        id: "meeting-1",
+        menteeId: "mentee-1",
+        mentorId: "mentor-1",
+        status: "scheduled",
+        scheduledTime: new Date("2026-09-02T09:00:00.000Z"),
+      }];
+    },
+  };
+  const job = createPostMeetingCheckJob({ meetingRepository, notificationService });
+
+  await job.run(new Date("2026-09-02T10:00:00.000Z"));
+  await job.run(new Date("2026-09-02T10:05:00.000Z"));
+
+  assert.equal(notifications.length, 2);
+  assert.deepEqual(
+    notifications.map(({ deduplicationKey }) => deduplicationKey).sort(),
+    [
+      "post_meeting_check:meeting-1:mentee-1",
+      "post_meeting_check:meeting-1:mentor-1",
+    ],
+  );
+});
+
 test("feedback reminder job sends once per completed two-day period", async () => {
   const { notifications, notificationService } = createNotificationCollector();
   const feedbackRepository = {

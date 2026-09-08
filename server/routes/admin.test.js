@@ -3,16 +3,18 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret";
 
 jest.mock("../commons/db", () => ({
   meeting: { findMany: jest.fn(), findUnique: jest.fn() },
-  user: { findMany: jest.fn(), findUnique: jest.fn() },
+  user: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
   meetingOutcomeResponse: { findMany: jest.fn() },
   feedback: { findMany: jest.fn() },
   feedbackRequest: { findMany: jest.fn() },
+  adminAlert: { findMany: jest.fn(), upsert: jest.fn(), update: jest.fn() },
 }));
 
 const jwt = require("jsonwebtoken");
 const request = require("supertest");
 const { createApp } = require("../app");
 const prisma = require("../commons/db");
+const { createAdminAlertService } = require("../services/adminAlertService");
 
 function tokenFor(userId, roles = ["mentee"]) {
   return jwt.sign({ id: userId, roles }, process.env.JWT_SECRET);
@@ -279,5 +281,61 @@ describe("GET /api/admin/alerts", () => {
     expect(response.body.alerts.meetingsNotCompleted[0].id).toBe(MEETING_ID);
     // one recorded outcome, below the >10 threshold — should not be flagged as overloaded
     expect(response.body.alerts.overloadedMentors).toHaveLength(0);
+  });
+});
+
+describe("admin persistent alerts via Prisma-backed alert service", () => {
+  function appWithPrismaAlerts() {
+    return createApp({
+      jwtSecret: process.env.JWT_SECRET,
+      notifications: {
+        notificationRepository: { listForUser: async () => [] },
+        realtimeHub: { subscribe: () => () => {}, publish() {} },
+      },
+      userRepository: { findPublicById: async () => ({ roles: ["admin"] }) },
+      alertService: createAdminAlertService({ prisma }),
+    });
+  }
+
+  it("GET /api/admin/alerts/persistent returns JSON from prisma.adminAlert", async () => {
+    prisma.adminAlert.findMany.mockResolvedValue([
+      {
+        idempotencyKey: "stalled_pre_arrival:meeting-1",
+        alertType: "stalled_pre_arrival",
+        status: "open",
+        meetingId: MEETING_ID,
+        payload: { status: "scheduled" },
+      },
+    ]);
+
+    const app = appWithPrismaAlerts();
+    const response = await request(app)
+      .get("/api/admin/alerts/persistent")
+      .set("Authorization", `Bearer ${tokenFor(MENTOR, ["admin"])}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.alerts).toHaveLength(1);
+    expect(response.body.alerts[0].alertType).toBe("stalled_pre_arrival");
+    expect(prisma.adminAlert.findMany).toHaveBeenCalled();
+  });
+
+  it("GET /api/admin/alerts includes open persistent alerts without 500", async () => {
+    prisma.meetingOutcomeResponse.findMany.mockResolvedValue([]);
+    prisma.feedbackRequest.findMany.mockResolvedValue([]);
+    prisma.meeting.findMany.mockResolvedValue([]);
+    prisma.user.findMany.mockResolvedValue([]);
+    prisma.adminAlert.findMany.mockResolvedValue([
+      { idempotencyKey: "meeting_not_completed:m1", alertType: "meeting_not_completed", status: "open" },
+    ]);
+
+    const app = appWithPrismaAlerts();
+    const response = await request(app)
+      .get("/api/admin/alerts")
+      .set("Authorization", `Bearer ${tokenFor(MENTOR, ["admin"])}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.alerts.persistent).toEqual([
+      { idempotencyKey: "meeting_not_completed:m1", alertType: "meeting_not_completed", status: "open" },
+    ]);
   });
 });

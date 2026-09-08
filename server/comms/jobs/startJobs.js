@@ -5,7 +5,7 @@ function startNotificationJobs({
   meetingReminderJob,
   postMeetingCheckJob,
   feedbackReminderJob,
-  cronExpression = "0 * * * *",
+  cronExpression = "*/5 * * * *",
   now = () => new Date(),
 }) {
   let isRunning = false;

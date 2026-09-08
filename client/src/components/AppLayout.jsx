@@ -16,7 +16,7 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import apiClient from "../api/client";
 import NotificationBell from "../notifications/NotificationBell";
-import LocaleToggle from "./LocaleToggle";
+import brandLogo from "../assets/logo.png";
 
 export default function AppLayout() {
   const { user, logout, hasRole } = useAuth();
@@ -89,21 +89,31 @@ export default function AppLayout() {
       </Box>
       <AppBar position="sticky" elevation={0}>
         <Toolbar sx={{ gap: 1, flexWrap: "wrap", py: 1.5, px: { xs: 2, md: 5 }, maxWidth: 1440, width: "100%", mx: "auto" }}>
-          <Typography
+          <Box
             component={Link}
             to="/"
-            variant="h6"
+            aria-label="Queen's Match home"
             sx={{
+              display: "inline-flex",
+              alignItems: "center",
               textDecoration: "none",
-              color: "text.primary",
-              fontFamily: '"Space Mono", "Courier New", monospace',
-              fontWeight: 700,
-              letterSpacing: "-.06em",
               mr: 1,
+              flexShrink: 0,
             }}
           >
-            Queen's Match
-          </Typography>
+            <Box
+              component="img"
+              src={brandLogo}
+              alt="Queen's Match"
+              sx={{
+                display: "block",
+                height: { xs: 36, sm: 44 },
+                width: "auto",
+                maxWidth: { xs: 140, sm: 180 },
+                objectFit: "contain",
+              }}
+            />
+          </Box>
 
           {hasRole("mentee") && (
             <Button component={Link} to="/mentors" sx={navLinkSx}>
@@ -147,15 +157,6 @@ export default function AppLayout() {
           {hasRole("admin") && (
             <Button component={Link} to="/admin" sx={navLinkSx}>Admin</Button>
           )}
-          <LocaleToggle
-            sx={{
-              ...navLinkSx,
-              minWidth: 48,
-              flexShrink: 0,
-              border: "1px solid",
-              borderColor: "divider",
-            }}
-          />
           <Button color="inherit" onClick={logout} sx={navLinkSx}>
             Log out
           </Button>
@@ -228,7 +229,17 @@ export default function AppLayout() {
                 fontSize: 22,
               }}
             >
-              Queen's Match
+              <Box
+                component="img"
+                src={brandLogo}
+                alt="Queen's Match"
+                sx={{
+                  display: "block",
+                  height: 56,
+                  width: "auto",
+                  objectFit: "contain",
+                }}
+              />
             </Typography>
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               For help contact: 055-9384923

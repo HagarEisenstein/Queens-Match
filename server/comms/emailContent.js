@@ -8,6 +8,7 @@ function normalizeBaseUrl(url) {
 
 function resolveAppBaseUrl(env = process.env) {
   const configuredUrl =
+    env.CLIENT_URL ||
     env.APP_URL ||
     env.FRONTEND_URL ||
     env.NEXT_PUBLIC_APP_URL;

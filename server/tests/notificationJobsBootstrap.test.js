@@ -10,6 +10,12 @@ jest.mock("../comms/repositories/prismaNotificationRepository", () => ({
 jest.mock("../comms/repositories/prismaDeliveryRepository", () => ({
   createPrismaDeliveryRepository: () => ({
     create: async (item) => item,
+    findPendingEmailDeliveryForNotification: async () => null,
+  }),
+}));
+jest.mock("../comms/repositories/prismaRecipientRepository", () => ({
+  createPrismaRecipientRepository: () => ({
+    findById: async () => null,
   }),
 }));
 
@@ -86,6 +92,36 @@ describe("notification jobs bootstrap", () => {
     expect(result.meetingTask).toBeTruthy();
     expect(scheduled.some((item) => item.expression === "*/10 * * * *")).toBe(true);
 
+    result.unregisterHandlers();
+    if (result.scheduledTask?.stop) result.scheduledTask.stop();
+    if (result.meetingTask?.stop) result.meetingTask.stop();
+  });
+
+  it("defaults notification jobs cron to every five minutes", () => {
+    const scheduled = [];
+    const scheduler = {
+      schedule(expression, callback) {
+        scheduled.push({ expression, callback });
+        return { stop() {} };
+      },
+    };
+
+    const result = bootstrapNotifications({
+      env: {
+        NODE_ENV: "development",
+        NOTIFICATION_PROVIDER: "console",
+      },
+      scheduler,
+      meetingRepository: {
+        findScheduledMeetingsBetween: async () => [],
+        findMeetingsAwaitingOutcome: async () => [],
+      },
+      feedbackRepository: {
+        findOutstandingFeedbackRequests: async () => [],
+      },
+    });
+
+    expect(scheduled.some((item) => item.expression === "*/5 * * * *")).toBe(true);
     result.unregisterHandlers();
     if (result.scheduledTask?.stop) result.scheduledTask.stop();
     if (result.meetingTask?.stop) result.meetingTask.stop();

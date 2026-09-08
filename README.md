@@ -115,7 +115,11 @@ The endpoint is idempotent and returns only counts plus sanitized failure IDs.
 
 ## Notifications
 
-Render is configured for Twilio notifications with `NOTIFICATION_PROVIDER=whatsapp`. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, and `TWILIO_EMAIL_FROM` in Render. For the Twilio Email API, `TWILIO_EMAIL_FROM` can use the account sender format shown in the Twilio example (`<ACCOUNT_SID>@twilio.email`) or another verified Twilio sender. Without a WhatsApp Business sender, use Twilio’s WhatsApp Sandbox sender (`whatsapp:+14155238886`) and have each recipient join the sandbox first. WhatsApp messages must come from the Twilio sender; they cannot come from each recipient’s personal number. Users must save a phone number in international E.164 format in their profile. For local development, the default remains `NOTIFICATION_PROVIDER=console`. Without the Twilio credentials, the app fails fast rather than claim delivery. See `server/.env.example`.
+Production (Render) uses Gmail SMTP with `NOTIFICATION_PROVIDER=email`. Set `SMTP_USER`, `SMTP_PASSWORD` (Gmail App Password), `EMAIL_FROM`, and `CLIENT_URL` (the public app origin used in email action links). The Nodemailer transport defaults to `smtp.gmail.com:465` over IPv4; optional `EMAIL_HOST` / `EMAIL_PORT` overrides are supported but not required.
+
+Meeting reminder, post-meeting outcome, and feedback jobs run on `NOTIFICATION_JOBS_CRON` (default every 5 minutes).
+
+WhatsApp remains available by setting `NOTIFICATION_PROVIDER=whatsapp` with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, and `TWILIO_EMAIL_FROM`. Users must save a phone number in international E.164 format in their profile. For local development, the default remains `NOTIFICATION_PROVIDER=console`. Without the required provider credentials, the app fails fast rather than claim delivery. See `server/.env.example`.
 
 ## Admin alerts and account inactivity
 

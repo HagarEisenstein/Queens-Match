@@ -40,8 +40,9 @@ function createNotificationCenterService({
   now = () => new Date(),
 }) {
   const defaultEmailTypes = new Set([
-    "request_received", "times_offered", "meeting_rejected", "meeting_matched",
-    "meeting_reminder", "post_meeting_check", "feedback_request", "feedback_reminder",
+    "request_received", "times_offered", "more_times_requested", "meeting_rejected",
+    "meeting_declined", "meeting_matched", "meeting_reminder", "post_meeting_check",
+    "feedback_request", "feedback_reminder",
   ]);
   async function send(input) {
     const existing = await notificationRepository.findByDeduplicationKey(input.deduplicationKey);

@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import AppLayout from "./AppLayout";
 import { useAuth } from "../auth/AuthContext";
@@ -129,23 +129,5 @@ describe("AppLayout", () => {
       "/profile"
     );
     expect(screen.getByText("QB")).toBeInTheDocument();
-  });
-
-  it("allows switching to Hebrew and back to English", () => {
-    mockAuth({ id: "u1", username: "e", roles: ["mentee"] });
-
-    render(
-      <MemoryRouter>
-        <AppLayout />
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Switch language" }));
-    expect(document.documentElement).toHaveAttribute("dir", "rtl");
-    expect(screen.getByRole("button", { name: "Switch language" })).toHaveTextContent("EN");
-
-    fireEvent.click(screen.getByRole("button", { name: "Switch language" }));
-    expect(document.documentElement).toHaveAttribute("dir", "ltr");
-    expect(screen.getByRole("button", { name: "Switch language" })).toHaveTextContent("HE");
   });
 });

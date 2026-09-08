@@ -93,19 +93,28 @@ export default function MeetingsReport() {
       <Typography variant="h4" gutterBottom>
         Meetings report
       </Typography>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 3 }}>
-        <FormControl sx={{ minWidth: 240 }}>
-          <InputLabel id="status-filter-label">Status</InputLabel>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={2}
+        alignItems={{ xs: "stretch", sm: "center" }}
+        sx={{ mb: 3 }}
+      >
+        <FormControl sx={{ minWidth: { xs: "100%", sm: 240 }, width: { xs: "100%", sm: 240 } }} size="small">
+          <InputLabel id="status-filter-label" shrink>
+            Status
+          </InputLabel>
           <Select
             labelId="status-filter-label"
             label="Status"
             value={status}
             displayEmpty
+            notched
             onChange={(event) => setStatus(event.target.value)}
+            renderValue={(selected) =>
+              selected === "" ? "All statuses" : statusLabel(selected)
+            }
           >
-            <MenuItem value="">
-              <em>All statuses</em>
-            </MenuItem>
+            <MenuItem value="">All statuses</MenuItem>
             {MEETING_STATUSES.map((value) => (
               <MenuItem key={value} value={value}>
                 {statusLabel(value)}
@@ -113,18 +122,24 @@ export default function MeetingsReport() {
             ))}
           </Select>
         </FormControl>
-        <FormControl sx={{ minWidth: 260 }}>
-          <InputLabel id="participant-filter-label">Participant</InputLabel>
+        <FormControl sx={{ minWidth: { xs: "100%", sm: 260 }, width: { xs: "100%", sm: 260 } }} size="small">
+          <InputLabel id="participant-filter-label" shrink>
+            Participant
+          </InputLabel>
           <Select
             labelId="participant-filter-label"
             label="Participant"
             value={participantId}
             displayEmpty
+            notched
             onChange={(event) => setParticipantId(event.target.value)}
+            renderValue={(selected) => {
+              if (selected === "") return "All participants";
+              const match = userOptions.find((user) => user.id === selected);
+              return match?.label || selected;
+            }}
           >
-            <MenuItem value="">
-              <em>All participants</em>
-            </MenuItem>
+            <MenuItem value="">All participants</MenuItem>
             {userOptions.map((user) => (
               <MenuItem key={user.id} value={user.id}>
                 {user.label}
@@ -136,6 +151,7 @@ export default function MeetingsReport() {
           variant="outlined"
           disabled={isLoading}
           onClick={handleDownload}
+          sx={{ alignSelf: { xs: "stretch", sm: "center" }, minHeight: 40 }}
         >
           Download Excel
         </Button>

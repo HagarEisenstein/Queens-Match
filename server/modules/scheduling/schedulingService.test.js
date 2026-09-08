@@ -23,6 +23,7 @@ const {
   offerTimes,
   rejectMeeting,
   selectTime,
+  requestMoreTimes,
   getMeetingById,
 } = require("./schedulingService");
 const { MEETING_STATUS } = require("./meetingStateMachine");
@@ -187,6 +188,78 @@ describe("rejectMeeting", () => {
       expect.objectContaining({ data: { status: MEETING_STATUS.REJECTED } })
     );
     expect(eventBus.emit).toHaveBeenCalledWith("MeetingRejected", { meetingId: MEETING_ID, menteeId: MENTEE });
+  });
+
+  it("allows the mentee to decline after the one-time additional-times retry was used", async () => {
+    prisma.meeting.findUnique.mockResolvedValue({
+      id: MEETING_ID,
+      menteeId: MENTEE,
+      mentorId: MENTOR,
+      status: MEETING_STATUS.PENDING_MENTEE_SELECTION,
+      moreTimesUsed: true,
+      timeSlots: [futureSlot(48)],
+    });
+    prisma.meeting.update.mockResolvedValue({ id: MEETING_ID, status: MEETING_STATUS.REJECTED });
+
+    await rejectMeeting({ meetingId: MEETING_ID, actorId: MENTEE });
+
+    expect(prisma.meeting.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: MEETING_STATUS.REJECTED } })
+    );
+    expect(eventBus.emit).toHaveBeenCalledWith("MeetingDeclined", {
+      meetingId: MEETING_ID,
+      mentorId: MENTOR,
+      menteeId: MENTEE,
+    });
+  });
+});
+
+describe("requestMoreTimes", () => {
+  it("returns the meeting to pending_mentor_times, marks retry as used and emits MoreTimesRequested", async () => {
+    prisma.meeting.findUnique.mockResolvedValue({
+      id: MEETING_ID,
+      menteeId: MENTEE,
+      mentorId: MENTOR,
+      status: MEETING_STATUS.PENDING_MENTEE_SELECTION,
+      moreTimesUsed: false,
+      timeSlots: [futureSlot(48)],
+    });
+    prisma.meeting.update.mockResolvedValue({
+      id: MEETING_ID,
+      status: MEETING_STATUS.PENDING_MENTOR_TIMES,
+      moreTimesUsed: true,
+    });
+
+    await requestMoreTimes({ meetingId: MEETING_ID, actorId: MENTEE });
+
+    expect(prisma.meeting.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { status: MEETING_STATUS.PENDING_MENTOR_TIMES, moreTimesUsed: true },
+      })
+    );
+    expect(eventBus.emit).toHaveBeenCalledWith("MoreTimesRequested", {
+      meetingId: MEETING_ID,
+      mentorId: MENTOR,
+      menteeId: MENTEE,
+    });
+  });
+
+  it("blocks a second additional-times request for the same meeting", async () => {
+    prisma.meeting.findUnique.mockResolvedValue({
+      id: MEETING_ID,
+      menteeId: MENTEE,
+      mentorId: MENTOR,
+      status: MEETING_STATUS.PENDING_MENTEE_SELECTION,
+      moreTimesUsed: true,
+      timeSlots: [futureSlot(48)],
+    });
+
+    await expect(requestMoreTimes({ meetingId: MEETING_ID, actorId: MENTEE })).rejects.toMatchObject({
+      statusCode: 409,
+      code: "RETRY_EXHAUSTED",
+    });
+    expect(prisma.meeting.update).not.toHaveBeenCalled();
+    expect(eventBus.emit).not.toHaveBeenCalledWith("MoreTimesRequested", expect.anything());
   });
 });
 

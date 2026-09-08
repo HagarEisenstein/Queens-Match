@@ -76,7 +76,48 @@ test("email provider delegates delivery to the supplied transport", async () => 
   assert.equal(result.providerMessageId, "email-1");
 });
 
-test("Brevo provider builds a nodemailer SMTP transport from EMAIL_* env vars", async () => {
+test("Gmail email provider defaults to smtp.gmail.com:465 over IPv4", async () => {
+  const transports = [];
+  nodemailer.createTransport = (config) => {
+    transports.push(config);
+    return {
+      async sendMail(delivery) {
+        return { messageId: `${delivery.to}:sent` };
+      },
+    };
+  };
+
+  const provider = createBrevoProvider({
+    SMTP_USER: "queenb@gmail.com",
+    SMTP_PASSWORD: "app-password",
+    EMAIL_FROM: "queenb@gmail.com",
+    CLIENT_URL: "https://queenb-task-management-application.onrender.com",
+  });
+
+  const result = await provider.send({
+    recipient: { id: "user-1", email: "user@example.com" },
+    type: "meeting_reminder",
+    title: "Meeting reminder",
+    message: "Your meeting starts soon",
+    actionUrl: "/meetings/meeting-1",
+  });
+
+  assert.equal(provider.channel, "email");
+  assert.deepEqual(transports[0], {
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    family: 4,
+    auth: {
+      user: "queenb@gmail.com",
+      pass: "app-password",
+    },
+  });
+  assert.equal(result.providerMessageId, "user@example.com:sent");
+  nodemailer.createTransport = originalCreateTransport;
+});
+
+test("email provider accepts optional EMAIL_HOST override without requiring it", async () => {
   const transports = [];
   nodemailer.createTransport = (config) => {
     transports.push(config);
@@ -95,7 +136,7 @@ test("Brevo provider builds a nodemailer SMTP transport from EMAIL_* env vars", 
     EMAIL_FROM: "notifications@queenb.example",
   });
 
-  const result = await provider.send({
+  await provider.send({
     recipient: { id: "user-1", email: "user@example.com" },
     type: "meeting_reminder",
     title: "Meeting reminder",
@@ -108,28 +149,20 @@ test("Brevo provider builds a nodemailer SMTP transport from EMAIL_* env vars", 
     host: "smtp-relay.example.com",
     port: 587,
     secure: false,
+    family: 4,
     auth: {
       user: "mailer",
       pass: "secret",
     },
   });
-  assert.equal(result.providerMessageId, "user@example.com:sent");
   nodemailer.createTransport = originalCreateTransport;
 });
 
-test("Brevo provider also accepts legacy SMTP_* env vars", () => {
-  nodemailer.createTransport = () => ({ sendMail: async () => ({ messageId: "legacy" }) });
-
-  const provider = createBrevoProvider({
-    SMTP_HOST: "smtp.example.com",
-    SMTP_PORT: "465",
-    SMTP_USER: "legacy-user",
-    SMTP_PASSWORD: "legacy-password",
-    EMAIL_FROM: "notifications@queenb.example",
-  });
-
-  assert.equal(provider.channel, "email");
-  nodemailer.createTransport = originalCreateTransport;
+test("email provider requires only SMTP credentials for Gmail mode", () => {
+  assert.throws(
+    () => createBrevoProvider({ EMAIL_FROM: "notifications@queenb.example" }),
+    /SMTP_USER, SMTP_PASSWORD and EMAIL_FROM are required for email/,
+  );
 });
 
 test("provider factory selects providers without changing callers", () => {
@@ -233,8 +266,12 @@ test("Twilio Email provider sends the welcome email through the Comms API", asyn
 });
 
 test("email content resolves the configured frontend base URL", () => {
+  assert.equal(resolveAppBaseUrl({ CLIENT_URL: "https://queenb.example/" }), "https://queenb.example");
   assert.equal(resolveAppBaseUrl({ APP_URL: "https://app.example.com/" }), "https://app.example.com");
   assert.equal(resolveAppBaseUrl({ FRONTEND_URL: "https://frontend.example.com" }), "https://frontend.example.com");
   assert.equal(resolveAppBaseUrl({ NEXT_PUBLIC_APP_URL: "https://next.example.com/" }), "https://next.example.com");
-  assert.equal(buildAbsoluteAppUrl("/meetings/m1", { APP_URL: "https://app.example.com/" }), "https://app.example.com/meetings/m1");
+  assert.equal(
+    buildAbsoluteAppUrl("/meetings/m1", { CLIENT_URL: "https://queenb-task-management-application.onrender.com" }),
+    "https://queenb-task-management-application.onrender.com/meetings/m1",
+  );
 });

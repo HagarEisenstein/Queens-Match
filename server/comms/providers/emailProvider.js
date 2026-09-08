@@ -1,6 +1,6 @@
 const { buildEmailContent } = require("../emailContent");
 
-function createEmailProvider({ emailTransport, fromAddress }) {
+function createEmailProvider({ emailTransport, fromAddress, env = process.env }) {
   if (!emailTransport || typeof emailTransport.sendMail !== "function") {
     throw new Error("Email transport is required");
   }
@@ -12,17 +12,23 @@ function createEmailProvider({ emailTransport, fromAddress }) {
         throw new Error(`Email address is required for recipient ${recipient.id}`);
       }
 
-      const content = buildEmailContent({ title, message, type, actionUrl });
+      const content = buildEmailContent({ title, message, type, actionUrl, env });
 
-      const deliveryResult = await emailTransport.sendMail({
-        from: fromAddress,
-        to: recipient.email,
-        subject: title,
-        text: content.text,
-        html: content.html,
-      });
+      try {
+        const deliveryResult = await emailTransport.sendMail({
+          from: fromAddress,
+          to: recipient.email,
+          subject: title,
+          text: content.text,
+          html: content.html,
+        });
 
-      return { providerMessageId: deliveryResult.messageId || null };
+        return { providerMessageId: deliveryResult.messageId || null };
+      } catch (error) {
+        const code = error.code || error.responseCode || "SMTP_ERROR";
+        const detail = error.response || error.message || "unknown SMTP failure";
+        throw new Error(`Email send failed (${code}): ${detail}`);
+      }
     },
   };
 }
